@@ -6,6 +6,7 @@ import PreferencesModal from '../components/common/PreferencesModal';
 import { useAppContext } from '../app/AppProvider';
 import { getTranslation } from '../i18n/translations';
 import { getPlaceSuggestions } from '../services/googlePlaces';
+import { PlaceSelection } from '../types/locations';
 
 interface PlanningPageProps {
   onNavigateToPlanning: () => void;
@@ -40,21 +41,13 @@ export default function PlanningPage({
   const [hasClickedInput, setHasClickedInput] = useState(false);
   const [startPoint, setStartPoint] = useState('');
   const [destination, setDestination] = useState('');
-  const [startSuggestions, setStartSuggestions] = useState<string[]>([]);
-  const [destSuggestions, setDestSuggestions] = useState<string[]>([]);
+  const [selectedOrigin, setSelectedOrigin] = useState<PlaceSelection | null>(null);
+  const [selectedDestination, setSelectedDestination] = useState<PlaceSelection | null>(null);
+  const [startSuggestions, setStartSuggestions] = useState<PlaceSelection[]>([]);
+  const [destSuggestions, setDestSuggestions] = useState<PlaceSelection[]>([]);
   const [showStartDropdown, setShowStartDropdown] = useState(false);
   const [showDestDropdown, setShowDestDropdown] = useState(false);
-
-  const popularLocations = [
-    'KL Sentral',
-    'Bukit Bintang',
-    'Pasar Seni',
-    'SunU-Monash',
-    'KLCC',
-    'Mid Valley',
-    'Pavilion KL',
-    'Sunway Pyramid'
-  ];
+  const [placesError, setPlacesError] = useState<string | null>(null);
 
   const handleInputClick = () => {
     if (!hasClickedInput) {
@@ -65,15 +58,15 @@ export default function PlanningPage({
 
   const handleStartChange = async (value: string) => {
     setStartPoint(value);
+    setSelectedOrigin(null);
     if (value.length > 0) {
       try {
         const suggestions = await getPlaceSuggestions(value);
-        setStartSuggestions(suggestions.map((suggestion) => suggestion.displayName));
+        setStartSuggestions(suggestions);
+        setPlacesError(null);
       } catch {
-        const filtered = popularLocations.filter(loc =>
-          loc.toLowerCase().includes(value.toLowerCase())
-        );
-        setStartSuggestions(filtered);
+        setStartSuggestions([]);
+        setPlacesError(t('googlePlacesUnavailable'));
       }
       setShowStartDropdown(true);
     } else {
@@ -83,15 +76,15 @@ export default function PlanningPage({
 
   const handleDestChange = async (value: string) => {
     setDestination(value);
+    setSelectedDestination(null);
     if (value.length > 0) {
       try {
         const suggestions = await getPlaceSuggestions(value);
-        setDestSuggestions(suggestions.map((suggestion) => suggestion.displayName));
+        setDestSuggestions(suggestions);
+        setPlacesError(null);
       } catch {
-        const filtered = popularLocations.filter(loc =>
-          loc.toLowerCase().includes(value.toLowerCase())
-        );
-        setDestSuggestions(filtered);
+        setDestSuggestions([]);
+        setPlacesError(t('googlePlacesUnavailable'));
       }
       setShowDestDropdown(true);
     } else {
@@ -101,8 +94,8 @@ export default function PlanningPage({
 
   const handleSearch = () => {
     if (startPoint && destination) {
-      setRouteOrigin({ displayName: startPoint });
-      setRouteDestination({ displayName: destination });
+      setRouteOrigin(selectedOrigin || { displayName: startPoint });
+      setRouteDestination(selectedDestination || { displayName: destination });
       onNavigateToPlanTime();
     }
   };
@@ -135,6 +128,12 @@ export default function PlanningPage({
             </button>
 
             <div className="space-y-4">
+              {placesError && (
+                <div className="bg-[#FFE5B4] border-l-4 border-[#E67E22] p-4 rounded-xl text-[#1E3A5F] font-medium">
+                  {placesError}
+                </div>
+              )}
+
               <div className="relative">
                 <div className="absolute left-5 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-[#4A90E2] rounded-full flex items-center justify-center shadow-md">
                   <Navigation
@@ -159,13 +158,14 @@ export default function PlanningPage({
                       <button
                         key={index}
                         onClick={() => {
-                          setStartPoint(suggestion);
+                          setStartPoint(suggestion.displayName);
+                          setSelectedOrigin(suggestion);
                           setShowStartDropdown(false);
                         }}
                         className="w-full px-6 py-4 text-left font-medium text-[#1E3A5F] hover:bg-[#F5F7FA] transition-colors border-b border-gray-200 last:border-b-0"
                         style={{ fontSize: `${18 * baseFontSize}px` }}
                       >
-                        {suggestion}
+                        {suggestion.displayName}
                       </button>
                     ))}
                   </div>
@@ -196,13 +196,14 @@ export default function PlanningPage({
                       <button
                         key={index}
                         onClick={() => {
-                          setDestination(suggestion);
+                          setDestination(suggestion.displayName);
+                          setSelectedDestination(suggestion);
                           setShowDestDropdown(false);
                         }}
                         className="w-full px-6 py-4 text-left font-medium text-[#1E3A5F] hover:bg-[#F5F7FA] transition-colors border-b border-gray-200 last:border-b-0"
                         style={{ fontSize: `${18 * baseFontSize}px` }}
                       >
-                        {suggestion}
+                        {suggestion.displayName}
                       </button>
                     ))}
                   </div>

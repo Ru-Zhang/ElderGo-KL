@@ -2,6 +2,7 @@ import { ChevronLeft, MapPin, Sliders, HelpCircle, ArrowRight, User, Building2 }
 import TopBar from '../components/layout/TopBar';
 import BottomNav from '../components/layout/BottomNav';
 import { useAppContext } from '../app/AppProvider';
+import { getTranslation } from '../i18n/translations';
 
 interface UseElderGoPageProps {
   onNavigateToPlanning: () => void;
@@ -18,8 +19,9 @@ export default function UseElderGoPage({
   onNavigateToPreference,
   onShowChatbot
 }: UseElderGoPageProps) {
-  const { fontSize } = useAppContext();
+  const { fontSize, language } = useAppContext();
   const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
+  const t = (key: string) => getTranslation(language, key as any);
 
   return (
     <div className="min-h-screen relative" style={{ fontFamily: 'Poppins' }}>
@@ -50,11 +52,11 @@ export default function UseElderGoPage({
             className="flex items-center gap-2 text-[#4A90E2] mb-6 hover:text-[#3A7FD2]"
           >
             <ChevronLeft size={24 * baseFontSize} strokeWidth={2.5} />
-            <span className="font-medium" style={{ fontSize: `${18 * baseFontSize}px` }}>Back to Help</span>
+            <span className="font-medium" style={{ fontSize: `${18 * baseFontSize}px` }}>{t('backToHelp')}</span>
           </button>
 
           <h2 className="font-semibold text-[#1E3A5F] mb-6" style={{ fontSize: `${30 * baseFontSize}px` }}>
-            How to Use ElderGo
+            {t('useElderGoTitle')}
           </h2>
 
           <div className="bg-[#FFE5B4] border-l-4 border-[#E67E22] p-6 rounded-xl mb-8 flex items-start gap-4">
@@ -63,10 +65,10 @@ export default function UseElderGoPage({
             </div>
             <div>
               <p className="font-semibold text-[#1E3A5F] mb-2" style={{ fontSize: `${20 * baseFontSize}px` }}>
-                Meet Mr. Tan!
+                {t('meetMrTan')}
               </p>
               <p className="text-gray-700 leading-relaxed" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                He wants to visit his friend at the hospital today. Let's see how ElderGo helps him travel safely and easily.
+                {t('mrTanIntro')}
               </p>
             </div>
           </div>
@@ -79,13 +81,13 @@ export default function UseElderGoPage({
                 </div>
                 <div className="flex-1">
                   <h3 className="font-semibold text-[#1E3A5F] mb-3" style={{ fontSize: `${22 * baseFontSize}px` }}>
-                    Step 1: Set Your Needs
+                    {t('step1Title')}
                   </h3>
                   <p className="text-gray-700 leading-relaxed mb-3" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                    Mr. Tan prefers using elevators instead of stairs. He taps the "Preference" button at the bottom of the screen and turns on <span className="font-semibold text-[#6BBF59]">"Accessibility First"</span>.
+                    {t('step1Body1')}
                   </p>
                   <p className="text-gray-700 leading-relaxed" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                    Now, the app will only show him routes with elevators or ramps!
+                    {t('step1Body2')}
                   </p>
                 </div>
               </div>
@@ -94,7 +96,7 @@ export default function UseElderGoPage({
                 className="w-full bg-[#6BBF59] hover:bg-[#5AAF49] text-white font-semibold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
                 style={{ fontSize: `${18 * baseFontSize}px` }}
               >
-                Set My Preference
+                {t('setMyPreference')}
                 <ArrowRight size={20 * baseFontSize} strokeWidth={2.5} />
               </button>
             </div>
@@ -106,13 +108,13 @@ export default function UseElderGoPage({
                 </div>
                 <div className="flex-1">
                   <h3 className="font-semibold text-[#1E3A5F] mb-3" style={{ fontSize: `${22 * baseFontSize}px` }}>
-                    Step 2: Plan Your Trip
+                    {t('step2Title')}
                   </h3>
                   <p className="text-gray-700 leading-relaxed mb-3" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                    He types his destination in the large "Where to?" box on the Home page.
+                    {t('step2Body1')}
                   </p>
                   <p className="text-gray-700 leading-relaxed" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                    Instead of showing confusing options, ElderGo gives him <span className="font-semibold text-[#4A90E2]">one best route</span> that perfectly matches his needs.
+                    {t('step2Body2')}
                   </p>
                 </div>
               </div>
@@ -121,7 +123,7 @@ export default function UseElderGoPage({
                 className="w-full bg-[#4A90E2] hover:bg-[#3A7FD2] text-white font-semibold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
                 style={{ fontSize: `${18 * baseFontSize}px` }}
               >
-                Try Planning a Route
+                {t('tryPlanningRoute')}
                 <ArrowRight size={20 * baseFontSize} strokeWidth={2.5} />
               </button>
             </div>
@@ -133,13 +135,13 @@ export default function UseElderGoPage({
                 </div>
                 <div className="flex-1">
                   <h3 className="font-semibold text-[#1E3A5F] mb-3" style={{ fontSize: `${22 * baseFontSize}px` }}>
-                    Step 3: Follow the Steps
+                    {t('step3Title')}
                   </h3>
                   <p className="text-gray-700 leading-relaxed mb-3" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                    Mr. Tan chooses "Text View". He reads his route step-by-step, just like reading a book.
+                    {t('step3Body1')}
                   </p>
                   <p className="text-gray-700 leading-relaxed" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                    The app even gives him a gentle reminder to bring an umbrella because it might rain!
+                    {t('step3Body2')}
                   </p>
                 </div>
               </div>
@@ -152,13 +154,13 @@ export default function UseElderGoPage({
                 </div>
                 <div className="flex-1">
                   <h3 className="font-semibold text-[#1E3A5F] mb-3" style={{ fontSize: `${22 * baseFontSize}px` }}>
-                    Explore Station Information
+                    {t('exploreStationInfo')}
                   </h3>
                   <p className="text-gray-700 leading-relaxed mb-3" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                    Want to know if a station has wheelchair access or elevators before you travel?
+                    {t('stationInfoBody1')}
                   </p>
                   <p className="text-gray-700 leading-relaxed" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                    The <span className="font-semibold text-[#1E3A5F]">Stations page</span> shows you detailed information about each station, including accessibility features, ticket counters, and operating hours.
+                    {t('stationInfoBody2')}
                   </p>
                 </div>
               </div>
@@ -167,7 +169,7 @@ export default function UseElderGoPage({
                 className="w-full bg-[#1E3A5F] hover:bg-[#15283F] text-white font-semibold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
                 style={{ fontSize: `${18 * baseFontSize}px` }}
               >
-                View Station Information
+                {t('viewStationInformation')}
                 <ArrowRight size={20 * baseFontSize} strokeWidth={2.5} />
               </button>
             </div>

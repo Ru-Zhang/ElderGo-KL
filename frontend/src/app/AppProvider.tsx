@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { PlaceSelection } from '../types/locations';
+import { LocationDetail, PlaceSelection } from '../types/locations';
 import { TravelPreferences } from '../types/preferences';
 import { RecommendedRoute } from '../types/routes';
 import { FontSizeMode, LanguageCode, UISettings } from '../types/settings';
@@ -15,16 +15,6 @@ import {
 const LOCAL_SETTINGS_KEY = 'eldergo_ui_settings';
 const LOCAL_PREFERENCES_KEY = 'eldergo_travel_preferences';
 
-export interface StationData {
-  id: string;
-  name: string;
-  wheelchairAccessible: boolean;
-  elevatorAvailable: boolean;
-  ticketCounter: boolean;
-  operatingHours: string;
-  imageUrl?: string;
-}
-
 interface AppContextType {
   anonymousUserId: string | null;
   language: LanguageCode;
@@ -37,7 +27,7 @@ interface AppContextType {
   currentRoute: RecommendedRoute | null;
   routeLoading: boolean;
   routeError: string | null;
-  selectedStation: StationData | null;
+  selectedStation: LocationDetail | null;
   toggleLanguage: () => void;
   toggleFontSize: () => void;
   setOnboardingCompleted: (completed: boolean) => void;
@@ -49,7 +39,7 @@ interface AppContextType {
   setCurrentRoute: (route: RecommendedRoute | null) => void;
   setRouteLoading: (loading: boolean) => void;
   setRouteError: (error: string | null) => void;
-  setSelectedStation: (station: StationData | null) => void;
+  setSelectedStation: (station: LocationDetail | null) => void;
 }
 
 const defaultPreferences: TravelPreferences = {
@@ -94,7 +84,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [currentRoute, setCurrentRoute] = useState<RecommendedRoute | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
-  const [selectedStation, setSelectedStation] = useState<StationData | null>(null);
+  const [selectedStation, setSelectedStation] = useState<LocationDetail | null>(null);
 
   useEffect(() => {
     let cancelled = false;

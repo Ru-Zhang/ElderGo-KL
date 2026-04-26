@@ -1,7 +1,13 @@
+import os
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+ROOT_DIR = Path(__file__).resolve().parents[3]
+BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
@@ -18,7 +24,13 @@ class Settings(BaseSettings):
     google_maps_api_key: str = Field(default="", alias="ELDERGO_GOOGLE_MAPS_API_KEY")
     demo_mode: bool = Field(default=True, alias="ELDERGO_DEMO_MODE")
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=(
+            ROOT_DIR / ".env",
+            BACKEND_DIR / ".env",
+        ),
+        extra="ignore",
+    )
 
     @property
     def cors_origin_list(self) -> list[str]:
@@ -27,4 +39,8 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    if "DATABASE_URL" in os.environ and "ELDERGO_DATABASE_URL" not in os.environ:
+        os.environ["ELDERGO_DATABASE_URL"] = os.environ["DATABASE_URL"]
+    if "GOOGLE_MAPS_API_KEY" in os.environ and "ELDERGO_GOOGLE_MAPS_API_KEY" not in os.environ:
+        os.environ["ELDERGO_GOOGLE_MAPS_API_KEY"] = os.environ["GOOGLE_MAPS_API_KEY"]
     return Settings()

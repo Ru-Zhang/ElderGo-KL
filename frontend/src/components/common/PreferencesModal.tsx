@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import * as Switch from '@radix-ui/react-switch';
 import { useAppContext } from '../../app/AppProvider';
+import { getTranslation } from '../../i18n/translations';
 
 interface PreferencesModalProps {
   isOpen: boolean;
@@ -9,8 +10,9 @@ interface PreferencesModalProps {
 }
 
 export default function PreferencesModal({ isOpen, onClose }: PreferencesModalProps) {
-  const { preferences, updatePreferences } = useAppContext();
+  const { language, preferences, updatePreferences } = useAppContext();
   const [localPreferences, setLocalPreferences] = useState(preferences);
+  const t = (key: string) => getTranslation(language, key as any);
 
   useEffect(() => {
     if (isOpen) {
@@ -40,13 +42,13 @@ export default function PreferencesModal({ isOpen, onClose }: PreferencesModalPr
         </button>
 
         <h2 className="text-3xl font-semibold text-[#1E3A5F] mb-8">
-          Set Your Travel Preferences
+          {t('travelPreferences')}
         </h2>
 
         <div className="space-y-6 mb-10">
           <div className="flex items-center justify-between p-6 bg-[#F5F7FA] rounded-xl border-2 border-gray-200">
             <span className="text-[20px] font-medium text-[#1E3A5F]">
-              Accessibility first (Wheelchair/Lift)
+              {t('accessibilityFirst')}
             </span>
             <Switch.Root
               className="w-16 h-8 bg-gray-300 rounded-full relative data-[state=checked]:bg-[#6BBF59] transition-colors"
@@ -59,7 +61,7 @@ export default function PreferencesModal({ isOpen, onClose }: PreferencesModalPr
 
           <div className="flex items-center justify-between p-6 bg-[#F5F7FA] rounded-xl border-2 border-gray-200">
             <span className="text-[20px] font-medium text-[#1E3A5F]">
-              Least walk
+              {t('leastWalk')}
             </span>
             <Switch.Root
               className="w-16 h-8 bg-gray-300 rounded-full relative data-[state=checked]:bg-[#6BBF59] transition-colors"
@@ -72,7 +74,7 @@ export default function PreferencesModal({ isOpen, onClose }: PreferencesModalPr
 
           <div className="flex items-center justify-between p-6 bg-[#F5F7FA] rounded-xl border-2 border-gray-200">
             <span className="text-[20px] font-medium text-[#1E3A5F]">
-              Fewest Transfers
+              {t('fewestTransfers')}
             </span>
             <Switch.Root
               className="w-16 h-8 bg-gray-300 rounded-full relative data-[state=checked]:bg-[#6BBF59] transition-colors"
@@ -88,7 +90,7 @@ export default function PreferencesModal({ isOpen, onClose }: PreferencesModalPr
           onClick={handleSave}
           className="w-full bg-[#E67E22] hover:bg-[#D35400] text-white text-[22px] font-semibold py-5 rounded-xl transition-colors min-h-[64px]"
         >
-          Save & Continue
+          {t('save')}
         </button>
       </div>
     </div>

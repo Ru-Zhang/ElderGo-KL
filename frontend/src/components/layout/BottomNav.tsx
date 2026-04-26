@@ -1,4 +1,6 @@
 import { Map, Sliders, Bot, HelpCircle, Train } from 'lucide-react';
+import { useAppContext } from '../../app/AppProvider';
+import { getTranslation } from '../../i18n/translations';
 
 interface BottomNavProps {
   activeTab?: string;
@@ -17,6 +19,9 @@ export default function BottomNav({
   onHelpClick,
   onPreferenceClick
 }: BottomNavProps) {
+  const { language } = useAppContext();
+  const t = (key: string) => getTranslation(language, key as any);
+
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-gray-200 px-4 py-3 z-50">
       <div className="grid grid-cols-5 gap-2 items-end max-w-5xl mx-auto">
@@ -27,7 +32,7 @@ export default function BottomNav({
           }`}
         >
           <Map size={26} strokeWidth={activeTab === 'planning' ? 2.5 : 2} />
-          <span className="text-[13px] font-medium" style={{ fontFamily: 'Poppins' }}>Planning</span>
+          <span className="text-[13px] font-medium" style={{ fontFamily: 'Poppins' }}>{t('planning')}</span>
         </button>
 
         <button
@@ -37,7 +42,7 @@ export default function BottomNav({
           }`}
         >
           <Sliders size={26} strokeWidth={activeTab === 'preference' ? 2.5 : 2} />
-          <span className="text-[13px] font-medium whitespace-nowrap" style={{ fontFamily: 'Poppins' }}>Preference</span>
+          <span className="text-[13px] font-medium whitespace-nowrap" style={{ fontFamily: 'Poppins' }}>{t('preference')}</span>
         </button>
 
         <button
@@ -47,7 +52,7 @@ export default function BottomNav({
           <div className="w-16 h-16 bg-[#4A90E2] rounded-full flex items-center justify-center shadow-xl hover:bg-[#3A7FD2] transition-colors mb-1">
             <Bot size={32} strokeWidth={2.5} className="text-white" />
           </div>
-          <span className="text-[13px] font-medium text-[#1E3A5F]" style={{ fontFamily: 'Poppins' }}>Chatbot</span>
+          <span className="text-[13px] font-medium text-[#1E3A5F]" style={{ fontFamily: 'Poppins' }}>{t('chatbot')}</span>
         </button>
 
         <button
@@ -57,7 +62,7 @@ export default function BottomNav({
           }`}
         >
           <HelpCircle size={26} strokeWidth={activeTab === 'help' ? 2.5 : 2} />
-          <span className="text-[13px] font-medium" style={{ fontFamily: 'Poppins' }}>Help</span>
+          <span className="text-[13px] font-medium" style={{ fontFamily: 'Poppins' }}>{t('help')}</span>
         </button>
 
         <button
@@ -67,7 +72,7 @@ export default function BottomNav({
           }`}
         >
           <Train size={26} strokeWidth={activeTab === 'station' ? 2.5 : 2} />
-          <span className="text-[13px] font-medium" style={{ fontFamily: 'Poppins' }}>Station</span>
+          <span className="text-[13px] font-medium" style={{ fontFamily: 'Poppins' }}>{t('stations')}</span>
         </button>
       </div>
     </div>
