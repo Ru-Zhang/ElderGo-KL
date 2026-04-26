@@ -1,5 +1,7 @@
 import { Mic, X, Plus, CloudRain, Headphones, ArrowRight } from 'lucide-react';
 import { useState } from 'react';
+import { useAppContext } from '../../app/AppProvider';
+import { getTranslation } from '../../i18n/translations';
 
 interface AIChatbotSheetProps {
   isOpen: boolean;
@@ -7,21 +9,23 @@ interface AIChatbotSheetProps {
 }
 
 export default function AIChatbotSheet({ isOpen, onClose }: AIChatbotSheetProps) {
+  const { language } = useAppContext();
+  const t = (key: string) => getTranslation(language, key as any);
   const [messages, setMessages] = useState<Array<{ text: string; isUser: boolean }>>([]);
   const [inputText, setInputText] = useState('');
 
   if (!isOpen) return null;
 
   const quickQuestions = [
-    { text: 'Take me to hospital', icon: Plus },
-    { text: 'Is it raining now?', icon: CloudRain },
-    { text: 'Call Station Staff', icon: Headphones }
+    { text: t('quickHospital'), icon: Plus },
+    { text: t('quickRain'), icon: CloudRain },
+    { text: t('quickStationStaff'), icon: Headphones }
   ];
 
   const handleQuickQuestion = (question: string) => {
     setMessages([
       { text: question, isUser: true },
-      { text: `I can help you with "${question}". Let me find the best route for you.`, isUser: false }
+      { text: `${t('chatbotReplyPrefix')} "${question}".`, isUser: false }
     ]);
   };
 
@@ -30,7 +34,7 @@ export default function AIChatbotSheet({ isOpen, onClose }: AIChatbotSheetProps)
       setMessages([
         ...messages,
         { text: inputText, isUser: true },
-        { text: `Thank you for your question. I'm here to help you with: ${inputText}`, isUser: false }
+        { text: `${t('chatbotReplyPrefix')}: ${inputText}`, isUser: false }
       ]);
       setInputText('');
     }
@@ -50,7 +54,7 @@ export default function AIChatbotSheet({ isOpen, onClose }: AIChatbotSheetProps)
           <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
 
           <h2 className="text-3xl font-bold text-[#1E3A5F] mb-8">
-            Hi! How can I help you today?
+            {t('chatbotGreeting')}
           </h2>
 
           <div className="flex-1 overflow-y-auto mb-6">
@@ -100,7 +104,7 @@ export default function AIChatbotSheet({ isOpen, onClose }: AIChatbotSheetProps)
           <div className="flex gap-3 items-center">
             <input
               type="text"
-              placeholder="Ask me anything..."
+              placeholder={t('askMeAnything')}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSend()}

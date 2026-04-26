@@ -772,11 +772,11 @@ Rapid Rail isOKU=true
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | `location_id` | text PK | 搜索对象 ID |
-| `location_type` | text | `rail_station`, `bus_stop`, `elevator`, `kerb_ramp` 等 |
+| `location_type` | text | `rail_station` 或设施类型（通常由 `accessibility_points.feature_type` 同步，如 `accessibility_point`、`elevator`、`kerb_ramp`） |
 | `source_id` | text | 原始来源 ID |
 | `display_name` | text | 搜索结果展示名 |
 | `geom` | geometry(Geometry, 4326) | 空间位置 |
-| `accessibility_status` | text | 搜索摘要中的无障碍状态 |
+| `accessibility_status` | text | 搜索摘要中的无障碍状态：`supported`、`not_supported`、`unknown` |
 | `confidence` | text | 搜索摘要置信度 |
 
 ### 6.12 用户缓存表字段
@@ -1029,7 +1029,7 @@ FastAPI：
 查询 searchable_locations
 如果 location_type = rail_station
     查询 rail_stations 和 station_accessibility_profiles
-如果 location_type = accessibility point
+如果 location_type 为站点以外设施（如 `accessibility_point`、`elevator`、`kerb_ramp`）
     查询 accessibility_points
 返回统一搜索结果
 ```

@@ -27,7 +27,7 @@ export default function HelpPage({
   onShowChatbot
 }: HelpPageProps) {
   const { fontSize } = useAppContext();
-  const baseFontSize = fontSize === 'large' ? 1.25 : 1;
+  const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
 
   const handleReset = () => {
     if (confirm('This will clear your saved preferences and history. Are you sure?')) {

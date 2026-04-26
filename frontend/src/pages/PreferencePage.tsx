@@ -24,12 +24,12 @@ export default function PreferencePage({
   const { fontSize, language, preferences, updatePreferences, clearPreferences } = useAppContext();
   const [localPreferences, setLocalPreferences] = useState(preferences);
 
-  const baseFontSize = fontSize === 'large' ? 1.25 : 1;
+  const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
   const t = (key: string) => getTranslation(language, key as any);
 
   const handleSave = () => {
     updatePreferences(localPreferences);
-    alert('Preferences saved successfully!');
+    alert(t('preferencesSaved'));
   };
 
   const handleCancel = () => {
@@ -61,13 +61,13 @@ export default function PreferencePage({
       <main className="pt-20 pb-32 px-6">
         <div className="max-w-2xl mx-auto mt-8">
           <h2 className="font-semibold text-[#1E3A5F] mb-8" style={{ fontSize: `${24 * baseFontSize}px` }}>
-            Travel Preferences
+            {t('travelPreferences')}
           </h2>
 
           <div className="space-y-4 mb-8">
             <div className="flex items-center justify-between p-6 bg-white rounded-xl border-2 border-gray-200 shadow-sm">
               <span className="font-medium text-[#1E3A5F]" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                Accessibility first (Wheelchair/Lift)
+                {t('accessibilityFirst')}
               </span>
               <Switch.Root
                 className="w-16 h-8 bg-gray-300 rounded-full relative data-[state=checked]:bg-[#6BBF59] transition-colors"
@@ -80,7 +80,7 @@ export default function PreferencePage({
 
             <div className="flex items-center justify-between p-6 bg-white rounded-xl border-2 border-gray-200 shadow-sm">
               <span className="font-medium text-[#1E3A5F]" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                Least walk
+                {t('leastWalk')}
               </span>
               <Switch.Root
                 className="w-16 h-8 bg-gray-300 rounded-full relative data-[state=checked]:bg-[#6BBF59] transition-colors"
@@ -93,7 +93,7 @@ export default function PreferencePage({
 
             <div className="flex items-center justify-between p-6 bg-white rounded-xl border-2 border-gray-200 shadow-sm">
               <span className="font-medium text-[#1E3A5F]" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                Fewest Transfers
+                {t('fewestTransfers')}
               </span>
               <Switch.Root
                 className="w-16 h-8 bg-gray-300 rounded-full relative data-[state=checked]:bg-[#6BBF59] transition-colors"

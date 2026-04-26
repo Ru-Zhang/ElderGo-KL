@@ -3,6 +3,7 @@ import { useState } from 'react';
 import TopBar from '../components/layout/TopBar';
 import BottomNav from '../components/layout/BottomNav';
 import { useAppContext } from '../app/AppProvider';
+import { recommendRoute } from '../services/routesApi';
 
 interface PlanYourTimePageProps {
   onNavigateToPlanning: () => void;
@@ -22,9 +23,49 @@ export default function PlanYourTimePage({
   onShowChatbot
 }: PlanYourTimePageProps) {
   const [selectedTime, setSelectedTime] = useState('Now');
-  const { fontSize } = useAppContext();
+  const {
+    anonymousUserId,
+    destination,
+    fontSize,
+    origin,
+    preferences,
+    routeLoading,
+    setCurrentRoute,
+    setDepartureTime,
+    setRouteError,
+    setRouteLoading
+  } = useAppContext();
 
-  const baseFontSize = fontSize === 'large' ? 1.25 : 1;
+  const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
+
+  const handleShowRoute = async () => {
+    if (!origin || !destination) {
+      setRouteError('Please choose your starting point and destination first.');
+      onNavigateToPlanning();
+      return;
+    }
+
+    const departureTime = selectedTime === 'Now' ? 'now' : selectedTime.toLowerCase();
+    setDepartureTime(departureTime);
+    setRouteLoading(true);
+    setRouteError(null);
+
+    try {
+      const route = await recommendRoute({
+        anonymousUserId,
+        origin,
+        destination,
+        departureTime,
+        preferences
+      });
+      setCurrentRoute(route);
+      onNavigateToRouteResult();
+    } catch {
+      setRouteError('Unable to get a route right now. Please try again.');
+    } finally {
+      setRouteLoading(false);
+    }
+  };
 
   const timeOptions = [
     { label: 'Now', icon: Clock, description: 'Leave immediately' },
@@ -102,11 +143,12 @@ export default function PlanYourTimePage({
           </div>
 
           <button
-            onClick={onNavigateToRouteResult}
+            onClick={handleShowRoute}
+            disabled={routeLoading}
             className="w-full bg-[#E67E22] hover:bg-[#D35400] text-white font-semibold py-5 rounded-xl transition-colors shadow-lg"
             style={{ fontSize: `${22 * baseFontSize}px` }}
           >
-            Show My Route
+            {routeLoading ? 'Finding Route...' : 'Show My Route'}
           </button>
         </div>
       </main>

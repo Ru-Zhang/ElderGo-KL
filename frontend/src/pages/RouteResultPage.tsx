@@ -22,37 +22,17 @@ export default function RouteResultPage({
   const [viewMode, setViewMode] = useState<'text' | 'map'>('text');
   const [currentStep, setCurrentStep] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const { fontSize } = useAppContext();
+  const { currentRoute, fontSize, routeError } = useAppContext();
 
-  const routeSteps = [
-    {
-      step: 1,
-      title: 'Walk to Sunway-Monash Station',
-      duration: '5 min',
-      distance: '350m',
-      icon: Footprints,
-      color: '#4A90E2',
-      accessibility: 'Wheelchair accessible route'
-    },
-    {
-      step: 2,
-      title: 'Take MRT Kajang Line to Pasar Seni',
-      duration: '10 min',
-      distance: '8 stops',
-      icon: Train,
-      color: '#6BBF59',
-      accessibility: 'Elevator Available'
-    },
-    {
-      step: 3,
-      title: 'Arrive at KLCC Station',
-      duration: '2 min',
-      distance: '100m walk to exit',
-      icon: MapPin,
-      color: '#E67E22',
-      accessibility: 'Escalator and elevator available'
-    }
-  ];
+  const routeSteps = currentRoute?.steps.map((step) => ({
+    step: step.step_number,
+    title: step.instruction,
+    duration: step.duration_minutes ? `${step.duration_minutes} min` : 'Time unknown',
+    distance: step.distance_meters ? `${step.distance_meters}m` : step.transit_line || '',
+    icon: step.step_type === 'walking' ? Footprints : step.step_type === 'transit' ? Train : MapPin,
+    color: step.step_type === 'walking' ? '#4A90E2' : step.step_type === 'transit' ? '#6BBF59' : '#E67E22',
+    accessibility: step.annotation.message
+  })) || [];
 
   const scroll = (direction: 'left' | 'right') => {
     if (direction === 'left' && currentStep > 0) {
@@ -62,7 +42,7 @@ export default function RouteResultPage({
     }
   };
 
-  const baseFontSize = fontSize === 'large' ? 1.25 : 1;
+  const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
 
   return (
     <div className="min-h-screen relative" style={{ fontFamily: 'Poppins' }}>
@@ -88,6 +68,23 @@ export default function RouteResultPage({
 
       <main className="pt-20 pb-44 px-6">
         <div className="max-w-2xl mx-auto mt-6">
+          {!currentRoute && (
+            <div className="bg-white/95 p-6 rounded-2xl shadow-md mb-6">
+              <h3 className="text-[24px] font-semibold text-[#1E3A5F] mb-3">
+                No route selected yet
+              </h3>
+              <p className="text-[18px] text-gray-700 mb-5">
+                {routeError || 'Please plan a route first so ElderGo KL can show one recommended route.'}
+              </p>
+              <button
+                onClick={onNavigateToPlanning}
+                className="w-full bg-[#E67E22] hover:bg-[#D35400] text-white font-semibold py-4 rounded-xl transition-colors shadow-md"
+              >
+                Plan a Route
+              </button>
+            </div>
+          )}
+
           <div className="flex gap-3 mb-6">
             <button
               onClick={() => setViewMode('text')}
@@ -114,7 +111,7 @@ export default function RouteResultPage({
           <div className="bg-[#FFE5B4] border-l-4 border-[#E67E22] p-5 rounded-xl mb-6 flex items-center gap-4">
             <Cloud size={28} strokeWidth={2.5} className="text-[#E67E22]" />
             <span className="text-[18px] font-medium text-[#1E3A5F]">
-              🌧️ Rain expected. Indoor route recommended.
+              Weather guidance is not connected yet. Accessibility notes use verified or unknown labels only.
             </span>
           </div>
 
@@ -122,21 +119,21 @@ export default function RouteResultPage({
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-[24px] font-semibold text-[#1E3A5F]">
-                  KL Sentral to Bukit Bintang
+                  {currentRoute ? `${currentRoute.origin_name} to ${currentRoute.destination_name}` : 'Route not selected'}
                 </h3>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <div className="text-[20px] font-bold text-[#4A90E2]">25 mins</div>
+                <div className="text-[20px] font-bold text-[#4A90E2]">{currentRoute?.duration_minutes ?? '-'} mins</div>
                 <div className="text-[14px] text-gray-600">Time</div>
               </div>
               <div>
-                <div className="text-[20px] font-bold text-[#4A90E2]">1</div>
+                <div className="text-[20px] font-bold text-[#4A90E2]">{currentRoute?.transfers ?? '-'}</div>
                 <div className="text-[14px] text-gray-600">Transfers</div>
               </div>
               <div>
-                <div className="text-[20px] font-bold text-[#4A90E2]">200m</div>
+                <div className="text-[20px] font-bold text-[#4A90E2]">{currentRoute?.walking_distance_meters ?? '-'}m</div>
                 <div className="text-[14px] text-gray-600">Walk</div>
               </div>
             </div>
