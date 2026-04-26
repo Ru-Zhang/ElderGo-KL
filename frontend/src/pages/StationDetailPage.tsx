@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { Check, ChevronLeft, AlertTriangle } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import BottomNav from '../components/layout/BottomNav';
 import { ImageWithFallback } from '../components/common/ImageWithFallback';
 import { useAppContext } from '../app/AppProvider';
 import { getTranslation } from '../i18n/translations';
+import { getStationGooglePlaceDetail } from '../services/googlePlaces';
 
 interface StationDetailPageProps {
   onNavigateToPlanning: () => void;
@@ -23,8 +25,36 @@ export default function StationDetailPage({
   onShowChatbot
 }: StationDetailPageProps) {
   const { fontSize, language, selectedStation } = useAppContext();
+  const [placeLoading, setPlaceLoading] = useState(false);
+  const [placeError, setPlaceError] = useState<string | null>(null);
   const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
   const t = (key: string) => getTranslation(language, key as any);
+  const accessibilityLabel = () => {
+    if (selectedStation?.accessibility_status === 'supported') return 'supported';
+    if (selectedStation?.accessibility_status === 'not_supported') return 'not supported';
+    return 'unknown';
+  };
+  const handleMoreDetails = async () => {
+    if (!selectedStation) return;
+    setPlaceLoading(true);
+    setPlaceError(null);
+    try {
+      const detail = await getStationGooglePlaceDetail(
+        selectedStation.name,
+        selectedStation.lat,
+        selectedStation.lon
+      );
+      const mapsUrl = new URL('https://www.google.com/maps/search/');
+      mapsUrl.searchParams.set('api', '1');
+      mapsUrl.searchParams.set('query', detail.name || selectedStation.name);
+      mapsUrl.searchParams.set('query_place_id', detail.google_place_id);
+      window.open(mapsUrl.toString(), '_blank', 'noopener,noreferrer');
+    } catch {
+      setPlaceError(t('googlePlacesUnavailable'));
+    } finally {
+      setPlaceLoading(false);
+    }
+  };
 
   if (!selectedStation) {
     return (
@@ -129,38 +159,25 @@ export default function StationDetailPage({
         <div className="max-w-3xl mx-auto px-6 mt-8 space-y-6">
           <div className="bg-white rounded-2xl shadow-lg p-8 space-y-6">
             <div className="flex items-center gap-5 min-h-[64px]">
-              <div className="w-12 h-12 bg-[#6BBF59]/20 rounded-full flex items-center justify-center flex-shrink-0">
-                <Check size={28 * baseFontSize} strokeWidth={3} className="text-[#6BBF59]" />
-              </div>
-              <span className="font-medium text-[#1E3A5F]" style={{ fontSize: `${22 * baseFontSize}px` }}>
-                {t('accessibilityStatus')}: <span className="font-semibold text-[#6BBF59]">
-                  {t(selectedStation.accessibility_status === 'unknown' ? 'unknownAccessibility' : 'verifiedAccessibility')}
-                </span>
-              </span>
-            </div>
-
-            <div className="h-px bg-gray-200" />
-
-            <div className="flex items-center gap-5 min-h-[64px]">
-              <div className="w-12 h-12 bg-[#E67E22]/20 rounded-full flex items-center justify-center flex-shrink-0">
-                <AlertTriangle size={28 * baseFontSize} strokeWidth={3} className="text-[#E67E22]" />
-              </div>
-              <span className="font-medium text-[#1E3A5F]" style={{ fontSize: `${22 * baseFontSize}px` }}>
-                {t('dataConfidence')}: <span className="font-semibold text-[#E67E22]">
-                  {selectedStation.confidence}
-                </span>
-              </span>
-            </div>
-
-            <div className="h-px bg-gray-200" />
-
-            <div className="flex items-center gap-5 min-h-[64px]">
               <div className="w-12 h-12 bg-[#4A90E2]/20 rounded-full flex items-center justify-center flex-shrink-0">
                 <Check size={28 * baseFontSize} strokeWidth={3} className="text-[#4A90E2]" />
               </div>
               <span className="font-medium text-[#1E3A5F]" style={{ fontSize: `${22 * baseFontSize}px` }}>
                 {t('routes')}: <span className="font-semibold text-[#4A90E2]">
-                  {selectedStation.routes.length ? selectedStation.routes.join(', ') : t('unknownAccessibility')}
+                  {selectedStation.routes.length ? selectedStation.routes.join(', ') : t('notYetVerified')}
+                </span>
+              </span>
+            </div>
+
+            <div className="h-px bg-gray-200" />
+
+            <div className="flex items-center gap-5 min-h-[64px]">
+              <div className="w-12 h-12 bg-[#6BBF59]/20 rounded-full flex items-center justify-center flex-shrink-0">
+                <Check size={28 * baseFontSize} strokeWidth={3} className="text-[#6BBF59]" />
+              </div>
+              <span className="font-medium text-[#1E3A5F]" style={{ fontSize: `${22 * baseFontSize}px` }}>
+                {t('accessibilityStatus')}: <span className="font-semibold text-[#6BBF59]">
+                  {accessibilityLabel()}
                 </span>
               </span>
             </div>
@@ -172,14 +189,40 @@ export default function StationDetailPage({
                 <Check size={28 * baseFontSize} strokeWidth={3} className="text-[#E67E22]" />
               </div>
               <span className="font-medium text-[#1E3A5F]" style={{ fontSize: `${22 * baseFontSize}px` }}>
-                {t('note')}: <span className="font-semibold text-[#E67E22]">{selectedStation.note || t('notYetVerified')}</span>
+                Details: <span className="font-semibold text-[#E67E22]">
+                  {selectedStation.known_facilities.length ? selectedStation.known_facilities.join(', ') : t('notYetVerified')}
+                </span>
+              </span>
+            </div>
+
+            <div className="h-px bg-gray-200" />
+
+            <div className="flex items-center gap-5 min-h-[64px]">
+              <div className="w-12 h-12 bg-[#E67E22]/20 rounded-full flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={28 * baseFontSize} strokeWidth={3} className="text-[#E67E22]" />
+              </div>
+              <span className="font-medium text-[#1E3A5F]" style={{ fontSize: `${22 * baseFontSize}px` }}>
+                {t('dataSource')}: <span className="font-semibold text-[#E67E22]">
+                  {selectedStation.source_list.length ? selectedStation.source_list.join(', ') : t('notYetVerified')}
+                </span>
               </span>
             </div>
           </div>
 
-          <button className="w-full bg-[#E67E22] hover:bg-[#D35400] text-white font-semibold py-6 rounded-2xl transition-colors shadow-lg min-h-[80px]" style={{ fontSize: `${24 * baseFontSize}px` }}>
-            {t('startRouteFromHere')}
+          <button
+            onClick={handleMoreDetails}
+            disabled={placeLoading}
+            className="w-full bg-[#E67E22] hover:bg-[#D35400] disabled:bg-gray-400 text-white font-semibold py-6 rounded-2xl transition-colors shadow-lg min-h-[80px]"
+            style={{ fontSize: `${24 * baseFontSize}px` }}
+          >
+            {placeLoading ? t('loadingPlaceDetails') : t('moreDetails')}
           </button>
+
+          {placeError && (
+            <p className="bg-white rounded-2xl shadow-lg p-6 text-[#E67E22] font-medium" style={{ fontSize: `${18 * baseFontSize}px` }}>
+              {placeError}
+            </p>
+          )}
         </div>
       </main>
 

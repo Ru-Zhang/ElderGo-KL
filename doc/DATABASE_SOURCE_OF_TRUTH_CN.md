@@ -15,7 +15,7 @@
 
 ## 推荐初始化流程
 
-1. 配置 `DATABASE_URL`（或后端 `ELDERGO_DATABASE_URL`）。
+1. 配置后端 `ELDERGO_DATABASE_URL`。
 2. 执行：
    - `python backend/database/import_to_postgres.py --reset`
 3. 验证核心表与索引存在后，再启动后端服务。

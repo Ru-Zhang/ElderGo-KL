@@ -4,9 +4,10 @@ import argparse
 import csv
 import json
 import os
+from time import perf_counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable, TypeVar
 
 try:
     import psycopg
@@ -19,6 +20,7 @@ except ImportError as exc:  # pragma: no cover - user environment check
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CSV_ROOT = ROOT / "csv_output"
 SCHEMA_PATH = Path(__file__).resolve().with_name("schema.sql")
+BACKEND_ENV_PATH = ROOT / ".env"
 
 
 @dataclass(frozen=True)
@@ -32,6 +34,36 @@ GTFS_SOURCES = [
     GtfsSource("ktmb", "ktmb_data", "KTMB"),
     GtfsSource("rapid_rail", "rapid_rail_data", "Rapid KL"),
 ]
+
+T = TypeVar("T")
+
+
+def env_value_from_backend_env(key: str) -> str | None:
+    if not BACKEND_ENV_PATH.exists():
+        return None
+
+    with BACKEND_ENV_PATH.open("r", encoding="utf-8") as src:
+        for raw_line in src:
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            current_key, current_value = line.split("=", 1)
+            if current_key.strip() != key:
+                continue
+            value = current_value.strip()
+            if (value.startswith('"') and value.endswith('"')) or (
+                value.startswith("'") and value.endswith("'")
+            ):
+                value = value[1:-1]
+            return value
+    return None
+
+
+def psycopg_conninfo(database_url: str) -> str:
+    url = database_url.strip()
+    if url.startswith("postgresql+psycopg://"):
+        return url.replace("postgresql+psycopg://", "postgresql://", 1)
+    return url
 
 
 def read_csv(path: Path) -> list[dict[str, str]]:
@@ -140,12 +172,21 @@ def upsert_many(
     sql: str,
     rows: Iterable[tuple[Any, ...]],
 ) -> int:
-    count = 0
+    rows_list = list(rows)
+    if not rows_list:
+        return 0
+
     with conn.cursor() as cur:
-        for row in rows:
-            cur.execute(sql, row)
-            count += 1
-    return count
+        cur.executemany(sql, rows_list)
+    return len(rows_list)
+
+
+def timed_step(label: str, fn: Callable[[], T]) -> T:
+    started_at = perf_counter()
+    result = fn()
+    elapsed = perf_counter() - started_at
+    print(f"[ETL] {label}: {elapsed:.2f}s")
+    return result
 
 
 def fetch_key_set(conn: psycopg.Connection[Any], table_name: str, column_name: str) -> set[str]:
@@ -496,6 +537,140 @@ def refresh_station_accessibility_profiles(
     )
 
 
+def refresh_station_groups(conn: psycopg.Connection[Any]) -> None:
+    conn.execute("DELETE FROM station_group_members")
+    conn.execute("DELETE FROM station_groups")
+    conn.execute(
+        """
+        WITH station_base AS (
+            SELECT
+                station.station_id,
+                station.source_system,
+                station.geom,
+                btrim(
+                    regexp_replace(
+                        regexp_replace(
+                            upper(station.station_name),
+                            '\\s*[-–—]?\\s*REDONE$',
+                            '',
+                            'i'
+                        ),
+                        '\\s+',
+                        ' ',
+                        'g'
+                    )
+                ) AS display_name
+            FROM rail_stations station
+        ),
+        station_group_keys AS (
+            SELECT
+                station_id,
+                source_system,
+                geom,
+                display_name,
+                'station:' || trim(
+                    both '_' from lower(
+                        regexp_replace(
+                            regexp_replace(display_name, '([A-Z])\\s+([0-9])', '\\1\\2', 'g'),
+                            '[^A-Z0-9]+',
+                            '_',
+                            'g'
+                        )
+                    )
+                ) AS station_group_id
+            FROM station_base
+        ),
+        grouped AS (
+            SELECT
+                station.station_group_id,
+                (
+                    array_agg(
+                        station.display_name
+                        ORDER BY
+                            CASE WHEN station.display_name ~ '[A-Z]\\s+[0-9]' THEN 0 ELSE 1 END,
+                            length(station.display_name) DESC,
+                            station.display_name
+                    )
+                )[1] AS display_name,
+                CASE
+                    WHEN COUNT(*) FILTER (WHERE geom IS NOT NULL) = 0 THEN NULL
+                    ELSE ST_SetSRID(ST_Centroid(ST_Collect(geom)), 4326)
+                END AS geom,
+                CASE
+                    WHEN BOOL_OR(profile.accessibility_status = 'supported') THEN 'supported'
+                    WHEN BOOL_OR(profile.accessibility_status = 'not_supported') THEN 'not_supported'
+                    ELSE 'unknown'
+                END AS accessibility_status,
+                CASE
+                    WHEN BOOL_OR(profile.confidence = 'high') THEN 'high'
+                    WHEN BOOL_OR(profile.confidence = 'medium') THEN 'medium'
+                    ELSE 'low'
+                END AS confidence,
+                to_jsonb(array_agg(DISTINCT source_system ORDER BY source_system)) AS source_systems
+            FROM station_group_keys station
+            LEFT JOIN station_accessibility_profiles profile
+                ON profile.station_id = station.station_id
+            GROUP BY station.station_group_id
+        )
+        INSERT INTO station_groups (
+            station_group_id, display_name, geom,
+            accessibility_status, confidence, source_systems
+        )
+        SELECT
+            station_group_id,
+            display_name,
+            geom,
+            accessibility_status,
+            confidence,
+            source_systems
+        FROM grouped
+        WHERE station_group_id <> 'station:'
+        """
+    )
+    conn.execute(
+        """
+        WITH station_base AS (
+            SELECT
+                station.station_id,
+                btrim(
+                    regexp_replace(
+                        regexp_replace(
+                            upper(station.station_name),
+                            '\\s*[-–—]?\\s*REDONE$',
+                            '',
+                            'i'
+                        ),
+                        '\\s+',
+                        ' ',
+                        'g'
+                    )
+                ) AS display_name
+            FROM rail_stations station
+        ),
+        station_group_keys AS (
+            SELECT
+                station_id,
+                'station:' || trim(
+                    both '_' from lower(
+                        regexp_replace(
+                            regexp_replace(display_name, '([A-Z])\\s+([0-9])', '\\1\\2', 'g'),
+                            '[^A-Z0-9]+',
+                            '_',
+                            'g'
+                        )
+                    )
+                ) AS station_group_id
+            FROM station_base
+        )
+        INSERT INTO station_group_members (station_group_id, station_id)
+        SELECT station_group_id, station_id
+        FROM station_group_keys
+        WHERE station_group_id <> 'station:'
+        ON CONFLICT DO NOTHING
+        """
+    )
+
+
 def refresh_searchable_locations(conn: psycopg.Connection[Any]) -> None:
     conn.execute("DELETE FROM searchable_locations")
     conn.execute(
@@ -505,16 +680,14 @@ def refresh_searchable_locations(conn: psycopg.Connection[Any]) -> None:
             geom, accessibility_status, confidence
         )
         SELECT
-            station.station_id,
+            station_group.station_group_id,
             'rail_station',
-            station.stop_id,
-            station.station_name,
-            station.geom,
-            COALESCE(profile.accessibility_status, 'unknown'),
-            COALESCE(profile.confidence, 'low')
-        FROM rail_stations station
-        LEFT JOIN station_accessibility_profiles profile
-            ON profile.station_id = station.station_id
+            station_group.station_group_id,
+            station_group.display_name,
+            station_group.geom,
+            station_group.accessibility_status,
+            station_group.confidence
+        FROM station_groups station_group
         """
     )
     conn.execute(
@@ -565,6 +738,8 @@ def reset_tables(conn: psycopg.Connection[Any]) -> None:
             anonymous_users,
             station_accessibility_profiles,
             accessibility_points,
+            station_group_members,
+            station_groups,
             rail_station_routes,
             rail_stations,
             rail_routes,
@@ -591,36 +766,70 @@ def reset_tables(conn: psycopg.Connection[Any]) -> None:
 
 def import_all(connection_string: str, csv_root: Path, reset: bool) -> dict[str, int]:
     stats: dict[str, int] = {}
-    with psycopg.connect(connection_string) as conn:
+    with psycopg.connect(psycopg_conninfo(connection_string)) as conn:
         if reset:
-            reset_tables(conn)
+            timed_step("reset tables", lambda: reset_tables(conn))
 
-        execute_schema(conn)
+        timed_step("execute schema", lambda: execute_schema(conn))
 
         for source in GTFS_SOURCES:
-            stats.update(import_gtfs_source(conn, csv_root, source))
+            source_label = source.source_system
+            stats[f"{source_label}_rail_agencies"] = timed_step(
+                f"{source_label}: import agencies",
+                lambda source=source: import_agencies(conn, csv_root, source),
+            )
+            stats[f"{source_label}_rail_routes"] = timed_step(
+                f"{source_label}: import routes",
+                lambda source=source: import_routes(conn, csv_root, source),
+            )
+            stats[f"{source_label}_rail_stations"] = timed_step(
+                f"{source_label}: import stations",
+                lambda source=source: import_stations(conn, csv_root, source),
+            )
+            stats[f"{source_label}_rail_station_routes"] = timed_step(
+                f"{source_label}: import station routes",
+                lambda source=source: import_station_routes(conn, csv_root, source),
+            )
 
-        stats["accessibility_points"] = import_accessibility_points(conn, csv_root)
-        refresh_station_accessibility_profiles(conn, csv_root)
-        refresh_searchable_locations(conn)
-        stats["station_accessibility_profiles"] = len(
-            fetch_key_set(conn, "station_accessibility_profiles", "station_id")
+        stats["accessibility_points"] = timed_step(
+            "import accessibility points",
+            lambda: import_accessibility_points(conn, csv_root),
         )
-        stats["searchable_locations"] = len(fetch_key_set(conn, "searchable_locations", "location_id"))
+        timed_step(
+            "refresh station accessibility profiles",
+            lambda: refresh_station_accessibility_profiles(conn, csv_root),
+        )
+        timed_step("refresh station groups", lambda: refresh_station_groups(conn))
+        timed_step("refresh searchable locations", lambda: refresh_searchable_locations(conn))
+        stats["station_accessibility_profiles"] = timed_step(
+            "count station accessibility profiles",
+            lambda: len(fetch_key_set(conn, "station_accessibility_profiles", "station_id")),
+        )
+        stats["station_groups"] = timed_step(
+            "count station groups",
+            lambda: len(fetch_key_set(conn, "station_groups", "station_group_id")),
+        )
+        stats["searchable_locations"] = timed_step(
+            "count searchable locations",
+            lambda: len(fetch_key_set(conn, "searchable_locations", "location_id")),
+        )
 
-        conn.commit()
+        timed_step("commit", conn.commit)
 
     return stats
 
 
 def main() -> None:
+    default_database_url = os.getenv("ELDERGO_DATABASE_URL") or env_value_from_backend_env(
+        "ELDERGO_DATABASE_URL"
+    )
     parser = argparse.ArgumentParser(
         description="Create the ElderGo KL Data Plan schema and import current CSV outputs."
     )
     parser.add_argument(
         "--database-url",
-        default=os.getenv("DATABASE_URL"),
-        help="PostgreSQL connection URL. Defaults to DATABASE_URL.",
+        default=default_database_url,
+        help="PostgreSQL connection URL. Defaults to ELDERGO_DATABASE_URL or backend/.env.",
     )
     parser.add_argument(
         "--csv-root",
@@ -635,7 +844,9 @@ def main() -> None:
     args = parser.parse_args()
 
     if not args.database_url:
-        raise SystemExit("Provide --database-url or set DATABASE_URL.")
+        raise SystemExit(
+            "Provide --database-url, set ELDERGO_DATABASE_URL, or define ELDERGO_DATABASE_URL in backend/.env."
+        )
 
     stats = import_all(args.database_url, Path(args.csv_root), args.reset)
     print("Import complete.")

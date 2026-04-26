@@ -15,6 +15,40 @@ interface StationsHomePageProps {
   onShowChatbot: () => void;
 }
 
+function canonicalStationName(name: string): string {
+  return name
+    .trim()
+    .replace(/\s*[-–—]?\s*REDONE$/i, '')
+    .replace(/\s+/g, ' ')
+    .replace(/([A-Z])\s+(\d)/gi, '$1$2')
+    .toUpperCase();
+}
+
+function dedupeLocations(locations: LocationSummary[]): LocationSummary[] {
+  const seenIds = new Set<string>();
+  const seenStationNames = new Set<string>();
+  const deduped: LocationSummary[] = [];
+
+  for (const location of locations) {
+    if (seenIds.has(location.id)) {
+      continue;
+    }
+    seenIds.add(location.id);
+
+    if (location.type === 'rail_station') {
+      const stationKey = canonicalStationName(location.name);
+      if (seenStationNames.has(stationKey)) {
+        continue;
+      }
+      seenStationNames.add(stationKey);
+    }
+
+    deduped.push(location);
+  }
+
+  return deduped;
+}
+
 export default function StationsHomePage({
   onNavigateToPlanning,
   onNavigateToStationDetail,
@@ -25,6 +59,11 @@ export default function StationsHomePage({
   const { fontSize, language, setSelectedStation } = useAppContext();
   const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
   const t = (key: string) => getTranslation(language, key as any);
+  const accessibilityLabel = (status: LocationSummary['accessibility_status']) => {
+    if (status === 'supported') return t('supportedAccessibility');
+    if (status === 'not_supported') return t('notSupportedAccessibility');
+    return t('unknownAccessibility');
+  };
 
   const [searchQuery, setSearchQuery] = useState('');
   const [popularStations, setPopularStations] = useState<LocationSummary[]>([]);
@@ -34,7 +73,7 @@ export default function StationsHomePage({
 
   useEffect(() => {
     getPopularLocations()
-      .then(setPopularStations)
+      .then((locations) => setPopularStations(dedupeLocations(locations)))
       .catch(() => setError(t('stationDatabaseNotReady')));
   }, [language]);
 
@@ -48,7 +87,8 @@ export default function StationsHomePage({
 
     setHasSearched(true);
     try {
-      setSearchResults(await searchLocations(query));
+      const locations = await searchLocations(query);
+      setSearchResults(dedupeLocations(locations));
       setError(null);
     } catch {
       setSearchResults([]);
@@ -140,7 +180,7 @@ export default function StationsHomePage({
                       {location.name}
                     </span>
                     <span className="text-gray-600 text-left" style={{ fontSize: `${14 * baseFontSize}px` }}>
-                      {t(location.accessibility_status === 'unknown' ? 'unknownAccessibility' : 'verifiedAccessibility')}
+                      {accessibilityLabel(location.accessibility_status)}
                     </span>
                     <ChevronRight size={24 * baseFontSize} strokeWidth={2.5} className="text-gray-400 ml-auto" />
                   </button>

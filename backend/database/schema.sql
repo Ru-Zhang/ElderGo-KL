@@ -40,6 +40,27 @@ CREATE TABLE IF NOT EXISTS rail_station_routes (
     direction_id TEXT
 );
 
+CREATE TABLE IF NOT EXISTS station_groups (
+    station_group_id TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    geom geometry(Point, 4326),
+    accessibility_status TEXT NOT NULL DEFAULT 'unknown',
+    confidence TEXT NOT NULL DEFAULT 'low',
+    source_systems JSONB NOT NULL DEFAULT '[]'::jsonb,
+    CONSTRAINT chk_station_groups_status CHECK (
+        accessibility_status IN ('supported', 'not_supported', 'unknown')
+    ),
+    CONSTRAINT chk_station_groups_confidence CHECK (
+        confidence IN ('high', 'medium', 'low')
+    )
+);
+
+CREATE TABLE IF NOT EXISTS station_group_members (
+    station_group_id TEXT NOT NULL REFERENCES station_groups(station_group_id) ON DELETE CASCADE,
+    station_id TEXT NOT NULL REFERENCES rail_stations(station_id) ON DELETE CASCADE,
+    PRIMARY KEY (station_group_id, station_id)
+);
+
 CREATE TABLE IF NOT EXISTS accessibility_points (
     accessibility_point_id TEXT PRIMARY KEY,
     source_id TEXT,
@@ -221,6 +242,9 @@ CREATE INDEX IF NOT EXISTS idx_rail_routes_source ON rail_routes (source_system)
 CREATE INDEX IF NOT EXISTS idx_rail_stations_geom ON rail_stations USING GIST (geom);
 CREATE INDEX IF NOT EXISTS idx_rail_stations_source ON rail_stations (source_system);
 CREATE INDEX IF NOT EXISTS idx_rail_stations_name_trgm ON rail_stations USING GIN (station_name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_station_groups_geom ON station_groups USING GIST (geom);
+CREATE INDEX IF NOT EXISTS idx_station_groups_name_trgm ON station_groups USING GIN (display_name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_station_group_members_station ON station_group_members (station_id);
 CREATE INDEX IF NOT EXISTS idx_rail_station_routes_station ON rail_station_routes (station_id);
 CREATE INDEX IF NOT EXISTS idx_rail_station_routes_route ON rail_station_routes (route_id, direction_id, stop_sequence);
 

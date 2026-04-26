@@ -50,7 +50,7 @@ SELECT postgis_full_version();
 Set the database URL:
 
 ```powershell
-$env:DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/test"
+$env:ELDERGO_DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/test"
 ```
 
 ## Import Data

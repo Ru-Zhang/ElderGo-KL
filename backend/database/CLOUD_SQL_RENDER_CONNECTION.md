@@ -32,7 +32,7 @@ Cloud SQL 建议配置：
 cd D:\Monash_FIT\FIT5120\data_cleaning
 .\.venv\Scripts\Activate.ps1
 
-$env:DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@CLOUD_SQL_PUBLIC_IP:5432/eldergo?sslmode=require"
+$env:ELDERGO_DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@CLOUD_SQL_PUBLIC_IP:5432/eldergo?sslmode=require"
 python database\import_to_postgres.py --reset
 ```
 
@@ -106,7 +106,7 @@ Backend Web Service
 添加环境变量：
 
 ```text
-DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@CLOUD_SQL_PUBLIC_IP:5432/eldergo?sslmode=require
+ELDERGO_DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@CLOUD_SQL_PUBLIC_IP:5432/eldergo?sslmode=require
 ```
 
 如果密码里有特殊字符，例如：
@@ -122,7 +122,7 @@ DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@CLOUD_SQL_PUBLIC_IP:5432/elderg
 ```python
 import os
 
-DATABASE_URL = os.environ["DATABASE_URL"]
+ELDERGO_DATABASE_URL = os.environ["ELDERGO_DATABASE_URL"]
 ```
 
 `psycopg` 示例：
@@ -131,7 +131,7 @@ DATABASE_URL = os.environ["DATABASE_URL"]
 import os
 import psycopg
 
-with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+with psycopg.connect(os.environ["ELDERGO_DATABASE_URL"]) as conn:
     with conn.cursor() as cur:
         cur.execute("SELECT COUNT(*) FROM rail_stations")
         count = cur.fetchone()[0]
@@ -157,7 +157,7 @@ POST https://YOUR_BACKEND_SERVICE.onrender.com/routes/recommend
 不要在前端设置或暴露：
 
 ```text
-DATABASE_URL
+ELDERGO_DATABASE_URL
 ```
 
 ## 5. FastAPI CORS 设置
@@ -192,7 +192,7 @@ app = FastAPI()
 
 @app.get("/health/db")
 def db_health():
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with psycopg.connect(os.environ["ELDERGO_DATABASE_URL"]) as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT COUNT(*) FROM rail_stations")
             rail_station_count = cur.fetchone()[0]
@@ -257,8 +257,8 @@ LIMIT 20;
 检查：
 
 ```text
-DATABASE_URL 用户名是否正确
-DATABASE_URL 密码是否正确
+ELDERGO_DATABASE_URL 用户名是否正确
+ELDERGO_DATABASE_URL 密码是否正确
 密码是否包含需要 URL encode 的特殊字符
 Cloud SQL 用户密码是否已重置成功
 ```
@@ -293,7 +293,7 @@ FastAPI allow_origins 是否包含 Render 前端 URL
 
 ## 9. 安全注意事项
 
-- `DATABASE_URL` 只放在 Render 后端环境变量里。
+- `ELDERGO_DATABASE_URL` 只放在 Render 后端环境变量里。
 - 不要把数据库密码提交到 GitHub。
 - 不要让前端知道 PostgreSQL 连接字符串。
 - 不要在 Cloud SQL authorized networks 中使用 `0.0.0.0/0`。
