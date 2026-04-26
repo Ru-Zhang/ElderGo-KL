@@ -16,8 +16,8 @@ except ImportError as exc:  # pragma: no cover - user environment check
     ) from exc
 
 
-ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_CSV_ROOT = ROOT / "data" / "csv_output"
+ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_CSV_ROOT = ROOT / "csv_output"
 SCHEMA_PATH = Path(__file__).resolve().with_name("schema.sql")
 
 

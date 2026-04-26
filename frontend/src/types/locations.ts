@@ -1,10 +1,10 @@
-export type AccessibilityStatus = 'supported' | 'limited' | 'unknown' | 'not_verified';
+export type AccessibilityStatus = 'supported' | 'not_supported' | 'unknown';
 export type ConfidenceLevel = 'high' | 'medium' | 'low' | 'unknown';
 
 export interface LocationSummary {
   id: string;
   name: string;
-  type: 'rail_station' | 'accessibility_point' | 'place';
+  type: string;
   lat?: number | null;
   lon?: number | null;
   accessibility_status: AccessibilityStatus;

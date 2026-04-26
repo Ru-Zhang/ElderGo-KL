@@ -30,6 +30,8 @@ export default function PlanningPage({
   const {
     fontSize,
     language,
+    onboardingCompleted,
+    preferences,
     setOrigin: setRouteOrigin,
     setDestination: setRouteDestination
   } = useAppContext();
@@ -48,12 +50,15 @@ export default function PlanningPage({
   const [showStartDropdown, setShowStartDropdown] = useState(false);
   const [showDestDropdown, setShowDestDropdown] = useState(false);
   const [placesError, setPlacesError] = useState<string | null>(null);
+  const hasAnyPreferenceEnabled =
+    preferences.accessibilityFirst || preferences.leastWalk || preferences.fewestTransfers;
+  const shouldPromptPreferences = !onboardingCompleted && !hasAnyPreferenceEnabled;
 
   const handleInputClick = () => {
-    if (!hasClickedInput) {
+    if (!hasClickedInput && shouldPromptPreferences) {
       setShowPreferences(true);
-      setHasClickedInput(true);
     }
+    setHasClickedInput(true);
   };
 
   const handleStartChange = async (value: string) => {

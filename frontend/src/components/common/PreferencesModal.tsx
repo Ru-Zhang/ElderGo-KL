@@ -10,7 +10,7 @@ interface PreferencesModalProps {
 }
 
 export default function PreferencesModal({ isOpen, onClose }: PreferencesModalProps) {
-  const { language, preferences, updatePreferences } = useAppContext();
+  const { language, preferences, updatePreferences, setOnboardingCompleted } = useAppContext();
   const [localPreferences, setLocalPreferences] = useState(preferences);
   const t = (key: string) => getTranslation(language, key as any);
 
@@ -22,6 +22,7 @@ export default function PreferencesModal({ isOpen, onClose }: PreferencesModalPr
 
   const handleSave = () => {
     updatePreferences(localPreferences);
+    setOnboardingCompleted(true);
     onClose();
   };
 

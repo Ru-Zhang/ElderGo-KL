@@ -29,7 +29,7 @@ def _point_from_wkt(value: str | None) -> tuple[float | None, float | None]:
 def _status_from_wheelchair(value: str | None) -> str:
     lowered = (value or "").strip().lower()
     if lowered in {"yes", "true", "1", "limited"}:
-        return "supported" if lowered != "limited" else "limited"
+        return "supported"
     return "unknown"
 
 
