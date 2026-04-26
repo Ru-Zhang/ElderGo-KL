@@ -24,7 +24,7 @@ export default function BottomNav({
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-gray-200 px-4 py-3 z-50">
-      <div className="grid grid-cols-5 gap-2 items-end max-w-5xl mx-auto">
+      <div className="grid grid-cols-5 gap-2 items-center max-w-5xl mx-auto">
         <button
           onClick={onPlanningClick}
           className={`flex flex-col items-center gap-1 py-2 ${
@@ -33,6 +33,25 @@ export default function BottomNav({
         >
           <Map size={26} strokeWidth={activeTab === 'planning' ? 2.5 : 2} />
           <span className="text-[13px] font-medium" style={{ fontFamily: 'Poppins' }}>{t('planning')}</span>
+        </button>
+
+        <button
+          onClick={onStationClick}
+          className={`flex flex-col items-center gap-1 py-2 ${
+            activeTab === 'station' ? 'text-[#4A90E2]' : 'text-[#1E3A5F]'
+          }`}
+        >
+          <Train size={26} strokeWidth={activeTab === 'station' ? 2.5 : 2} />
+          <span className="text-[13px] font-medium" style={{ fontFamily: 'Poppins' }}>{t('stations')}</span>
+        </button>
+
+        <button
+          onClick={onChatbotClick}
+          className="flex items-center justify-center py-2"
+        >
+          <div className="w-16 h-16 bg-[#4A90E2] rounded-full flex items-center justify-center shadow-xl hover:bg-[#3A7FD2] transition-colors">
+            <Bot size={32} strokeWidth={2.5} className="text-white" />
+          </div>
         </button>
 
         <button
@@ -46,16 +65,6 @@ export default function BottomNav({
         </button>
 
         <button
-          onClick={onChatbotClick}
-          className="flex flex-col items-center justify-center -mt-6"
-        >
-          <div className="w-16 h-16 bg-[#4A90E2] rounded-full flex items-center justify-center shadow-xl hover:bg-[#3A7FD2] transition-colors mb-1">
-            <Bot size={32} strokeWidth={2.5} className="text-white" />
-          </div>
-          <span className="text-[13px] font-medium text-[#1E3A5F]" style={{ fontFamily: 'Poppins' }}>{t('chatbot')}</span>
-        </button>
-
-        <button
           onClick={onHelpClick}
           className={`flex flex-col items-center gap-1 py-2 ${
             activeTab === 'help' ? 'text-[#4A90E2]' : 'text-[#1E3A5F]'
@@ -63,16 +72,6 @@ export default function BottomNav({
         >
           <HelpCircle size={26} strokeWidth={activeTab === 'help' ? 2.5 : 2} />
           <span className="text-[13px] font-medium" style={{ fontFamily: 'Poppins' }}>{t('help')}</span>
-        </button>
-
-        <button
-          onClick={onStationClick}
-          className={`flex flex-col items-center gap-1 py-2 ${
-            activeTab === 'station' ? 'text-[#4A90E2]' : 'text-[#1E3A5F]'
-          }`}
-        >
-          <Train size={26} strokeWidth={activeTab === 'station' ? 2.5 : 2} />
-          <span className="text-[13px] font-medium" style={{ fontFamily: 'Poppins' }}>{t('stations')}</span>
         </button>
       </div>
     </div>

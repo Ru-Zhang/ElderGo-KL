@@ -12,6 +12,7 @@ interface PreferencesModalProps {
 export default function PreferencesModal({ isOpen, onClose }: PreferencesModalProps) {
   const { language, preferences, updatePreferences, setOnboardingCompleted } = useAppContext();
   const [localPreferences, setLocalPreferences] = useState(preferences);
+  const [showSavedHint, setShowSavedHint] = useState(false);
   const t = (key: string) => getTranslation(language, key as any);
 
   useEffect(() => {
@@ -23,7 +24,11 @@ export default function PreferencesModal({ isOpen, onClose }: PreferencesModalPr
   const handleSave = () => {
     updatePreferences(localPreferences);
     setOnboardingCompleted(true);
-    onClose();
+    setShowSavedHint(true);
+    window.setTimeout(() => {
+      setShowSavedHint(false);
+      onClose();
+    }, 1200);
   };
 
   if (!isOpen) return null;
@@ -93,6 +98,11 @@ export default function PreferencesModal({ isOpen, onClose }: PreferencesModalPr
         >
           {t('save')}
         </button>
+        {showSavedHint && (
+          <div className="mt-4 rounded-lg bg-[#EAF6EA] text-[#2F7A32] px-4 py-3 text-[16px] font-medium">
+            {t('preferenceSavedWeakHint')}
+          </div>
+        )}
       </div>
     </div>
   );

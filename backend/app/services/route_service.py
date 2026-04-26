@@ -1,7 +1,9 @@
 import json
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
+import uuid
 
+from app.core.config import get_settings
 from app.schemas.routes import (
     RecommendedRoute,
     RouteAccessibilityAnnotation,
@@ -11,6 +13,8 @@ from app.schemas.routes import (
 from app.services.database import get_connection
 from app.services.google_maps_service import CandidateRoute, fetch_candidate_routes
 from app.services.route_scoring_service import choose_best_candidate
+
+settings = get_settings()
 
 
 def build_demo_recommendation(payload: RouteRecommendationRequest) -> RecommendedRoute:
@@ -312,9 +316,21 @@ def _persist_route(payload: RouteRecommendationRequest, route: RecommendedRoute)
 
 async def recommend_route(payload: RouteRecommendationRequest) -> RecommendedRoute:
     candidates = await fetch_candidate_routes(payload.origin, payload.destination, payload.departure_time)
-    best = choose_best_candidate(candidates, payload.preferences.accessibility_first)
+    best = choose_best_candidate(
+        candidates,
+        accessibility_first=payload.preferences.accessibility_first,
+        least_walk=payload.preferences.least_walk,
+        fewest_transfers=payload.preferences.fewest_transfers,
+    )
     if best is None:
         raise ValueError("Google Maps did not return a usable route candidate.")
     recommendation = _route_from_candidate(payload, best)
-    recommended_route_id = _persist_route(payload, recommendation)
+    # In local/demo runs, route persistence can be unavailable; keep route planning usable.
+    if settings.demo_mode:
+        return recommendation.model_copy(update={"recommended_route_id": f"demo_{uuid.uuid4().hex[:12]}"})
+
+    try:
+        recommended_route_id = _persist_route(payload, recommendation)
+    except Exception:
+        recommended_route_id = f"ephemeral_{uuid.uuid4().hex[:12]}"
     return recommendation.model_copy(update={"recommended_route_id": recommended_route_id})

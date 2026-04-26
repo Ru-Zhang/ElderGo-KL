@@ -24,9 +24,88 @@ export default function RouteResultPage({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { currentRoute, fontSize, routeError } = useAppContext();
 
-  const routeSteps = currentRoute?.steps.map((step) => ({
+  const toLocationLabel = (value?: string | null) => {
+    if (!value) return '';
+    const parts = value
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    if (parts.length === 0) return value;
+    if (parts.length === 1) return parts[0];
+
+    const firstPart = parts[0];
+    if (/[A-Za-z]/.test(firstPart) && !/^\d+$/.test(firstPart)) {
+      return firstPart;
+    }
+
+    const secondPart = parts[1];
+    if (secondPart && /[A-Za-z]/.test(secondPart)) {
+      return secondPart;
+    }
+
+    return firstPart;
+  };
+
+  const removeBracketContent = (value: string) =>
+    value
+      .replace(/\s*\([^)]*\)\s*/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+
+  const normalizeStepTitle = (
+    instruction: string,
+    stepType: string,
+    fromStation?: string | null,
+    toStation?: string | null,
+    isLastStep?: boolean,
+    destinationName?: string | null
+  ) => {
+    const shortFrom = removeBracketContent(toLocationLabel(fromStation));
+    const shortTo = removeBracketContent(toLocationLabel(toStation));
+    const shortDestination = removeBracketContent(toLocationLabel(destinationName));
+    const cleanedInstruction = removeBracketContent(instruction);
+
+    // Keep the last step consistent with the selected destination label.
+    if (isLastStep && shortDestination) {
+      if (/^arrive at /i.test(cleanedInstruction)) {
+        return `Arrive at ${shortDestination}.`;
+      }
+      if (/^walk to /i.test(cleanedInstruction)) {
+        return `Walk to ${shortDestination}`;
+      }
+    }
+
+    if (stepType === 'transit' && shortFrom && shortTo) {
+      return `${cleanedInstruction.split(' from ')[0]} from ${shortFrom} to ${shortTo}`;
+    }
+
+    const walkToMatch = cleanedInstruction.match(/^(Walk to )(.+)$/i);
+    if (walkToMatch) {
+      return `${walkToMatch[1]}${removeBracketContent(toLocationLabel(walkToMatch[2]))}`;
+    }
+
+    const arriveAtMatch = cleanedInstruction.match(/^(Arrive at )(.+?)(\.)?$/i);
+    if (arriveAtMatch) {
+      return `${arriveAtMatch[1]}${removeBracketContent(toLocationLabel(arriveAtMatch[2]))}${arriveAtMatch[3] || ''}`;
+    }
+
+    return cleanedInstruction.replace(/([A-Za-z0-9][^,]*),\s[^.]+/g, (match, firstPart) => {
+      if (/^\d+$/.test(firstPart.trim())) return match;
+      return firstPart.trim();
+    });
+  };
+
+  const routeSteps = currentRoute?.steps.map((step, index, allSteps) => ({
     step: step.step_number,
-    title: step.instruction,
+    title: normalizeStepTitle(
+      step.instruction,
+      step.step_type,
+      step.from_station,
+      step.to_station,
+      index === allSteps.length - 1,
+      currentRoute?.destination_name
+    ),
     duration: step.duration_minutes ? `${step.duration_minutes} min` : 'Time unknown',
     distance: step.distance_meters ? `${step.distance_meters}m` : step.transit_line || '',
     icon: step.step_type === 'walking' ? Footprints : step.step_type === 'transit' ? Train : MapPin,
@@ -43,6 +122,9 @@ export default function RouteResultPage({
   };
 
   const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
+  const mapEmbedSrc = currentRoute
+    ? `https://www.google.com/maps?q=${encodeURIComponent(`${currentRoute.origin_name} to ${currentRoute.destination_name}`)}&output=embed`
+    : null;
 
   return (
     <div className="min-h-screen relative" style={{ fontFamily: 'Poppins' }}>
@@ -119,7 +201,7 @@ export default function RouteResultPage({
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-[24px] font-semibold text-[#1E3A5F]">
-                  {currentRoute ? `${currentRoute.origin_name} to ${currentRoute.destination_name}` : 'Route not selected'}
+                  {currentRoute ? `${toLocationLabel(currentRoute.origin_name)} to ${toLocationLabel(currentRoute.destination_name)}` : 'Route not selected'}
                 </h3>
               </div>
             </div>
@@ -166,18 +248,18 @@ export default function RouteResultPage({
               <div className="relative">
                 <button
                   onClick={() => scroll('left')}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-12 h-12 bg-white/95 backdrop-blur-sm border-2 border-gray-300 rounded-full flex items-center justify-center hover:bg-white hover:border-[#4A90E2] transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="absolute -left-2 sm:left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 sm:w-12 sm:h-12 bg-white/95 backdrop-blur-sm border-2 border-gray-300 rounded-full flex items-center justify-center hover:bg-white hover:border-[#4A90E2] transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={currentStep === 0}
                 >
-                  <ChevronLeft size={24} strokeWidth={2.5} className="text-[#1E3A5F]" />
+                  <ChevronLeft size={20} strokeWidth={2.5} className="text-[#1E3A5F] sm:w-6 sm:h-6" />
                 </button>
 
                 <button
                   onClick={() => scroll('right')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-12 h-12 bg-white/95 backdrop-blur-sm border-2 border-gray-300 rounded-full flex items-center justify-center hover:bg-white hover:border-[#4A90E2] transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="absolute -right-2 sm:right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 sm:w-12 sm:h-12 bg-white/95 backdrop-blur-sm border-2 border-gray-300 rounded-full flex items-center justify-center hover:bg-white hover:border-[#4A90E2] transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={currentStep === routeSteps.length - 1}
                 >
-                  <ChevronRight size={24} strokeWidth={2.5} className="text-[#1E3A5F]" />
+                  <ChevronRight size={20} strokeWidth={2.5} className="text-[#1E3A5F] sm:w-6 sm:h-6" />
                 </button>
 
                 <div className="overflow-hidden">
@@ -190,44 +272,46 @@ export default function RouteResultPage({
                       return (
                         <div
                           key={step.step}
-                          className="w-full flex-shrink-0 px-16"
+                          className="w-full flex-shrink-0 px-6 sm:px-16"
                         >
                           <div
-                            className="bg-white/95 backdrop-blur-sm p-6 rounded-2xl shadow-xl border-l-4"
+                            className="bg-white/95 backdrop-blur-sm p-5 sm:p-6 rounded-2xl shadow-xl border-l-4"
                             style={{ borderLeftColor: step.color }}
                           >
-                            <div className="flex items-start gap-4">
-                              <div
-                                className="w-14 h-14 text-white rounded-full flex items-center justify-center font-bold flex-shrink-0"
-                                style={{
-                                  backgroundColor: step.color,
-                                  fontSize: `${18 * baseFontSize}px`
-                                }}
-                              >
-                                {step.step}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="font-medium text-gray-500 mb-2" style={{ fontSize: `${12 * baseFontSize}px` }}>
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-3 mb-4">
+                                <div
+                                  className="w-10 h-10 text-white rounded-full flex items-center justify-center font-bold flex-shrink-0"
+                                  style={{
+                                    backgroundColor: step.color,
+                                    fontSize: `${16 * baseFontSize}px`
+                                  }}
+                                >
+                                  {step.step}
+                                </div>
+                                <div className="font-medium text-gray-500" style={{ fontSize: `${12 * baseFontSize}px` }}>
                                   Step {step.step} of {routeSteps.length}
                                 </div>
-                                <div className="flex items-center gap-3 mb-3">
-                                  <IconComponent size={24 * baseFontSize} style={{ color: step.color }} strokeWidth={2.5} />
-                                  <div className="font-semibold text-[#1E3A5F]" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                                    {step.title}
-                                  </div>
+                              </div>
+
+                              <div className="flex items-start gap-2 sm:gap-3 mb-3">
+                                <IconComponent size={22 * baseFontSize} style={{ color: step.color }} strokeWidth={2.5} className="mt-1 flex-shrink-0" />
+                                <div className="font-semibold text-[#1E3A5F] break-words leading-snug" style={{ fontSize: `${18 * baseFontSize}px` }}>
+                                  {step.title}
                                 </div>
-                                <div className="text-gray-700 mb-4" style={{ fontSize: `${16 * baseFontSize}px` }}>
-                                  Duration: {step.duration} • {step.distance}
-                                </div>
-                                <div
-                                  className="flex items-center gap-2 px-4 py-3 rounded-lg"
-                                  style={{ backgroundColor: `${step.color}20` }}
-                                >
-                                  <Check size={20 * baseFontSize} strokeWidth={2.5} style={{ color: step.color }} />
-                                  <span className="font-medium" style={{ color: step.color, fontSize: `${14 * baseFontSize}px` }}>
-                                    {step.accessibility}
-                                  </span>
-                                </div>
+                              </div>
+
+                              <div className="text-gray-700 mb-4" style={{ fontSize: `${16 * baseFontSize}px` }}>
+                                Duration: {step.duration} • {step.distance}
+                              </div>
+
+                              <div
+                                className="px-4 py-3 rounded-lg"
+                                style={{ backgroundColor: `${step.color}20` }}
+                              >
+                                <span className="font-medium break-words leading-snug" style={{ color: step.color, fontSize: `${14 * baseFontSize}px` }}>
+                                  {step.accessibility}
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -240,15 +324,21 @@ export default function RouteResultPage({
             </div>
           ) : (
             <div className="bg-white p-4 rounded-2xl shadow-md">
-              <iframe
-                src="https://www.google.com/maps/embed?pb=!1m28!1m12!1m3!1d31912.163953713316!2d101.68658!3d3.1479!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!4m13!3e3!4m5!1s0x31cc49c701efeae7%3A0xf4d98e5b2f1c287d!2sKL%20Sentral!3m2!1d3.1334853!2d101.6859016!4m5!1s0x31cc37d5bf524375%3A0x73c598d5e4667c2!2sBukit%20Bintang%2C%20Kuala%20Lumpur!3m2!1d3.1477739!2d101.7100803!5e0!3m2!1sen!2s!4v1234567890&hl=en"
-                width="100%"
-                height="400"
-                style={{ border: 0, borderRadius: '12px' }}
-                allowFullScreen
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
+              {mapEmbedSrc ? (
+                <iframe
+                  src={mapEmbedSrc}
+                  width="100%"
+                  height="400"
+                  style={{ border: 0, borderRadius: '12px' }}
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              ) : (
+                <div className="h-[400px] rounded-xl bg-[#F5F7FA] flex items-center justify-center text-[#1E3A5F] font-medium">
+                  Plan a route first to view the map.
+                </div>
+              )}
             </div>
           )}
         </div>

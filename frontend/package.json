@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite"
+    "dev": "vite",
+    "dev:stable": "CHOKIDAR_USEPOLLING=true CHOKIDAR_INTERVAL=250 vite --host 127.0.0.1 --port 5173 --strictPort --force"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

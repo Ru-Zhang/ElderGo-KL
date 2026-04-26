@@ -33,4 +33,18 @@ export default defineConfig({
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
+  server: {
+    host: '127.0.0.1',
+    port: 5173,
+    strictPort: true,
+    watch: {
+      usePolling: true,
+      interval: 250,
+    },
+    hmr: {
+      host: '127.0.0.1',
+      protocol: 'ws',
+      clientPort: 5173,
+    },
+  },
 })

@@ -80,7 +80,7 @@ export default function StationsHomePage({
           backgroundPosition: 'center'
         }}
       >
-        <div className="absolute inset-0 bg-white/45" />
+        <div className="absolute inset-0 bg-white/35" />
         <div
           className="absolute bottom-0 left-0 right-0 h-96 bg-bottom bg-no-repeat bg-contain"
           style={{

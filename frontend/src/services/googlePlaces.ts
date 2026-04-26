@@ -3,11 +3,15 @@ import { apiRequest } from './api';
 
 export async function getPlaceSuggestions(query: string): Promise<PlaceSelection[]> {
   if (!query.trim()) return [];
-  const suggestions = await apiRequest<Array<{ description: string; place_id: string }>>(
+  const suggestions = await apiRequest<Array<{
+    description: string;
+    place_id: string;
+    main_text?: string | null;
+  }>>(
     `/places/autocomplete?q=${encodeURIComponent(query)}`
   );
   return suggestions.map((suggestion) => ({
-    displayName: suggestion.description,
+    displayName: suggestion.main_text?.trim() || suggestion.description,
     googlePlaceId: suggestion.place_id
   }));
 }

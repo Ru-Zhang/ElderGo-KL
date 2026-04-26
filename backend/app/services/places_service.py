@@ -35,6 +35,8 @@ async def autocomplete_places(query: str) -> list[PlaceSuggestion]:
         PlaceSuggestion(
             description=item["description"],
             place_id=item["place_id"],
+            main_text=item.get("structured_formatting", {}).get("main_text"),
+            secondary_text=item.get("structured_formatting", {}).get("secondary_text"),
         )
         for item in body.get("predictions", [])
     ]
