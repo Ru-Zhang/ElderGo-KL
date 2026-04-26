@@ -2,6 +2,7 @@ import { ChevronLeft, CreditCard, CheckCircle } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import BottomNav from '../components/layout/BottomNav';
 import { useAppContext } from '../app/AppProvider';
+import { getTranslation } from '../i18n/translations';
 
 interface ConcessionGuidePageProps {
   onNavigateToHelp: () => void;
@@ -18,8 +19,9 @@ export default function ConcessionGuidePage({
   onNavigateToPreference,
   onShowChatbot
 }: ConcessionGuidePageProps) {
-  const { fontSize } = useAppContext();
+  const { fontSize, language } = useAppContext();
   const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
+  const t = (key: string) => getTranslation(language, key as any);
 
   return (
     <div className="min-h-screen relative" style={{ fontFamily: 'Poppins' }}>
@@ -50,38 +52,38 @@ export default function ConcessionGuidePage({
             className="flex items-center gap-2 text-[#4A90E2] mb-6 hover:text-[#3A7FD2]"
           >
             <ChevronLeft size={24 * baseFontSize} strokeWidth={2.5} />
-            <span className="font-medium" style={{ fontSize: `${18 * baseFontSize}px` }}>Back to Help</span>
+            <span className="font-medium" style={{ fontSize: `${18 * baseFontSize}px` }}>{t('backToHelp')}</span>
           </button>
 
           <h2 className="font-semibold text-[#1E3A5F] mb-8" style={{ fontSize: `${30 * baseFontSize}px` }}>
-            Senior Citizen Discount Guide
+            {t('concessionTitle')}
           </h2>
 
           <div className="space-y-6">
             <div className="bg-[#6BBF59] text-white p-6 rounded-2xl shadow-md">
               <h3 className="font-bold mb-3" style={{ fontSize: `${24 * baseFontSize}px` }}>
-                Your Special Benefit
+                {t('concessionBenefitTitle')}
               </h3>
               <p className="leading-relaxed" style={{ fontSize: `${20 * baseFontSize}px` }}>
-                Did you know? Malaysian citizens aged <span className="font-bold">60 and above</span> can enjoy a <span className="font-bold" style={{ fontSize: `${28 * baseFontSize}px` }}>50% discount</span> on all LRT, MRT, Monorail, and BRT train fares!
+                {t('concessionBenefitBodyPrefix')} <span className="font-bold">{t('concessionAgeHighlight')}</span> {t('concessionBenefitBodyMiddle')} <span className="font-bold" style={{ fontSize: `${28 * baseFontSize}px` }}>{t('concessionDiscountHighlight')}</span> {t('concessionBenefitBodySuffix')}
               </p>
             </div>
 
             <div className="bg-white p-6 rounded-2xl shadow-md">
               <h3 className="font-semibold text-[#1E3A5F] mb-4" style={{ fontSize: `${22 * baseFontSize}px` }}>
-                What You Need to Prepare
+                {t('concessionPrepareTitle')}
               </h3>
               <div className="flex items-center gap-3 bg-[#F5F7FA] p-4 rounded-xl">
                 <CreditCard size={32 * baseFontSize} strokeWidth={2.5} className="text-[#4A90E2]" />
                 <p className="font-semibold text-[#1E3A5F]" style={{ fontSize: `${20 * baseFontSize}px` }}>
-                  Your original MyKad (IC)
+                  {t('concessionPrepareItem')}
                 </p>
               </div>
             </div>
 
             <div className="bg-white p-6 rounded-2xl shadow-md">
               <h3 className="font-semibold text-[#1E3A5F] mb-4" style={{ fontSize: `${22 * baseFontSize}px` }}>
-                How to Apply (4 Simple Steps)
+                {t('concessionHowToApplyTitle')}
               </h3>
               <div className="space-y-4">
                 <div className="flex items-start gap-4">
@@ -89,8 +91,8 @@ export default function ConcessionGuidePage({
                     1
                   </div>
                   <div>
-                    <p className="font-semibold text-[#1E3A5F]" style={{ fontSize: `${20 * baseFontSize}px` }}>Prepare</p>
-                    <p className="text-gray-700" style={{ fontSize: `${18 * baseFontSize}px` }}>Bring your MyKad.</p>
+                    <p className="font-semibold text-[#1E3A5F]" style={{ fontSize: `${20 * baseFontSize}px` }}>{t('concessionStep1Title')}</p>
+                    <p className="text-gray-700" style={{ fontSize: `${18 * baseFontSize}px` }}>{t('concessionStep1Body')}</p>
                   </div>
                 </div>
 
@@ -99,8 +101,8 @@ export default function ConcessionGuidePage({
                     2
                   </div>
                   <div>
-                    <p className="font-semibold text-[#1E3A5F]" style={{ fontSize: `${20 * baseFontSize}px` }}>Go to the Counter</p>
-                    <p className="text-gray-700" style={{ fontSize: `${18 * baseFontSize}px` }}>Visit the Concession Registration Counter (for example, at Pasar Seni Hub).</p>
+                    <p className="font-semibold text-[#1E3A5F]" style={{ fontSize: `${20 * baseFontSize}px` }}>{t('concessionStep2Title')}</p>
+                    <p className="text-gray-700" style={{ fontSize: `${18 * baseFontSize}px` }}>{t('concessionStep2Body')}</p>
                   </div>
                 </div>
 
@@ -109,8 +111,8 @@ export default function ConcessionGuidePage({
                     3
                   </div>
                   <div>
-                    <p className="font-semibold text-[#1E3A5F]" style={{ fontSize: `${20 * baseFontSize}px` }}>Fill the Form</p>
-                    <p className="text-gray-700" style={{ fontSize: `${18 * baseFontSize}px` }}>Fill in a short and simple application form.</p>
+                    <p className="font-semibold text-[#1E3A5F]" style={{ fontSize: `${20 * baseFontSize}px` }}>{t('concessionStep3Title')}</p>
+                    <p className="text-gray-700" style={{ fontSize: `${18 * baseFontSize}px` }}>{t('concessionStep3Body')}</p>
                   </div>
                 </div>
 
@@ -119,8 +121,8 @@ export default function ConcessionGuidePage({
                     <CheckCircle size={24 * baseFontSize} strokeWidth={2.5} />
                   </div>
                   <div>
-                    <p className="font-semibold text-[#1E3A5F]" style={{ fontSize: `${20 * baseFontSize}px` }}>Collect Your Card</p>
-                    <p className="text-gray-700" style={{ fontSize: `${18 * baseFontSize}px` }}>The staff will take your picture, and you can collect your new discount card on the spot!</p>
+                    <p className="font-semibold text-[#1E3A5F]" style={{ fontSize: `${20 * baseFontSize}px` }}>{t('concessionStep4Title')}</p>
+                    <p className="text-gray-700" style={{ fontSize: `${18 * baseFontSize}px` }}>{t('concessionStep4Body')}</p>
                   </div>
                 </div>
               </div>

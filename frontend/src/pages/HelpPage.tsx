@@ -2,6 +2,7 @@ import { Book, Ticket, CreditCard, Shield, ChevronRight, AlertTriangle } from 'l
 import TopBar from '../components/layout/TopBar';
 import BottomNav from '../components/layout/BottomNav';
 import { useAppContext } from '../app/AppProvider';
+import { getTranslation } from '../i18n/translations';
 
 interface HelpPageProps {
   onNavigateToPlanning: () => void;
@@ -26,13 +27,14 @@ export default function HelpPage({
   onNavigateToPreference,
   onShowChatbot
 }: HelpPageProps) {
-  const { fontSize } = useAppContext();
+  const { fontSize, language } = useAppContext();
   const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
+  const t = (key: string) => getTranslation(language, key as any);
 
   const handleReset = () => {
-    if (confirm('This will clear your saved preferences and history. Are you sure?')) {
+    if (confirm(t('helpResetConfirmDialog'))) {
       // Reset logic would go here
-      alert('Cache cleared and app reset successfully!');
+      alert(t('helpResetSuccess'));
     }
   };
 
@@ -61,7 +63,7 @@ export default function HelpPage({
       <main className="pt-20 pb-32 px-6">
         <div className="max-w-2xl mx-auto mt-8">
           <h2 className="font-semibold text-[#1E3A5F] mb-6" style={{ fontSize: `${24 * baseFontSize}px` }}>
-            How can we help you?
+            {t('helpTitle')}
           </h2>
 
           <div className="grid grid-cols-2 gap-4 mb-10">
@@ -73,7 +75,7 @@ export default function HelpPage({
                 <Book size={32 * baseFontSize} strokeWidth={2.5} className="text-white" />
               </div>
               <span className="font-semibold text-white text-center" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                Use ElderGo
+                {t('helpUseElderGo')}
               </span>
             </button>
 
@@ -85,7 +87,7 @@ export default function HelpPage({
                 <Ticket size={32 * baseFontSize} strokeWidth={2.5} className="text-white" />
               </div>
               <span className="font-semibold text-white text-center" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                Buy a ticket
+                {t('helpBuyTicket')}
               </span>
             </button>
 
@@ -97,7 +99,7 @@ export default function HelpPage({
                 <CreditCard size={32 * baseFontSize} strokeWidth={2.5} className="text-white" />
               </div>
               <span className="font-semibold text-white text-center" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                Apply for Concession
+                {t('helpApplyConcession')}
               </span>
             </button>
 
@@ -109,7 +111,7 @@ export default function HelpPage({
                 <Shield size={32 * baseFontSize} strokeWidth={2.5} className="text-white" />
               </div>
               <span className="font-semibold text-white text-center" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                Privacy Info
+                {t('helpPrivacyInfo')}
               </span>
             </button>
           </div>
@@ -117,7 +119,7 @@ export default function HelpPage({
           <div className="h-px bg-gray-300 my-8"></div>
 
           <h3 className="font-semibold text-[#1E3A5F] mb-6" style={{ fontSize: `${24 * baseFontSize}px` }}>
-            App Issues?
+            {t('helpAppIssues')}
           </h3>
 
           <button
@@ -126,12 +128,12 @@ export default function HelpPage({
             style={{ fontSize: `${20 * baseFontSize}px` }}
           >
             <AlertTriangle size={24 * baseFontSize} strokeWidth={2.5} />
-            Clear Cache & Reset
+            {t('helpClearCache')}
           </button>
 
           <div className="bg-[#FFE5B4] border-l-4 border-[#E67E22] p-5 rounded-xl">
             <p className="text-[#1E3A5F] font-medium" style={{ fontSize: `${16 * baseFontSize}px` }}>
-              ⚠️ This will clear your saved preferences and history. Are you sure?
+              {t('helpResetWarning')}
             </p>
           </div>
         </div>

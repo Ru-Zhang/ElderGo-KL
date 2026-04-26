@@ -2,6 +2,7 @@ import { ChevronLeft, Shield, MapPinOff, Archive, Ban } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import BottomNav from '../components/layout/BottomNav';
 import { useAppContext } from '../app/AppProvider';
+import { getTranslation } from '../i18n/translations';
 
 interface PrivacyInfoPageProps {
   onNavigateToHelp: () => void;
@@ -18,8 +19,9 @@ export default function PrivacyInfoPage({
   onNavigateToPreference,
   onShowChatbot
 }: PrivacyInfoPageProps) {
-  const { fontSize } = useAppContext();
+  const { fontSize, language } = useAppContext();
   const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
+  const t = (key: string) => getTranslation(language, key as any);
 
   return (
     <div className="min-h-screen relative" style={{ fontFamily: 'Poppins' }}>
@@ -50,7 +52,7 @@ export default function PrivacyInfoPage({
             className="flex items-center gap-2 text-[#4A90E2] mb-6 hover:text-[#3A7FD2]"
           >
             <ChevronLeft size={24 * baseFontSize} strokeWidth={2.5} />
-            <span className="font-medium" style={{ fontSize: `${18 * baseFontSize}px` }}>Back to Help</span>
+            <span className="font-medium" style={{ fontSize: `${18 * baseFontSize}px` }}>{t('backToHelp')}</span>
           </button>
 
           <div className="flex items-center gap-4 mb-8">
@@ -58,16 +60,16 @@ export default function PrivacyInfoPage({
               <Shield size={36 * baseFontSize} strokeWidth={2.5} className="text-white" />
             </div>
             <h2 className="font-semibold text-[#1E3A5F]" style={{ fontSize: `${30 * baseFontSize}px` }}>
-              Your Privacy & Safety
+              {t('privacyTitle')}
             </h2>
           </div>
 
           <div className="bg-[#4A90E2] text-white p-6 rounded-2xl shadow-md mb-6">
             <h3 className="font-bold mb-3" style={{ fontSize: `${24 * baseFontSize}px` }}>
-              Our Promise
+              {t('privacyPromiseTitle')}
             </h3>
             <p className="leading-relaxed" style={{ fontSize: `${20 * baseFontSize}px` }}>
-              We protect your privacy just like we protect our own family. Here is our promise to you:
+              {t('privacyPromiseBody')}
             </p>
           </div>
 
@@ -79,10 +81,10 @@ export default function PrivacyInfoPage({
                 </div>
                 <div>
                   <h4 className="font-semibold text-[#1E3A5F] mb-2" style={{ fontSize: `${20 * baseFontSize}px` }}>
-                    No Location Tracking
+                    {t('privacyItem1Title')}
                   </h4>
                   <p className="text-gray-700 leading-relaxed" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                    We do not track your phone's GPS location. You are completely safe.
+                    {t('privacyItem1Body')}
                   </p>
                 </div>
               </div>
@@ -95,10 +97,10 @@ export default function PrivacyInfoPage({
                 </div>
                 <div>
                   <h4 className="font-semibold text-[#1E3A5F] mb-2" style={{ fontSize: `${20 * baseFontSize}px` }}>
-                    No Travel History Saved
+                    {t('privacyItem2Title')}
                   </h4>
                   <p className="text-gray-700 leading-relaxed" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                    We do not save or remember where you travel. Once you close the app, your route history is wiped clean automatically.
+                    {t('privacyItem2Body')}
                   </p>
                 </div>
               </div>
@@ -111,10 +113,10 @@ export default function PrivacyInfoPage({
                 </div>
                 <div>
                   <h4 className="font-semibold text-[#1E3A5F] mb-2" style={{ fontSize: `${20 * baseFontSize}px` }}>
-                    No Annoying Ads
+                    {t('privacyItem3Title')}
                   </h4>
                   <p className="text-gray-700 leading-relaxed" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                    We will never sell your information or show you confusing, clickable advertisements.
+                    {t('privacyItem3Body')}
                   </p>
                 </div>
               </div>
@@ -123,7 +125,7 @@ export default function PrivacyInfoPage({
 
           <div className="bg-[#F5F7FA] border-2 border-[#4A90E2] p-6 rounded-2xl mt-6">
             <p className="text-[#1E3A5F] leading-relaxed text-center" style={{ fontSize: `${18 * baseFontSize}px` }}>
-              ElderGo KL is designed purely to help you travel with peace of mind. Your data is strictly protected under the Personal Data Protection Act (PDPA).
+              {t('privacyFooter')}
             </p>
           </div>
         </div>
