@@ -24,7 +24,7 @@ export default function PreferencePage({
   const { fontSize, language, preferences, updatePreferences, clearPreferences } = useAppContext();
   const [localPreferences, setLocalPreferences] = useState(preferences);
 
-  const baseFontSize = fontSize === 'large' ? 1.25 : 1;
+  const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
   const t = (key: string) => getTranslation(language, key as any);
 
   const handleSave = () => {

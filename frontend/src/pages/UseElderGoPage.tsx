@@ -19,7 +19,7 @@ export default function UseElderGoPage({
   onShowChatbot
 }: UseElderGoPageProps) {
   const { fontSize } = useAppContext();
-  const baseFontSize = fontSize === 'large' ? 1.25 : 1;
+  const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
 
   return (
     <div className="min-h-screen relative" style={{ fontFamily: 'Poppins' }}>

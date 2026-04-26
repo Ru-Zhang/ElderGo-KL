@@ -22,7 +22,7 @@ export default function StationsHomePage({
   onShowChatbot
 }: StationsHomePageProps) {
   const { fontSize, setSelectedStation } = useAppContext();
-  const baseFontSize = fontSize === 'large' ? 1.25 : 1;
+  const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<StationData[]>([]);

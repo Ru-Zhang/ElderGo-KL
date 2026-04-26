@@ -5,6 +5,7 @@ import BottomNav from '../components/layout/BottomNav';
 import PreferencesModal from '../components/common/PreferencesModal';
 import { useAppContext } from '../app/AppProvider';
 import { getTranslation } from '../i18n/translations';
+import { getPlaceSuggestions } from '../services/googlePlaces';
 
 interface PlanningPageProps {
   onNavigateToPlanning: () => void;
@@ -25,8 +26,13 @@ export default function PlanningPage({
   onNavigateToUseElderGo,
   onShowChatbot
 }: PlanningPageProps) {
-  const { fontSize, language } = useAppContext();
-  const baseFontSize = fontSize === 'large' ? 1.25 : 1;
+  const {
+    fontSize,
+    language,
+    setOrigin: setRouteOrigin,
+    setDestination: setRouteDestination
+  } = useAppContext();
+  const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
 
   const t = (key: string) => getTranslation(language, key as any);
 
@@ -57,26 +63,36 @@ export default function PlanningPage({
     }
   };
 
-  const handleStartChange = (value: string) => {
+  const handleStartChange = async (value: string) => {
     setStartPoint(value);
     if (value.length > 0) {
-      const filtered = popularLocations.filter(loc =>
-        loc.toLowerCase().includes(value.toLowerCase())
-      );
-      setStartSuggestions(filtered);
+      try {
+        const suggestions = await getPlaceSuggestions(value);
+        setStartSuggestions(suggestions.map((suggestion) => suggestion.displayName));
+      } catch {
+        const filtered = popularLocations.filter(loc =>
+          loc.toLowerCase().includes(value.toLowerCase())
+        );
+        setStartSuggestions(filtered);
+      }
       setShowStartDropdown(true);
     } else {
       setShowStartDropdown(false);
     }
   };
 
-  const handleDestChange = (value: string) => {
+  const handleDestChange = async (value: string) => {
     setDestination(value);
     if (value.length > 0) {
-      const filtered = popularLocations.filter(loc =>
-        loc.toLowerCase().includes(value.toLowerCase())
-      );
-      setDestSuggestions(filtered);
+      try {
+        const suggestions = await getPlaceSuggestions(value);
+        setDestSuggestions(suggestions.map((suggestion) => suggestion.displayName));
+      } catch {
+        const filtered = popularLocations.filter(loc =>
+          loc.toLowerCase().includes(value.toLowerCase())
+        );
+        setDestSuggestions(filtered);
+      }
       setShowDestDropdown(true);
     } else {
       setShowDestDropdown(false);
@@ -85,6 +101,8 @@ export default function PlanningPage({
 
   const handleSearch = () => {
     if (startPoint && destination) {
+      setRouteOrigin({ displayName: startPoint });
+      setRouteDestination({ displayName: destination });
       onNavigateToPlanTime();
     }
   };

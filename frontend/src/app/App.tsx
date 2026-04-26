@@ -39,7 +39,8 @@ function AppContent() {
     onShowChatbot: () => setShowChatbot(true)
   };
 
-  const fontSizeClass = fontSize === 'large' ? 'text-[20px]' : 'text-base';
+  const fontSizeClass =
+    fontSize === 'extra_large' ? 'text-[24px]' : fontSize === 'large' ? 'text-[20px]' : 'text-base';
 
   return (
     <div className={`size-full ${fontSizeClass}`} style={{ fontFamily: 'Poppins' }}>

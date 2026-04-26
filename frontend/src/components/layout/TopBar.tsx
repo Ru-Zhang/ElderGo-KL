@@ -29,14 +29,14 @@ export default function TopBar() {
         <button
           onClick={toggleFontSize}
           className={`flex items-center gap-2 px-4 py-2 border-2 rounded-full transition-all shadow-sm active:scale-95 ${
-            fontSize === 'large'
+            fontSize !== 'standard'
               ? 'bg-[#6BBF59] border-[#6BBF59] text-white'
               : 'bg-white/90 border-gray-300 text-[#1E3A5F] hover:bg-[#6BBF59] hover:border-[#6BBF59] hover:text-white'
           }`}
           style={{ fontFamily: 'Poppins' }}
         >
           <Type size={18} strokeWidth={2.5} />
-          <span className="text-[16px] font-medium">A+</span>
+          <span className="text-[16px] font-medium">{fontSize === 'extra_large' ? 'A++' : 'A+'}</span>
         </button>
       </div>
     </div>

@@ -22,7 +22,7 @@ export default function StationDetailPage({
   onShowChatbot
 }: StationDetailPageProps) {
   const { fontSize, selectedStation } = useAppContext();
-  const baseFontSize = fontSize === 'large' ? 1.25 : 1;
+  const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
 
   if (!selectedStation) {
     return (
