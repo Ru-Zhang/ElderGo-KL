@@ -1,0 +1,121 @@
+import { Mic, X, Plus, CloudRain, Headphones, ArrowRight } from 'lucide-react';
+import { useState } from 'react';
+
+interface AIChatbotSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function AIChatbotSheet({ isOpen, onClose }: AIChatbotSheetProps) {
+  const [messages, setMessages] = useState<Array<{ text: string; isUser: boolean }>>([]);
+  const [inputText, setInputText] = useState('');
+
+  if (!isOpen) return null;
+
+  const quickQuestions = [
+    { text: 'Take me to hospital', icon: Plus },
+    { text: 'Is it raining now?', icon: CloudRain },
+    { text: 'Call Station Staff', icon: Headphones }
+  ];
+
+  const handleQuickQuestion = (question: string) => {
+    setMessages([
+      { text: question, isUser: true },
+      { text: `I can help you with "${question}". Let me find the best route for you.`, isUser: false }
+    ]);
+  };
+
+  const handleSend = () => {
+    if (inputText.trim()) {
+      setMessages([
+        ...messages,
+        { text: inputText, isUser: true },
+        { text: `Thank you for your question. I'm here to help you with: ${inputText}`, isUser: false }
+      ]);
+      setInputText('');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100]">
+      <div
+        className="absolute inset-0 bg-black/40"
+        onClick={onClose}
+      />
+      <div
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl"
+        style={{ height: '75vh', fontFamily: 'Poppins' }}
+      >
+        <div className="relative h-full flex flex-col p-6">
+          <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
+
+          <h2 className="text-3xl font-bold text-[#1E3A5F] mb-8">
+            Hi! How can I help you today?
+          </h2>
+
+          <div className="flex-1 overflow-y-auto mb-6">
+            {messages.length === 0 ? (
+              <div className="space-y-4">
+                {quickQuestions.map((question, index) => {
+                  const IconComponent = question.icon;
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => handleQuickQuestion(question.text)}
+                      className="w-full px-6 py-5 bg-white border-3 border-[#4A90E2] rounded-2xl text-[18px] font-semibold text-[#1E3A5F] hover:bg-[#F5F7FA] transition-colors flex items-center justify-between group"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-[#4A90E2] rounded-lg flex items-center justify-center">
+                          <IconComponent size={22} strokeWidth={2.5} className="text-white" />
+                        </div>
+                        <span>{question.text}</span>
+                      </div>
+                      <ArrowRight size={24} strokeWidth={2.5} className="text-gray-400 group-hover:text-[#4A90E2] transition-colors" />
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {messages.map((msg, index) => (
+                  <div
+                    key={index}
+                    className={`flex ${msg.isUser ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-[80%] px-5 py-3 rounded-2xl ${
+                        msg.isUser
+                          ? 'bg-[#4A90E2] text-white'
+                          : 'bg-gray-100 text-[#1E3A5F]'
+                      }`}
+                    >
+                      <p className="text-[16px]">{msg.text}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3 items-center">
+            <input
+              type="text"
+              placeholder="Ask me anything..."
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+              className="flex-1 px-5 py-4 border-2 border-gray-300 rounded-xl text-[18px] text-[#1E3A5F] placeholder:text-gray-400 focus:outline-none focus:border-[#4A90E2]"
+              style={{ fontFamily: 'Poppins' }}
+            />
+            <button
+              onClick={handleSend}
+              className="w-16 h-16 bg-[#DC3545] hover:bg-[#C82333] rounded-2xl flex items-center justify-center transition-colors shadow-lg"
+            >
+              <Mic size={28} strokeWidth={2.5} className="text-white" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

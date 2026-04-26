@@ -36,7 +36,7 @@ This project adopts Pair Programming to improve code quality, reduce bugs, and e
 - Visual Studio Code (code editor)  
 - Git (version control)  
 - GitHub (repository management)  
-- Online communication tools (e.g., Zoom / Discord)  
+- Online communication tool (Zoom)  
 
 ---
 
