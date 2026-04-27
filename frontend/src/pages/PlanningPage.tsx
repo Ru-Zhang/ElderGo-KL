@@ -31,7 +31,9 @@ export default function PlanningPage({
     fontSize,
     language,
     onboardingCompleted,
+    origin,
     preferences,
+    destination: routeDestination,
     setOrigin: setRouteOrigin,
     setDestination: setRouteDestination
   } = useAppContext();
@@ -41,10 +43,12 @@ export default function PlanningPage({
 
   const [showPreferences, setShowPreferences] = useState(false);
   const [hasClickedInput, setHasClickedInput] = useState(false);
-  const [startPoint, setStartPoint] = useState('');
-  const [destination, setDestination] = useState('');
-  const [selectedOrigin, setSelectedOrigin] = useState<PlaceSelection | null>(null);
-  const [selectedDestination, setSelectedDestination] = useState<PlaceSelection | null>(null);
+  const [startPoint, setStartPoint] = useState(origin?.displayName || '');
+  const [destination, setDestination] = useState(routeDestination?.displayName || '');
+  const [selectedOrigin, setSelectedOrigin] = useState<PlaceSelection | null>(origin);
+  const [selectedDestination, setSelectedDestination] = useState<PlaceSelection | null>(routeDestination);
+  const [shouldClearRetainedOrigin, setShouldClearRetainedOrigin] = useState(Boolean(origin));
+  const [shouldClearRetainedDestination, setShouldClearRetainedDestination] = useState(Boolean(routeDestination));
   const [startSuggestions, setStartSuggestions] = useState<PlaceSelection[]>([]);
   const [destSuggestions, setDestSuggestions] = useState<PlaceSelection[]>([]);
   const [showStartDropdown, setShowStartDropdown] = useState(false);
@@ -82,6 +86,30 @@ export default function PlanningPage({
       setShowPreferences(true);
     }
     setHasClickedInput(true);
+  };
+
+  const handleStartInputClick = () => {
+    handleInputClick();
+    if (!shouldClearRetainedOrigin) return;
+
+    setStartPoint('');
+    setSelectedOrigin(null);
+    setStartSuggestions([]);
+    setShowStartDropdown(false);
+    setFormError(null);
+    setShouldClearRetainedOrigin(false);
+  };
+
+  const handleDestinationInputClick = () => {
+    handleInputClick();
+    if (!shouldClearRetainedDestination) return;
+
+    setDestination('');
+    setSelectedDestination(null);
+    setDestSuggestions([]);
+    setShowDestDropdown(false);
+    setFormError(null);
+    setShouldClearRetainedDestination(false);
   };
 
   const handleStartChange = async (value: string) => {
@@ -229,7 +257,7 @@ export default function PlanningPage({
                   placeholder={t('enterStartingPoint')}
                   value={startPoint}
                   onChange={(e) => handleStartChange(e.target.value)}
-                  onClick={handleInputClick}
+                  onClick={handleStartInputClick}
                   onFocus={() => startPoint && setShowStartDropdown(true)}
                   className="w-full pl-16 pr-6 py-5 bg-white border-2 border-eldergo-border rounded-xl font-medium text-eldergo-navy placeholder:text-eldergo-muted focus:outline-none focus:border-eldergo-blue shadow-md relative z-10"
                   style={{ fontSize: `${18 * baseFontSize}px` }}
@@ -275,7 +303,7 @@ export default function PlanningPage({
                   placeholder={t('enterDestination')}
                   value={destination}
                   onChange={(e) => handleDestChange(e.target.value)}
-                  onClick={handleInputClick}
+                  onClick={handleDestinationInputClick}
                   onFocus={() => destination && setShowDestDropdown(true)}
                   className="w-full pl-16 pr-6 py-5 bg-white border-2 border-eldergo-border rounded-xl font-medium text-eldergo-navy placeholder:text-eldergo-muted focus:outline-none focus:border-eldergo-blue shadow-md relative z-10"
                   style={{ fontSize: `${18 * baseFontSize}px` }}

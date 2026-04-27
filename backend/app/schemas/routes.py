@@ -21,9 +21,23 @@ class RouteRecommendationRequest(BaseModel):
 
 
 class RouteAccessibilityAnnotation(BaseModel):
-    status: Literal["supported", "limited", "unknown", "not_verified"] = "unknown"
+    status: Literal["supported", "limited", "unknown", "not_verified", "not_supported"] = "unknown"
     message: str
     source: str
+
+
+class RouteAccessibilityPoint(BaseModel):
+    step_number: int
+    point_id: str
+    name: str | None = None
+    lat: float
+    lon: float
+    annotation_type: str
+    accessibility_type: str | None = None
+    wheelchair: str | None = None
+    shelter: str | None = None
+    covered: str | None = None
+    distance_meters: int | None = None
 
 
 class RouteStep(BaseModel):
@@ -33,6 +47,9 @@ class RouteStep(BaseModel):
     duration_minutes: int | None = None
     distance_meters: int | None = None
     transit_line: str | None = None
+    map_polyline: str | None = None
+    transit_color: str | None = None
+    transit_vehicle_type: str | None = None
     from_station: str | None = None
     to_station: str | None = None
     annotation: RouteAccessibilityAnnotation
@@ -48,3 +65,4 @@ class RecommendedRoute(BaseModel):
     recommendation_reason: str
     map_polyline: str | None = None
     steps: list[RouteStep]
+    accessibility_points: list[RouteAccessibilityPoint] = Field(default_factory=list)

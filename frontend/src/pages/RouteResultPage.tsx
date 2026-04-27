@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Download, Share2, Cloud, Train, MapPin, Footprints, ChevronLeft, ChevronRight, ArrowDown } from 'lucide-react';
+import { Download, Share2, Cloud, CloudLightning, CloudRain, CloudSun, Sun, Train, MapPin, Footprints, ChevronLeft, ChevronRight, ArrowDown } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import BottomNav from '../components/layout/BottomNav';
 import { useAppContext } from '../app/AppProvider';
@@ -8,6 +8,7 @@ import { DestinationWeather, getDestinationWeather } from '../services/weatherAp
 
 interface RouteResultPageProps {
   onNavigateToPlanning: () => void;
+  onNavigateToPlanTime: () => void;
   onNavigateToStation: () => void;
   onNavigateToHelp: () => void;
   onNavigateToPreference: () => void;
@@ -26,8 +27,11 @@ const BRAND_COLORS = {
   body: '#334155'
 };
 
+const GOOGLE_MAPS_EMBED_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || import.meta.env.VITE_GOOGLE_MAPS_BROWSER_KEY;
+
 export default function RouteResultPage({
   onNavigateToPlanning,
+  onNavigateToPlanTime,
   onNavigateToStation,
   onNavigateToHelp,
   onNavigateToPreference,
@@ -142,7 +146,7 @@ export default function RouteResultPage({
       currentRoute?.destination_name
     ),
     duration: step.duration_minutes ? `${step.duration_minutes} ${t('routeMins')}` : t('routeTimeUnknown'),
-    distance: step.distance_meters ? `${step.distance_meters}m` : step.transit_line || '',
+    distance: step.step_type === 'walking' && step.distance_meters ? `${step.distance_meters}m` : '',
     icon: step.step_type === 'walking' ? Footprints : step.step_type === 'transit' ? Train : MapPin,
     color: step.step_type === 'walking' ? BRAND_COLORS.blue : step.step_type === 'transit' ? BRAND_COLORS.green : BRAND_COLORS.warning,
     accessibility: localizeAccessibilityMessage(step.annotation.message)
@@ -189,22 +193,97 @@ export default function RouteResultPage({
     };
   }, [currentRoute?.recommended_route_id, currentRoute?.destination_name, departureTime, destination?.displayName, destination?.lat, destination?.lon]);
 
-  const weatherAdvice = () => {
-    if (!currentRoute) return t('routeWeatherPlanFirst');
-    if (weatherStatus === 'loading') return t('routeWeatherLoading');
-    if (weatherStatus === 'unavailable' || !weather) return t('routeWeatherUnavailable');
-
-    if (weather.riskLevel === 'storm') return t('routeWeatherStormAdvice');
-    if (weather.riskLevel === 'rain') return t('routeWeatherRainAdvice');
-    if (weather.riskLevel === 'hot') return t('routeWeatherHotAdvice');
-    return t('routeWeatherClearAdvice');
-  };
-
   const seniorWeatherTips = () => {
     if (weatherStatus === 'loading') return [t('routeWeatherSeniorLoading')];
     if (weatherStatus !== 'ready' || !weather) return [t('routeWeatherSeniorUnavailable')];
-    return weather.seniorAdvice.length ? weather.seniorAdvice : [t('routeWeatherSeniorUnavailable')];
+    const tipKeys = {
+      storm: ['routeWeatherSeniorStorm1', 'routeWeatherSeniorStorm2'],
+      rain: ['routeWeatherSeniorRain1', 'routeWeatherSeniorRain2'],
+      hot: ['routeWeatherSeniorHot1', 'routeWeatherSeniorHot2'],
+      clear: ['routeWeatherSeniorClear1', 'routeWeatherSeniorClear2'],
+      unavailable: ['routeWeatherSeniorUnavailable']
+    } as const;
+    return tipKeys[weather.riskLevel].map((key) => t(key));
   };
+
+  const weatherDestinationLabel = weather
+    ? toLocationLabel(weather.destinationName)
+    : currentRoute
+      ? toLocationLabel(currentRoute.destination_name)
+      : t('routeWeatherTitle');
+
+  const weatherPeriodLabel = () => {
+    if (weatherStatus !== 'ready' || !weather) return '-';
+    const hasRainSignal = weather.riskLevel === 'rain' || weather.riskLevel === 'storm' || (weather.precipitationProbabilityPercent ?? 0) > 0 || weather.rainMm > 0;
+    if (!hasRainSignal) return '-';
+    const periodKeys = {
+      now: 'planTimeNow',
+      morning: 'planTimeMorning',
+      afternoon: 'planTimeAfternoon',
+      evening: 'planTimeEvening'
+    } as const;
+    return t(periodKeys[weather.periodLabel]);
+  };
+
+  const getWeatherIcon = () => {
+    if (!weather) return Cloud;
+    const description = `${weather.weatherMain} ${weather.weatherDescription}`.toLowerCase();
+    if (weather.riskLevel === 'storm' || description.includes('thunder') || description.includes('storm')) return CloudLightning;
+    if (weather.riskLevel === 'rain' || description.includes('rain') || description.includes('drizzle')) return CloudRain;
+    if (weather.riskLevel === 'hot' || description.includes('clear')) return Sun;
+    if (description.includes('cloud')) return Cloud;
+    return CloudSun;
+  };
+
+  const WeatherIcon = getWeatherIcon();
+
+  const weatherCard = (
+    <div className="bg-white/95 border-2 border-eldergo-border p-5 rounded-2xl shadow-md mb-6">
+      <div className="flex items-center gap-4 mb-4">
+        <div className="w-12 h-12 bg-eldergo-blue/15 rounded-full flex items-center justify-center flex-shrink-0">
+          <WeatherIcon size={28} strokeWidth={2.5} className="text-eldergo-blue" />
+        </div>
+        <h3 className="text-[20px] font-semibold text-eldergo-navy leading-tight">
+          {weatherDestinationLabel}
+        </h3>
+      </div>
+      <div>
+          {weatherStatus === 'ready' && weather && (
+            <div className="grid grid-cols-2 gap-3 text-center">
+              <div className="rounded-xl bg-eldergo-bg px-3 py-3">
+                <div className="text-[20px] font-bold text-eldergo-blue">{weather.temperatureC}&deg;C</div>
+                <div className="text-[13px] text-eldergo-muted">{t('routeWeatherTemp')}</div>
+              </div>
+              <div className="rounded-xl bg-eldergo-bg px-3 py-3">
+                <div className="text-[20px] font-bold text-eldergo-blue">{weather.feelsLikeC}&deg;C</div>
+                <div className="text-[13px] text-eldergo-muted">{t('routeWeatherFeelsLike')}</div>
+              </div>
+              <div className="rounded-xl bg-eldergo-bg px-3 py-3">
+                <div className="text-[20px] font-bold text-eldergo-blue">{weather.windKmh}</div>
+                <div className="text-[13px] text-eldergo-muted">{t('routeWeatherWind')}</div>
+              </div>
+              <div className="rounded-xl bg-eldergo-bg px-3 py-3">
+                <div className="text-[20px] font-bold text-eldergo-blue">{weatherPeriodLabel()}</div>
+                <div className="text-[13px] text-eldergo-muted">{t('routeWeatherRainPeriod')}</div>
+              </div>
+            </div>
+          )}
+          <div className="mt-4 rounded-xl bg-eldergo-green/10 px-4 py-3">
+            <div className="text-[15px] font-semibold text-eldergo-navy mb-2">
+              {t('routeWeatherSeniorTitle')}
+            </div>
+            <ul className="space-y-1">
+              {seniorWeatherTips().map((tip) => (
+                <li key={tip} className="flex gap-2 text-[14px] leading-relaxed text-eldergo-muted">
+                  <span className="mt-2 h-1.5 w-1.5 rounded-full bg-eldergo-green flex-shrink-0" />
+                  <span>{tip}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+      </div>
+    </div>
+  );
 
   const buildShareableRouteLink = () => {
     if (!currentRoute) return window.location.href;
@@ -212,7 +291,9 @@ export default function RouteResultPage({
   };
 
   const mapEmbedSrc = currentRoute
-    ? `https://www.google.com/maps?output=embed&saddr=${encodeURIComponent(currentRoute.origin_name)}&daddr=${encodeURIComponent(currentRoute.destination_name)}&dirflg=r`
+    ? GOOGLE_MAPS_EMBED_KEY
+      ? `https://www.google.com/maps/embed/v1/directions?key=${encodeURIComponent(GOOGLE_MAPS_EMBED_KEY)}&origin=${encodeURIComponent(currentRoute.origin_name)}&destination=${encodeURIComponent(currentRoute.destination_name)}&mode=transit`
+      : `https://www.google.com/maps?output=embed&saddr=${encodeURIComponent(currentRoute.origin_name)}&daddr=${encodeURIComponent(currentRoute.destination_name)}&dirflg=r`
     : null;
 
   const showHint = (message: string) => {
@@ -363,7 +444,10 @@ export default function RouteResultPage({
 
         ctx.fillStyle = BRAND_COLORS.body;
         ctx.font = '500 40px Poppins, sans-serif';
-        ctx.fillText(`${t('routeDuration')}: ${step.duration} -${step.distance}`, padding + 58, textY + 8, contentWidth - 110);
+        const durationText = step.distance
+          ? `${t('routeDuration')}: ${step.duration} -${step.distance}`
+          : `${t('routeDuration')}: ${step.duration}`;
+        ctx.fillText(durationText, padding + 58, textY + 8, contentWidth - 110);
 
         const noteY = y + height - (noteLines.length * 42 + 44);
         drawRoundedRect(ctx, padding + 58, noteY, contentWidth - 116, noteLines.length * 42 + 24, 18);
@@ -427,7 +511,7 @@ export default function RouteResultPage({
         />
       </div>
       <div className="relative z-10">
-      <TopBar onLogoClick={onNavigateToPlanning} />
+      <TopBar onLogoClick={onNavigateToPlanTime} />
 
       <main className="pt-20 pb-44 px-6">
         <div className="max-w-2xl mx-auto mt-6">
@@ -471,59 +555,6 @@ export default function RouteResultPage({
             </button>
           </div>
 
-          <div className="bg-white/95 border-2 border-eldergo-border p-5 rounded-2xl shadow-md mb-6">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 bg-eldergo-blue/15 rounded-full flex items-center justify-center flex-shrink-0">
-                <Cloud size={28} strokeWidth={2.5} className="text-eldergo-blue" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-[20px] font-semibold text-eldergo-navy mb-2">
-                  {weather
-                    ? `${t('routeWeatherTitle')}: ${toLocationLabel(weather.destinationName)}`
-                    : currentRoute
-                      ? `${t('routeWeatherTitle')}: ${toLocationLabel(currentRoute.destination_name)}`
-                      : t('routeWeatherTitle')}
-                </h3>
-                <p className="text-[17px] font-medium text-eldergo-muted leading-relaxed mb-4">
-                  {weatherAdvice()}
-                </p>
-                {weatherStatus === 'ready' && weather && (
-                  <div className="grid grid-cols-2 gap-3 text-center">
-                    <div className="rounded-xl bg-eldergo-bg px-3 py-3">
-                      <div className="text-[20px] font-bold text-eldergo-blue">{weather.temperatureC}&deg;C</div>
-                      <div className="text-[13px] text-eldergo-muted">{t('routeWeatherTemp')}</div>
-                    </div>
-                    <div className="rounded-xl bg-eldergo-bg px-3 py-3">
-                      <div className="text-[20px] font-bold text-eldergo-blue">{weather.feelsLikeC}&deg;C</div>
-                      <div className="text-[13px] text-eldergo-muted">{t('routeWeatherFeelsLike')}</div>
-                    </div>
-                    <div className="rounded-xl bg-eldergo-bg px-3 py-3">
-                      <div className="text-[20px] font-bold text-eldergo-blue">{weather.windKmh}</div>
-                      <div className="text-[13px] text-eldergo-muted">{t('routeWeatherWind')}</div>
-                    </div>
-                    <div className="rounded-xl bg-eldergo-bg px-3 py-3">
-                      <div className="text-[20px] font-bold text-eldergo-blue">{weather.precipitationProbabilityPercent ?? 0}%</div>
-                      <div className="text-[13px] text-eldergo-muted">{t('routeWeatherRainChance')}</div>
-                    </div>
-                  </div>
-                )}
-                <div className="mt-4 rounded-xl bg-eldergo-green/10 px-4 py-3">
-                  <div className="text-[15px] font-semibold text-eldergo-navy mb-2">
-                    {t('routeWeatherSeniorTitle')}
-                  </div>
-                  <ul className="space-y-1">
-                    {seniorWeatherTips().map((tip) => (
-                      <li key={tip} className="flex gap-2 text-[14px] leading-relaxed text-eldergo-muted">
-                        <span className="mt-2 h-1.5 w-1.5 rounded-full bg-eldergo-green flex-shrink-0" />
-                        <span>{tip}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <div className="bg-white p-6 rounded-2xl shadow-md mb-6">
             <div className="mb-5">
               {currentRoute ? (
@@ -561,7 +592,7 @@ export default function RouteResultPage({
           </div>
 
           {viewMode === 'text' ? (
-            <div className="relative">
+            <div className="relative mb-8">
               <div className="flex items-center justify-between mb-4">
                 <h4 className="text-[20px] font-semibold text-eldergo-navy" style={{ fontSize: `${20 * baseFontSize}px` }}>
                   {t('routeStepByStep')}
@@ -637,7 +668,7 @@ export default function RouteResultPage({
                           className="w-full flex-shrink-0 px-6 sm:px-16 h-full"
                         >
                           <div
-                            className="bg-white/95 backdrop-blur-sm p-5 sm:p-6 rounded-2xl shadow-xl border-l-4 min-h-[360px] sm:min-h-[400px] h-full"
+                            className="bg-white/95 backdrop-blur-sm p-5 sm:p-6 rounded-2xl shadow-xl border-l-4 min-h-[360px] sm:min-h-[400px] h-full overflow-hidden"
                             style={{ borderLeftColor: step.color }}
                           >
                             <div className="flex flex-col h-full">
@@ -664,7 +695,7 @@ export default function RouteResultPage({
                               </div>
 
                               <div className="text-eldergo-muted mb-4" style={{ fontSize: `${16 * baseFontSize}px` }}>
-                                {t('routeDuration')}: {step.duration} -{step.distance}
+                                {t('routeDuration')}: {step.duration}{step.distance ? ` -${step.distance}` : ''}
                               </div>
 
                               <div className="mt-auto px-4 py-3 rounded-lg" style={{ backgroundColor: `${step.color}20` }}>
@@ -682,7 +713,7 @@ export default function RouteResultPage({
               </div>
             </div>
           ) : (
-            <div className="bg-white p-4 rounded-2xl shadow-md">
+            <div className="bg-white p-4 rounded-2xl shadow-md mb-8">
               {mapEmbedSrc ? (
                 <iframe
                   src={mapEmbedSrc}
@@ -700,6 +731,8 @@ export default function RouteResultPage({
               )}
             </div>
           )}
+
+          {weatherCard}
         </div>
       </main>
 

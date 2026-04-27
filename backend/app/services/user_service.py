@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from hashlib import sha256
+from uuid import NAMESPACE_URL
 from uuid import UUID
-from uuid import uuid4
+from uuid import uuid5
 
 from app.core.config import get_settings
 from app.schemas.preferences import TravelPreferences
@@ -10,6 +11,9 @@ from app.schemas.settings import UISettings
 from app.services.database import get_connection
 
 settings = get_settings()
+
+_demo_ui_settings: dict[str, UISettings] = {}
+_demo_travel_preferences: dict[str, TravelPreferences] = {}
 
 
 def _device_hash(device_id: str) -> str:
@@ -68,7 +72,10 @@ def _ensure_default_user_rows(conn, anonymous_user_id: str) -> None:
 
 def create_or_resolve_anonymous_user(device_id: str) -> str:
     if settings.demo_mode:
-        return str(uuid4())
+        anonymous_user_id = str(uuid5(NAMESPACE_URL, _device_hash(device_id)))
+        _demo_ui_settings.setdefault(anonymous_user_id, UISettings())
+        _demo_travel_preferences.setdefault(anonymous_user_id, TravelPreferences())
+        return anonymous_user_id
 
     with get_connection() as conn:
         row = conn.execute(
@@ -91,7 +98,7 @@ def create_or_resolve_anonymous_user(device_id: str) -> str:
 
 def get_ui_settings(anonymous_user_id: str) -> UISettings:
     if settings.demo_mode:
-        return UISettings()
+        return _demo_ui_settings.setdefault(anonymous_user_id, UISettings())
 
     if _parse_uuid(anonymous_user_id) is None:
         return UISettings()
@@ -117,6 +124,7 @@ def get_ui_settings(anonymous_user_id: str) -> UISettings:
 
 def update_ui_settings(anonymous_user_id: str, payload: UISettings) -> UISettings:
     if settings.demo_mode:
+        _demo_ui_settings[anonymous_user_id] = payload
         return payload
 
     if _parse_uuid(anonymous_user_id) is None:
@@ -157,7 +165,7 @@ def update_ui_settings(anonymous_user_id: str, payload: UISettings) -> UISetting
 
 def get_travel_preferences(anonymous_user_id: str) -> TravelPreferences:
     if settings.demo_mode:
-        return TravelPreferences()
+        return _demo_travel_preferences.setdefault(anonymous_user_id, TravelPreferences())
 
     if _parse_uuid(anonymous_user_id) is None:
         return TravelPreferences()
@@ -186,6 +194,7 @@ def update_travel_preferences(
     payload: TravelPreferences,
 ) -> TravelPreferences:
     if settings.demo_mode:
+        _demo_travel_preferences[anonymous_user_id] = payload
         return payload
 
     if _parse_uuid(anonymous_user_id) is None:

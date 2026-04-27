@@ -58,7 +58,10 @@ function AppContent() {
         />
       )}
       {currentPage === 'routeResult' && (
-        <RouteResultPage {...navHandlers} />
+        <RouteResultPage
+          {...navHandlers}
+          onNavigateToPlanTime={() => setCurrentPage('planTime')}
+        />
       )}
       {currentPage === 'stationsHome' && (
         <StationsHomePage

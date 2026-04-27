@@ -1,4 +1,5 @@
 import json
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 import uuid
@@ -7,14 +8,31 @@ from app.core.config import get_settings
 from app.schemas.routes import (
     RecommendedRoute,
     RouteAccessibilityAnnotation,
+    RouteAccessibilityPoint,
     RouteRecommendationRequest,
     RouteStep,
 )
 from app.services.database import get_connection
 from app.services.google_maps_service import CandidateRoute, fetch_candidate_routes
 from app.services.route_scoring_service import choose_best_candidate
+from app.services.accessibility_annotation_service import (
+    AccessibilityAnnotationResult,
+    annotate_google_step,
+)
 
 settings = get_settings()
+
+
+@dataclass
+class PreparedRouteStep:
+    step: RouteStep
+    annotation_result: AccessibilityAnnotationResult
+
+
+@dataclass
+class PreparedRecommendation:
+    route: RecommendedRoute
+    prepared_steps: list[PreparedRouteStep]
 
 
 def build_demo_recommendation(payload: RouteRecommendationRequest) -> RecommendedRoute:
@@ -79,30 +97,44 @@ def _clean_html_instruction(value: str | None) -> str:
     )
 
 
-def _step_from_google(step_number: int, google_step: dict) -> RouteStep:
+def _step_from_google(step_number: int, google_step: dict) -> PreparedRouteStep:
     mode = google_step.get("travel_mode")
     step_type = "transit" if mode == "TRANSIT" else "walking"
     transit = google_step.get("transit_details", {})
     line = transit.get("line", {})
-    return RouteStep(
-        step_number=step_number,
-        step_type=step_type,
-        instruction=_clean_html_instruction(google_step.get("html_instructions")),
-        duration_minutes=round(google_step.get("duration", {}).get("value", 0) / 60) or None,
-        distance_meters=google_step.get("distance", {}).get("value"),
-        transit_line=line.get("short_name") or line.get("name"),
-        from_station=transit.get("departure_stop", {}).get("name"),
-        to_station=transit.get("arrival_stop", {}).get("name"),
-        annotation=RouteAccessibilityAnnotation(
-            status="unknown",
-            message="Accessibility annotation will be added from imported station and accessibility data.",
-            source="google_route_pending_local_annotation",
+    vehicle = line.get("vehicle", {})
+    annotation_result = annotate_google_step(google_step)
+    return PreparedRouteStep(
+        step=RouteStep(
+            step_number=step_number,
+            step_type=step_type,
+            instruction=_clean_html_instruction(google_step.get("html_instructions")),
+            duration_minutes=round(google_step.get("duration", {}).get("value", 0) / 60) or None,
+            distance_meters=google_step.get("distance", {}).get("value"),
+            transit_line=line.get("short_name") or line.get("name"),
+            map_polyline=google_step.get("polyline", {}).get("points"),
+            transit_color=line.get("color"),
+            transit_vehicle_type=vehicle.get("type"),
+            from_station=transit.get("departure_stop", {}).get("name"),
+            to_station=transit.get("arrival_stop", {}).get("name"),
+            annotation=annotation_result.annotation,
         ),
+        annotation_result=annotation_result,
     )
 
 
-def _route_from_candidate(payload: RouteRecommendationRequest, candidate: CandidateRoute) -> RecommendedRoute:
-    return RecommendedRoute(
+def _route_from_candidate(payload: RouteRecommendationRequest, candidate: CandidateRoute) -> PreparedRecommendation:
+    prepared_steps = [
+        _step_from_google(index + 1, step)
+        for index, step in enumerate(candidate.steps)
+    ]
+    accessibility_points: list[RouteAccessibilityPoint] = []
+    for prepared in prepared_steps:
+        point = prepared.annotation_result.accessibility_point
+        if point is not None:
+            accessibility_points.append(point.model_copy(update={"step_number": prepared.step.step_number}))
+
+    route = RecommendedRoute(
         recommended_route_id="google_route_live",
         origin_name=payload.origin.display_name,
         destination_name=payload.destination.display_name,
@@ -111,11 +143,10 @@ def _route_from_candidate(payload: RouteRecommendationRequest, candidate: Candid
         walking_distance_meters=candidate.walking_distance_meters,
         recommendation_reason="Selected from Google Maps transit candidates using ElderGo preference scoring.",
         map_polyline=candidate.polyline,
-        steps=[
-            _step_from_google(index + 1, step)
-            for index, step in enumerate(candidate.steps)
-        ],
+        steps=[prepared.step for prepared in prepared_steps],
+        accessibility_points=accessibility_points,
     )
+    return PreparedRecommendation(route=route, prepared_steps=prepared_steps)
 
 
 def _parse_optional_uuid(value: str | None) -> str | None:
@@ -159,7 +190,8 @@ def _annotation_type(step_type: str) -> str:
     return "accessibility_unknown"
 
 
-def _persist_route(payload: RouteRecommendationRequest, route: RecommendedRoute) -> str:
+def _persist_route(payload: RouteRecommendationRequest, prepared: PreparedRecommendation) -> str:
+    route = prepared.route
     anonymous_user_id = _parse_optional_uuid(payload.anonymous_user_id)
     expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(minutes=30)
 
@@ -237,7 +269,9 @@ def _persist_route(payload: RouteRecommendationRequest, route: RecommendedRoute)
         ).fetchone()
         recommended_route_id = recommended_row["recommended_route_id"]
 
-        for step in route.steps:
+        for prepared_step in prepared.prepared_steps:
+            step = prepared_step.step
+            annotation_result = prepared_step.annotation_result
             step_row = conn.execute(
                 """
                 INSERT INTO route_steps (
@@ -246,6 +280,11 @@ def _persist_route(payload: RouteRecommendationRequest, route: RecommendedRoute)
                     travel_mode,
                     instruction_text,
                     google_transit_line,
+                    from_station_id,
+                    to_station_id,
+                    start_geom,
+                    end_geom,
+                    path_geom,
                     duration_min,
                     walking_distance_m
                 )
@@ -255,6 +294,20 @@ def _persist_route(payload: RouteRecommendationRequest, route: RecommendedRoute)
                     %(travel_mode)s,
                     %(instruction_text)s,
                     %(google_transit_line)s,
+                    %(from_station_id)s,
+                    %(to_station_id)s,
+                    CASE
+                        WHEN %(start_wkt)s IS NULL THEN NULL
+                        ELSE ST_GeomFromText(%(start_wkt)s, 4326)
+                    END,
+                    CASE
+                        WHEN %(end_wkt)s IS NULL THEN NULL
+                        ELSE ST_GeomFromText(%(end_wkt)s, 4326)
+                    END,
+                    CASE
+                        WHEN %(path_wkt)s IS NULL THEN NULL
+                        ELSE ST_GeomFromText(%(path_wkt)s, 4326)
+                    END,
                     %(duration_min)s,
                     %(walking_distance_m)s
                 )
@@ -266,6 +319,11 @@ def _persist_route(payload: RouteRecommendationRequest, route: RecommendedRoute)
                     "travel_mode": step.step_type.upper(),
                     "instruction_text": step.instruction,
                     "google_transit_line": step.transit_line,
+                    "from_station_id": annotation_result.from_station_id,
+                    "to_station_id": annotation_result.to_station_id,
+                    "start_wkt": annotation_result.start_wkt,
+                    "end_wkt": annotation_result.end_wkt,
+                    "path_wkt": annotation_result.path_wkt,
                     "duration_min": step.duration_minutes,
                     "walking_distance_m": step.distance_meters if step.step_type == "walking" else None,
                 },
@@ -300,14 +358,14 @@ def _persist_route(payload: RouteRecommendationRequest, route: RecommendedRoute)
                 """,
                 {
                     "route_step_id": route_step_id,
-                    "target_type": "google_hint",
-                    "target_id": step.from_station or step.to_station,
-                    "annotation_type": _annotation_type(step.step_type),
+                    "target_type": annotation_result.target_type,
+                    "target_id": annotation_result.target_id or step.from_station or step.to_station,
+                    "annotation_type": annotation_result.annotation_type or _annotation_type(step.step_type),
                     "accessibility_status": annotation_status,
-                    "confidence": _annotation_confidence(annotation_status),
+                    "confidence": annotation_result.confidence or _annotation_confidence(annotation_status),
                     "source_list": json.dumps([step.annotation.source]),
                     "message": step.annotation.message,
-                    "distance_m": step.distance_meters if step.step_type == "walking" else None,
+                    "distance_m": annotation_result.distance_m,
                 },
             )
 
@@ -324,13 +382,14 @@ async def recommend_route(payload: RouteRecommendationRequest) -> RecommendedRou
     )
     if best is None:
         raise ValueError("Google Maps did not return a usable route candidate.")
-    recommendation = _route_from_candidate(payload, best)
+    prepared = _route_from_candidate(payload, best)
+    recommendation = prepared.route
     # In local/demo runs, route persistence can be unavailable; keep route planning usable.
     if settings.demo_mode:
         return recommendation.model_copy(update={"recommended_route_id": f"demo_{uuid.uuid4().hex[:12]}"})
 
     try:
-        recommended_route_id = _persist_route(payload, recommendation)
+        recommended_route_id = _persist_route(payload, prepared)
     except Exception:
         recommended_route_id = f"ephemeral_{uuid.uuid4().hex[:12]}"
     return recommendation.model_copy(update={"recommended_route_id": recommended_route_id})

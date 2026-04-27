@@ -23,9 +23,9 @@ export default function PlanYourTimePage({
   onNavigateToPreference,
   onShowChatbot
 }: PlanYourTimePageProps) {
-  const [selectedTime, setSelectedTime] = useState<'now' | 'morning' | 'afternoon' | 'evening'>('now');
   const {
     anonymousUserId,
+    departureTime,
     destination,
     fontSize,
     language,
@@ -37,6 +37,11 @@ export default function PlanYourTimePage({
     setRouteError,
     setRouteLoading
   } = useAppContext();
+  const initialSelectedTime =
+    departureTime === 'morning' || departureTime === 'afternoon' || departureTime === 'evening'
+      ? departureTime
+      : 'now';
+  const [selectedTime, setSelectedTime] = useState<'now' | 'morning' | 'afternoon' | 'evening'>(initialSelectedTime);
 
   const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
   const t = (key: string) => getTranslation(language, key as any);

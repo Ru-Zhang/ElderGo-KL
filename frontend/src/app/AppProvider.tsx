@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { LocationDetail, PlaceSelection } from '../types/locations';
 import { TravelPreferences } from '../types/preferences';
 import { RecommendedRoute } from '../types/routes';
@@ -85,6 +85,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [selectedStation, setSelectedStation] = useState<LocationDetail | null>(null);
+  const settingsChangedDuringRestoreRef = useRef(false);
+  const preferencesChangedDuringRestoreRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,10 +104,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ]);
         if (cancelled) return;
 
-        setSettings(remoteSettings);
-        setPreferences(remotePreferences);
-        localStorage.setItem(LOCAL_SETTINGS_KEY, JSON.stringify(remoteSettings));
-        localStorage.setItem(LOCAL_PREFERENCES_KEY, JSON.stringify(remotePreferences));
+        if (!settingsChangedDuringRestoreRef.current) {
+          setSettings(remoteSettings);
+          localStorage.setItem(LOCAL_SETTINGS_KEY, JSON.stringify(remoteSettings));
+        }
+        if (!preferencesChangedDuringRestoreRef.current) {
+          setPreferences(remotePreferences);
+          localStorage.setItem(LOCAL_PREFERENCES_KEY, JSON.stringify(remotePreferences));
+        }
       } catch {
         // Local fallback keeps the prototype usable before backend setup.
       }
@@ -119,6 +125,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const persistSettings = (nextSettings: UISettings) => {
+    settingsChangedDuringRestoreRef.current = true;
     setSettings(nextSettings);
     localStorage.setItem(LOCAL_SETTINGS_KEY, JSON.stringify(nextSettings));
     if (anonymousUserId) {
@@ -156,6 +163,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const updatePreferencesLocal = (prefs: TravelPreferences) => {
+    preferencesChangedDuringRestoreRef.current = true;
     setPreferences(prefs);
     localStorage.setItem(LOCAL_PREFERENCES_KEY, JSON.stringify(prefs));
     if (anonymousUserId) {

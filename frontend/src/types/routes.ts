@@ -30,9 +30,23 @@ export interface ApiRouteRecommendationRequest {
 export type RouteStepType = 'walking' | 'transit' | 'arrival';
 
 export interface RouteAccessibilityAnnotation {
-  status: 'supported' | 'limited' | 'unknown' | 'not_verified';
+  status: 'supported' | 'limited' | 'unknown' | 'not_verified' | 'not_supported';
   message: string;
   source: string;
+}
+
+export interface RouteAccessibilityPoint {
+  step_number: number;
+  point_id: string;
+  name?: string | null;
+  lat: number;
+  lon: number;
+  annotation_type: string;
+  accessibility_type?: string | null;
+  wheelchair?: string | null;
+  shelter?: string | null;
+  covered?: string | null;
+  distance_meters?: number | null;
 }
 
 export interface RouteStep {
@@ -42,6 +56,9 @@ export interface RouteStep {
   duration_minutes?: number | null;
   distance_meters?: number | null;
   transit_line?: string | null;
+  map_polyline?: string | null;
+  transit_color?: string | null;
+  transit_vehicle_type?: string | null;
   from_station?: string | null;
   to_station?: string | null;
   annotation: RouteAccessibilityAnnotation;
@@ -57,6 +74,7 @@ export interface RecommendedRoute {
   recommendation_reason: string;
   map_polyline?: string | null;
   steps: RouteStep[];
+  accessibility_points?: RouteAccessibilityPoint[];
 }
 
 export function toApiRouteRequest(request: RouteRecommendationRequest): ApiRouteRecommendationRequest {
