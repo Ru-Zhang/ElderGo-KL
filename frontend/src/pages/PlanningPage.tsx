@@ -175,11 +175,11 @@ export default function PlanningPage({
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F7FA] relative" style={{ fontFamily: 'Poppins' }}>
+    <div className="min-h-screen bg-eldergo-bg relative" style={{ fontFamily: 'Poppins' }}>
       <div
         className="fixed inset-0 z-0 bg-cover bg-center"
         style={{
-          backgroundImage: 'url(/background-elder.jpg)',
+          backgroundImage: 'url(/background-elder.png)',
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         }}
@@ -200,26 +200,26 @@ export default function PlanningPage({
           <div className="max-w-2xl mx-auto space-y-6 mt-8">
             <button
               onClick={onNavigateToUseElderGo}
-              className="flex items-center gap-3 bg-white/95 px-4 py-3 rounded-xl shadow-md text-[#1E3A5F] hover:text-[#4A90E2] transition-colors group"
+              className="flex items-center gap-3 bg-white/95 px-4 py-3 rounded-xl shadow-md text-eldergo-navy hover:text-eldergo-blue transition-colors group"
             >
-              <Lightbulb size={24 * baseFontSize} strokeWidth={2.5} className="group-hover:text-[#E67E22]" />
+              <Lightbulb size={24 * baseFontSize} strokeWidth={2.5} className="group-hover:text-eldergo-warning" />
               <span className="font-medium" style={{ fontSize: `${18 * baseFontSize}px` }}>{t('howToUse')}</span>
             </button>
 
             <div className="space-y-4">
               {placesError && (
-                <div className="bg-[#FFE5B4] border-l-4 border-[#E67E22] p-4 rounded-xl text-[#1E3A5F] font-medium">
+                <div className="bg-eldergo-warning-bg border-l-4 border-eldergo-warning p-4 rounded-xl text-eldergo-navy font-medium">
                   {placesError}
                 </div>
               )}
 
-              <p className="text-[#1E3A5F] font-semibold px-1" style={{ fontSize: `${16 * baseFontSize}px` }}>
+              <p className="text-eldergo-navy font-semibold px-1" style={{ fontSize: `${16 * baseFontSize}px` }}>
                 {t('startPointHint')}
               </p>
               <div className="relative">
                 <div className="absolute left-5 top-1/2 -translate-y-1/2 z-30 pointer-events-none">
                   <Navigation
-                    className="text-[#4A90E2]"
+                    className="text-eldergo-blue"
                     size={22 * baseFontSize}
                     strokeWidth={2.5}
                   />
@@ -231,11 +231,11 @@ export default function PlanningPage({
                   onChange={(e) => handleStartChange(e.target.value)}
                   onClick={handleInputClick}
                   onFocus={() => startPoint && setShowStartDropdown(true)}
-                  className="w-full pl-16 pr-6 py-5 bg-white border-2 border-gray-300 rounded-xl font-medium text-[#1E3A5F] placeholder:text-gray-400 focus:outline-none focus:border-[#4A90E2] shadow-md relative z-10"
+                  className="w-full pl-16 pr-6 py-5 bg-white border-2 border-eldergo-border rounded-xl font-medium text-eldergo-navy placeholder:text-eldergo-muted focus:outline-none focus:border-eldergo-blue shadow-md relative z-10"
                   style={{ fontSize: `${18 * baseFontSize}px` }}
                 />
                 {showStartDropdown && startSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-gray-300 rounded-xl shadow-lg z-40 max-h-60 overflow-y-auto">
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-eldergo-border rounded-xl shadow-lg z-40 max-h-60 overflow-y-auto">
                     {startSuggestions.map((suggestion, index) => (
                       (() => {
                         const label = toSuggestionLabel(suggestion.displayName);
@@ -247,7 +247,7 @@ export default function PlanningPage({
                           setSelectedOrigin({ ...suggestion, displayName: label });
                           setShowStartDropdown(false);
                         }}
-                        className="w-full px-6 py-4 text-left font-medium text-[#1E3A5F] hover:bg-[#F5F7FA] transition-colors border-b border-gray-200 last:border-b-0"
+                        className="w-full px-6 py-4 text-left font-medium text-eldergo-navy hover:bg-eldergo-bg transition-colors border-b border-eldergo-border last:border-b-0"
                         style={{ fontSize: `${18 * baseFontSize}px` }}
                       >
                         {label}
@@ -259,13 +259,13 @@ export default function PlanningPage({
                 )}
               </div>
 
-              <p className="text-[#1E3A5F] font-semibold px-1" style={{ fontSize: `${16 * baseFontSize}px` }}>
+              <p className="text-eldergo-navy font-semibold px-1" style={{ fontSize: `${16 * baseFontSize}px` }}>
                 {t('destinationHint')}
               </p>
               <div className="relative">
                 <div className="absolute left-5 top-1/2 -translate-y-1/2 z-30 pointer-events-none">
                   <MapPin
-                    className="text-[#E67E22]"
+                    className="text-eldergo-warning"
                     size={22 * baseFontSize}
                     strokeWidth={2.5}
                   />
@@ -277,11 +277,11 @@ export default function PlanningPage({
                   onChange={(e) => handleDestChange(e.target.value)}
                   onClick={handleInputClick}
                   onFocus={() => destination && setShowDestDropdown(true)}
-                  className="w-full pl-16 pr-6 py-5 bg-white border-2 border-gray-300 rounded-xl font-medium text-[#1E3A5F] placeholder:text-gray-400 focus:outline-none focus:border-[#4A90E2] shadow-md relative z-10"
+                  className="w-full pl-16 pr-6 py-5 bg-white border-2 border-eldergo-border rounded-xl font-medium text-eldergo-navy placeholder:text-eldergo-muted focus:outline-none focus:border-eldergo-blue shadow-md relative z-10"
                   style={{ fontSize: `${18 * baseFontSize}px` }}
                 />
                 {showDestDropdown && destSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-gray-300 rounded-xl shadow-lg z-40 max-h-60 overflow-y-auto">
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-eldergo-border rounded-xl shadow-lg z-40 max-h-60 overflow-y-auto">
                     {destSuggestions.map((suggestion, index) => (
                       (() => {
                         const label = toSuggestionLabel(suggestion.displayName);
@@ -293,7 +293,7 @@ export default function PlanningPage({
                           setSelectedDestination({ ...suggestion, displayName: label });
                           setShowDestDropdown(false);
                         }}
-                        className="w-full px-6 py-4 text-left font-medium text-[#1E3A5F] hover:bg-[#F5F7FA] transition-colors border-b border-gray-200 last:border-b-0"
+                        className="w-full px-6 py-4 text-left font-medium text-eldergo-navy hover:bg-eldergo-bg transition-colors border-b border-eldergo-border last:border-b-0"
                         style={{ fontSize: `${18 * baseFontSize}px` }}
                       >
                         {label}
@@ -308,13 +308,13 @@ export default function PlanningPage({
               <button
                 onClick={handleSearch}
                 disabled={!startPoint || !destination}
-                className="w-full bg-[#E67E22] hover:bg-[#D35400] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-xl transition-colors shadow-md"
+                className="w-full bg-eldergo-warning hover:bg-eldergo-warning-dark disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-xl transition-colors shadow-md"
                 style={{ fontSize: `${20 * baseFontSize}px` }}
               >
                 {t('search')}
               </button>
               {formError && (
-                <div className="bg-[#FFE5B4] border-l-4 border-[#E67E22] p-4 rounded-xl text-[#1E3A5F] font-medium">
+                <div className="bg-eldergo-warning-bg border-l-4 border-eldergo-warning p-4 rounded-xl text-eldergo-navy font-medium">
                   {formError}
                 </div>
               )}

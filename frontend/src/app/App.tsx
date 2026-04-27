@@ -69,7 +69,6 @@ function AppContent() {
       {currentPage === 'stationDetail' && (
         <StationDetailPage
           {...navHandlers}
-          onNavigateToHome={() => setCurrentPage('planning')}
         />
       )}
       {currentPage === 'help' && (

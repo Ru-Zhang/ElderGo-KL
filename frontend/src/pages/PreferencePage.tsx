@@ -43,7 +43,7 @@ export default function PreferencePage({
       <div
         className="fixed inset-0 z-0 bg-cover bg-center"
         style={{
-          backgroundImage: 'url(/background-elder.jpg)',
+          backgroundImage: 'url(/background-elder.png)',
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         }}
@@ -62,17 +62,17 @@ export default function PreferencePage({
 
       <main className="pt-20 pb-32 px-6">
         <div className="max-w-2xl mx-auto mt-8">
-          <h2 className="font-semibold text-[#1E3A5F] mb-8" style={{ fontSize: `${24 * baseFontSize}px` }}>
+          <h2 className="font-semibold text-eldergo-navy mb-8" style={{ fontSize: `${24 * baseFontSize}px` }}>
             {t('travelPreferences')}
           </h2>
 
           <div className="space-y-4 mb-8">
-            <div className="flex items-center justify-between p-6 bg-white rounded-xl border-2 border-gray-200 shadow-sm">
-              <span className="font-medium text-[#1E3A5F]" style={{ fontSize: `${18 * baseFontSize}px` }}>
+            <div className="flex items-center justify-between p-6 bg-white rounded-xl border-2 border-eldergo-border shadow-sm">
+              <span className="font-medium text-eldergo-navy" style={{ fontSize: `${18 * baseFontSize}px` }}>
                 {t('accessibilityFirst')}
               </span>
               <Switch.Root
-                className="w-16 h-8 bg-gray-300 rounded-full relative data-[state=checked]:bg-[#6BBF59] transition-colors"
+                className="w-16 h-8 bg-gray-300 rounded-full relative data-[state=checked]:bg-eldergo-green transition-colors"
                 checked={localPreferences.accessibilityFirst}
                 onCheckedChange={(checked) => setLocalPreferences({ ...localPreferences, accessibilityFirst: checked })}
               >
@@ -80,12 +80,12 @@ export default function PreferencePage({
               </Switch.Root>
             </div>
 
-            <div className="flex items-center justify-between p-6 bg-white rounded-xl border-2 border-gray-200 shadow-sm">
-              <span className="font-medium text-[#1E3A5F]" style={{ fontSize: `${18 * baseFontSize}px` }}>
+            <div className="flex items-center justify-between p-6 bg-white rounded-xl border-2 border-eldergo-border shadow-sm">
+              <span className="font-medium text-eldergo-navy" style={{ fontSize: `${18 * baseFontSize}px` }}>
                 {t('leastWalk')}
               </span>
               <Switch.Root
-                className="w-16 h-8 bg-gray-300 rounded-full relative data-[state=checked]:bg-[#6BBF59] transition-colors"
+                className="w-16 h-8 bg-gray-300 rounded-full relative data-[state=checked]:bg-eldergo-green transition-colors"
                 checked={localPreferences.leastWalk}
                 onCheckedChange={(checked) => setLocalPreferences({ ...localPreferences, leastWalk: checked })}
               >
@@ -93,12 +93,12 @@ export default function PreferencePage({
               </Switch.Root>
             </div>
 
-            <div className="flex items-center justify-between p-6 bg-white rounded-xl border-2 border-gray-200 shadow-sm">
-              <span className="font-medium text-[#1E3A5F]" style={{ fontSize: `${18 * baseFontSize}px` }}>
+            <div className="flex items-center justify-between p-6 bg-white rounded-xl border-2 border-eldergo-border shadow-sm">
+              <span className="font-medium text-eldergo-navy" style={{ fontSize: `${18 * baseFontSize}px` }}>
                 {t('fewestTransfers')}
               </span>
               <Switch.Root
-                className="w-16 h-8 bg-gray-300 rounded-full relative data-[state=checked]:bg-[#6BBF59] transition-colors"
+                className="w-16 h-8 bg-gray-300 rounded-full relative data-[state=checked]:bg-eldergo-green transition-colors"
                 checked={localPreferences.fewestTransfers}
                 onCheckedChange={(checked) => setLocalPreferences({ ...localPreferences, fewestTransfers: checked })}
               >
@@ -110,7 +110,7 @@ export default function PreferencePage({
           <div className="flex gap-4">
             <button
               onClick={handleSave}
-              className="flex-1 flex items-center justify-center gap-3 bg-[#6BBF59] hover:bg-[#5AAF49] text-white font-semibold py-5 rounded-xl transition-colors shadow-md min-h-[64px]"
+              className="flex-1 flex items-center justify-center gap-3 bg-eldergo-green hover:bg-eldergo-green-dark text-white font-semibold py-5 rounded-xl transition-colors shadow-md min-h-[64px]"
               style={{ fontSize: `${20 * baseFontSize}px` }}
             >
               <Save size={24 * baseFontSize} strokeWidth={2.5} />
@@ -118,14 +118,14 @@ export default function PreferencePage({
             </button>
             <button
               onClick={handleCancel}
-              className="flex-1 flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-600 font-semibold py-5 rounded-xl border-2 border-gray-300 transition-colors shadow-md min-h-[64px]"
+              className="flex-1 flex items-center justify-center gap-3 bg-white hover:bg-eldergo-bg text-eldergo-muted font-semibold py-5 rounded-xl border-2 border-eldergo-border transition-colors shadow-md min-h-[64px]"
               style={{ fontSize: `${20 * baseFontSize}px` }}
             >
               {t('cancel')}
             </button>
           </div>
           {showSavedHint && (
-            <div className="mt-4 rounded-lg bg-[#EAF6EA] text-[#2F7A32] px-4 py-3 text-[16px] font-medium">
+            <div className="mt-4 rounded-lg bg-eldergo-green/15 text-eldergo-green px-4 py-3 text-[16px] font-medium">
               {t('preferenceSavedWeakHint')}
             </div>
           )}

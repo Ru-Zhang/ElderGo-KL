@@ -7,6 +7,8 @@ from app.schemas.places import PlaceDetail, PlaceSuggestion
 PLACES_AUTOCOMPLETE_URL = "https://maps.googleapis.com/maps/api/place/autocomplete/json"
 PLACE_DETAILS_URL = "https://maps.googleapis.com/maps/api/place/details/json"
 PLACE_TEXT_SEARCH_URL = "https://maps.googleapis.com/maps/api/place/textsearch/json"
+PLACE_PHOTO_URL = "https://maps.googleapis.com/maps/api/place/photo"
+STATIC_MAP_URL = "https://maps.googleapis.com/maps/api/staticmap"
 
 
 async def autocomplete_places(query: str) -> list[PlaceSuggestion]:
@@ -84,7 +86,7 @@ async def get_place_detail(place_id: str) -> PlaceDetail:
     )
 
 
-async def get_station_place_detail(name: str, lat: float | None = None, lon: float | None = None) -> PlaceDetail:
+async def _search_station_place_id(name: str, lat: float | None = None, lon: float | None = None) -> str:
     settings = get_settings()
     if not settings.google_maps_api_key:
         raise HTTPException(status_code=503, detail="Google Maps API key is not configured.")
@@ -113,4 +115,80 @@ async def get_station_place_detail(name: str, lat: float | None = None, lon: flo
     place_id = body["results"][0].get("place_id")
     if not place_id:
         raise HTTPException(status_code=404, detail="Google place details were not found for this station.")
+    return place_id
+
+
+async def get_station_place_detail(name: str, lat: float | None = None, lon: float | None = None) -> PlaceDetail:
+    place_id = await _search_station_place_id(name, lat, lon)
     return await get_place_detail(place_id)
+
+
+async def get_station_static_map_image(
+    name: str, lat: float | None = None, lon: float | None = None
+) -> tuple[bytes, str]:
+    settings = get_settings()
+    if not settings.google_maps_api_key:
+        raise HTTPException(status_code=503, detail="Google Maps API key is not configured.")
+
+    center = f"{lat},{lon}" if lat is not None and lon is not None else f"{name} station Kuala Lumpur Malaysia"
+    params = {
+        "center": center,
+        "zoom": 16 if lat is not None and lon is not None else 14,
+        "size": "1280x720",
+        "scale": 2,
+        "maptype": "roadmap",
+        "key": settings.google_maps_api_key,
+    }
+    if lat is not None and lon is not None:
+        params["markers"] = f"color:0x1a73e8|{lat},{lon}"
+    else:
+        params["markers"] = f"color:0x1a73e8|{center}"
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        response = await client.get(STATIC_MAP_URL, params=params)
+        response.raise_for_status()
+
+    content_type = response.headers.get("content-type", "image/png")
+    return response.content, content_type
+
+
+async def get_station_photo_image(
+    name: str, lat: float | None = None, lon: float | None = None
+) -> tuple[bytes, str]:
+    settings = get_settings()
+    if not settings.google_maps_api_key:
+        raise HTTPException(status_code=503, detail="Google Maps API key is not configured.")
+
+    place_id = await _search_station_place_id(name, lat, lon)
+    detail_params = {
+        "place_id": place_id,
+        "key": settings.google_maps_api_key,
+        "fields": "photos",
+    }
+
+    async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+        detail_response = await client.get(PLACE_DETAILS_URL, params=detail_params)
+        detail_response.raise_for_status()
+        detail_body = detail_response.json()
+
+        if detail_body.get("status") != "OK":
+            raise HTTPException(
+                status_code=502, detail=f"Google Place Details error: {detail_body.get('status')}"
+            )
+
+        photos = detail_body.get("result", {}).get("photos", [])
+        if photos:
+            photo_reference = photos[0].get("photo_reference")
+            if photo_reference:
+                photo_params = {
+                    "photo_reference": photo_reference,
+                    "maxwidth": 1280,
+                    "key": settings.google_maps_api_key,
+                }
+                photo_response = await client.get(PLACE_PHOTO_URL, params=photo_params)
+                photo_response.raise_for_status()
+                content_type = photo_response.headers.get("content-type", "image/jpeg")
+                return photo_response.content, content_type
+
+    # If no photo is available, keep UX stable with static map fallback.
+    return await get_station_static_map_image(name, lat, lon)

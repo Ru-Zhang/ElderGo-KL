@@ -1,25 +1,44 @@
-import { Globe, Type } from 'lucide-react';
+import { ChevronLeft, Globe, Type } from 'lucide-react';
 import { useAppContext } from '../../app/AppProvider';
 
-export default function TopBar() {
+interface TopBarProps {
+  onLogoClick?: () => void;
+}
+
+export default function TopBar({ onLogoClick }: TopBarProps) {
   const { language, fontSize, toggleLanguage, toggleFontSize } = useAppContext();
+  const logo = (
+    <img
+      src="/eldergo-logo.png"
+      alt="ElderGo KL"
+      className="h-16 w-auto"
+    />
+  );
 
   return (
-    <div className="fixed top-0 left-0 right-0 bg-white/70 backdrop-blur-md border-b border-gray-200/50 px-6 py-2 flex justify-between items-center z-50">
+    <div className="fixed top-0 left-0 right-0 bg-white border-b border-eldergo-border/50 px-6 py-2 flex justify-between items-center z-50">
       <div className="flex items-center gap-3">
-        <img
-          src="https://github.com/Ru-Zhang/ElderGo-KL/blob/main/img/logo/ElderGo%20KL%20-%20app%20icon.png?raw=true"
-          alt="ElderGo KL"
-          className="h-16 w-auto"
-        />
+        {onLogoClick ? (
+          <button
+            type="button"
+            onClick={onLogoClick}
+            aria-label="Back"
+            className="flex items-center gap-2 rounded-full border-2 border-eldergo-border bg-white px-4 py-2 text-eldergo-navy shadow-sm transition-all hover:border-eldergo-blue hover:text-eldergo-blue active:scale-95 focus:outline-none focus:ring-2 focus:ring-eldergo-blue focus:ring-offset-2"
+          >
+            <ChevronLeft size={22} strokeWidth={2.5} />
+            <span className="text-[16px] font-semibold">Back</span>
+          </button>
+        ) : (
+          logo
+        )}
       </div>
       <div className="flex gap-3">
         <button
           onClick={toggleLanguage}
           className={`flex items-center gap-2 px-4 py-2 border-2 rounded-full transition-all shadow-sm active:scale-95 ${
             language === 'BM'
-              ? 'bg-[#4A90E2] border-[#4A90E2] text-white'
-              : 'bg-white/90 border-gray-300 text-[#1E3A5F] hover:bg-[#4A90E2] hover:border-[#4A90E2] hover:text-white'
+              ? 'bg-eldergo-blue border-eldergo-blue text-white'
+              : 'bg-white/90 border-eldergo-border text-eldergo-navy hover:bg-eldergo-blue hover:border-eldergo-blue hover:text-white'
           }`}
           style={{ fontFamily: 'Poppins' }}
         >
@@ -30,8 +49,8 @@ export default function TopBar() {
           onClick={toggleFontSize}
           className={`flex items-center gap-2 px-4 py-2 border-2 rounded-full transition-all shadow-sm active:scale-95 ${
             fontSize !== 'standard'
-              ? 'bg-[#6BBF59] border-[#6BBF59] text-white'
-              : 'bg-white/90 border-gray-300 text-[#1E3A5F] hover:bg-[#6BBF59] hover:border-[#6BBF59] hover:text-white'
+              ? 'bg-eldergo-green border-eldergo-green text-white'
+              : 'bg-white/90 border-eldergo-border text-eldergo-navy hover:bg-eldergo-green hover:border-eldergo-green hover:text-white'
           }`}
           style={{ fontFamily: 'Poppins' }}
         >

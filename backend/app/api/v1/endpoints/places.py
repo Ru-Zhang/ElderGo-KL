@@ -1,7 +1,12 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 
 from app.schemas.places import PlaceDetail, PlaceSuggestion
-from app.services.places_service import autocomplete_places, get_place_detail, get_station_place_detail
+from app.services.places_service import (
+    autocomplete_places,
+    get_place_detail,
+    get_station_photo_image,
+    get_station_place_detail,
+)
 
 router = APIRouter()
 
@@ -21,3 +26,9 @@ async def details(place_id: str) -> PlaceDetail:
 @router.get("/station-detail", response_model=PlaceDetail)
 async def station_detail(name: str, lat: float | None = None, lon: float | None = None) -> PlaceDetail:
     return await get_station_place_detail(name, lat, lon)
+
+
+@router.get("/station-image")
+async def station_image(name: str, lat: float | None = None, lon: float | None = None) -> Response:
+    image_bytes, content_type = await get_station_photo_image(name, lat, lon)
+    return Response(content=image_bytes, media_type=content_type)

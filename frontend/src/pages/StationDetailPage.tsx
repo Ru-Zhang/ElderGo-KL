@@ -1,18 +1,17 @@
 import { useState } from 'react';
-import { Check, ChevronLeft, AlertTriangle } from 'lucide-react';
+import { Check, AlertTriangle } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import BottomNav from '../components/layout/BottomNav';
 import { ImageWithFallback } from '../components/common/ImageWithFallback';
 import { useAppContext } from '../app/AppProvider';
 import { getTranslation } from '../i18n/translations';
-import { getStationGooglePlaceDetail } from '../services/googlePlaces';
+import { getStationGooglePlaceDetail, getStationStaticImageUrl } from '../services/googlePlaces';
 
 interface StationDetailPageProps {
   onNavigateToPlanning: () => void;
   onNavigateToStation: () => void;
   onNavigateToHelp: () => void;
   onNavigateToPreference: () => void;
-  onNavigateToHome: () => void;
   onShowChatbot: () => void;
 }
 
@@ -21,12 +20,14 @@ export default function StationDetailPage({
   onNavigateToStation,
   onNavigateToHelp,
   onNavigateToPreference,
-  onNavigateToHome,
   onShowChatbot
 }: StationDetailPageProps) {
   const { fontSize, language, selectedStation } = useAppContext();
   const [placeLoading, setPlaceLoading] = useState(false);
   const [placeError, setPlaceError] = useState<string | null>(null);
+  const stationImageUrl = selectedStation
+    ? getStationStaticImageUrl(selectedStation.name, selectedStation.lat, selectedStation.lon)
+    : '/background-elder.png';
   const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
   const t = (key: string) => getTranslation(language, key as any);
   const accessibilityLabel = () => {
@@ -62,7 +63,7 @@ export default function StationDetailPage({
         <div
           className="fixed inset-0 z-0 bg-cover bg-center"
           style={{
-            backgroundImage: 'url(/background-elder.jpg)',
+            backgroundImage: 'url(/background-elder.png)',
             backgroundSize: 'cover',
             backgroundPosition: 'center'
           }}
@@ -77,22 +78,22 @@ export default function StationDetailPage({
           />
         </div>
         <div className="relative z-10">
-          <TopBar />
+          <TopBar onLogoClick={onNavigateToStation} />
 
           <main className="pt-20 pb-32 px-6">
             <div className="max-w-2xl mx-auto mt-8">
-              <div className="bg-[#FFE5B4] border-l-4 border-[#E67E22] p-8 rounded-xl flex items-start gap-4">
-                <AlertTriangle size={32 * baseFontSize} strokeWidth={2.5} className="text-[#E67E22] flex-shrink-0" />
+              <div className="bg-eldergo-warning-bg border-l-4 border-eldergo-warning p-8 rounded-xl flex items-start gap-4">
+                <AlertTriangle size={32 * baseFontSize} strokeWidth={2.5} className="text-eldergo-warning flex-shrink-0" />
                 <div className="flex-1">
-                  <h3 className="font-semibold text-[#1E3A5F] mb-3" style={{ fontSize: `${24 * baseFontSize}px` }}>
+                  <h3 className="font-semibold text-eldergo-navy mb-3" style={{ fontSize: `${24 * baseFontSize}px` }}>
                     {t('stationNotFound')}
                   </h3>
-                  <p className="text-gray-700 mb-6" style={{ fontSize: `${18 * baseFontSize}px` }}>
+                  <p className="text-eldergo-muted mb-6" style={{ fontSize: `${18 * baseFontSize}px` }}>
                     {t('stationNotFoundMessage')}
                   </p>
                   <button
                     onClick={onNavigateToStation}
-                    className="bg-[#4A90E2] hover:bg-[#3A7FD2] text-white font-semibold py-4 px-6 rounded-xl transition-colors shadow-md"
+                    className="bg-eldergo-blue hover:bg-eldergo-blue-dark text-white font-semibold py-4 px-6 rounded-xl transition-colors shadow-md"
                     style={{ fontSize: `${18 * baseFontSize}px` }}
                   >
                     {t('backToStations')}
@@ -120,7 +121,7 @@ export default function StationDetailPage({
       <div
         className="fixed inset-0 z-0 bg-cover bg-center"
         style={{
-          backgroundImage: 'url(/background-elder.jpg)',
+          backgroundImage: `url(${stationImageUrl})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         }}
@@ -135,22 +136,16 @@ export default function StationDetailPage({
         />
       </div>
       <div className="relative z-10">
-      <TopBar />
+      <TopBar onLogoClick={onNavigateToStation} />
 
-      <main className="pt-[72px] pb-32">
+      <main className="pt-[72px] pb-32 bg-white">
         <div className="relative h-80">
           <div className="absolute inset-0 bg-black/20" />
           <ImageWithFallback
-            src={"/background-elder.jpg"}
+            src={stationImageUrl}
             alt={`${selectedStation.name} station`}
             className="w-full h-full object-cover"
           />
-          <button
-            onClick={onNavigateToStation}
-            className="absolute top-6 left-6 w-14 h-14 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-colors"
-          >
-            <ChevronLeft size={32 * baseFontSize} strokeWidth={2.5} className="text-[#1E3A5F]" />
-          </button>
           <h1 className="absolute bottom-8 left-8 font-bold text-white drop-shadow-lg" style={{ fontSize: `${36 * baseFontSize}px` }}>
             {selectedStation.name}
           </h1>
@@ -159,11 +154,11 @@ export default function StationDetailPage({
         <div className="max-w-3xl mx-auto px-6 mt-8 space-y-6">
           <div className="bg-white rounded-2xl shadow-lg p-8 space-y-6">
             <div className="flex items-center gap-5 min-h-[64px]">
-              <div className="w-12 h-12 bg-[#4A90E2]/20 rounded-full flex items-center justify-center flex-shrink-0">
-                <Check size={28 * baseFontSize} strokeWidth={3} className="text-[#4A90E2]" />
+              <div className="w-12 h-12 bg-eldergo-blue/20 rounded-full flex items-center justify-center flex-shrink-0">
+                <Check size={28 * baseFontSize} strokeWidth={3} className="text-eldergo-blue" />
               </div>
-              <span className="font-medium text-[#1E3A5F]" style={{ fontSize: `${22 * baseFontSize}px` }}>
-                {t('routes')}: <span className="font-semibold text-[#4A90E2]">
+              <span className="font-medium text-eldergo-navy" style={{ fontSize: `${22 * baseFontSize}px` }}>
+                {t('routes')}: <span className="font-semibold text-eldergo-blue">
                   {selectedStation.routes.length ? selectedStation.routes.join(', ') : t('notYetVerified')}
                 </span>
               </span>
@@ -172,11 +167,11 @@ export default function StationDetailPage({
             <div className="h-px bg-gray-200" />
 
             <div className="flex items-center gap-5 min-h-[64px]">
-              <div className="w-12 h-12 bg-[#6BBF59]/20 rounded-full flex items-center justify-center flex-shrink-0">
-                <Check size={28 * baseFontSize} strokeWidth={3} className="text-[#6BBF59]" />
+              <div className="w-12 h-12 bg-eldergo-green/20 rounded-full flex items-center justify-center flex-shrink-0">
+                <Check size={28 * baseFontSize} strokeWidth={3} className="text-eldergo-green" />
               </div>
-              <span className="font-medium text-[#1E3A5F]" style={{ fontSize: `${22 * baseFontSize}px` }}>
-                {t('accessibilityStatus')}: <span className="font-semibold text-[#6BBF59]">
+              <span className="font-medium text-eldergo-navy" style={{ fontSize: `${22 * baseFontSize}px` }}>
+                {t('accessibilityStatus')}: <span className="font-semibold text-eldergo-green">
                   {accessibilityLabel()}
                 </span>
               </span>
@@ -185,11 +180,11 @@ export default function StationDetailPage({
             <div className="h-px bg-gray-200" />
 
             <div className="flex items-center gap-5 min-h-[64px]">
-              <div className="w-12 h-12 bg-[#E67E22]/20 rounded-full flex items-center justify-center flex-shrink-0">
-                <Check size={28 * baseFontSize} strokeWidth={3} className="text-[#E67E22]" />
+              <div className="w-12 h-12 bg-eldergo-warning/20 rounded-full flex items-center justify-center flex-shrink-0">
+                <Check size={28 * baseFontSize} strokeWidth={3} className="text-eldergo-warning" />
               </div>
-              <span className="font-medium text-[#1E3A5F]" style={{ fontSize: `${22 * baseFontSize}px` }}>
-                Details: <span className="font-semibold text-[#E67E22]">
+              <span className="font-medium text-eldergo-navy" style={{ fontSize: `${22 * baseFontSize}px` }}>
+                Details: <span className="font-semibold text-eldergo-warning">
                   {selectedStation.known_facilities.length ? selectedStation.known_facilities.join(', ') : t('notYetVerified')}
                 </span>
               </span>
@@ -198,11 +193,11 @@ export default function StationDetailPage({
             <div className="h-px bg-gray-200" />
 
             <div className="flex items-center gap-5 min-h-[64px]">
-              <div className="w-12 h-12 bg-[#E67E22]/20 rounded-full flex items-center justify-center flex-shrink-0">
-                <AlertTriangle size={28 * baseFontSize} strokeWidth={3} className="text-[#E67E22]" />
+              <div className="w-12 h-12 bg-eldergo-warning/20 rounded-full flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={28 * baseFontSize} strokeWidth={3} className="text-eldergo-warning" />
               </div>
-              <span className="font-medium text-[#1E3A5F]" style={{ fontSize: `${22 * baseFontSize}px` }}>
-                {t('dataSource')}: <span className="font-semibold text-[#E67E22]">
+              <span className="font-medium text-eldergo-navy" style={{ fontSize: `${22 * baseFontSize}px` }}>
+                {t('dataSource')}: <span className="font-semibold text-eldergo-warning">
                   {selectedStation.source_list.length ? selectedStation.source_list.join(', ') : t('notYetVerified')}
                 </span>
               </span>
@@ -212,14 +207,14 @@ export default function StationDetailPage({
           <button
             onClick={handleMoreDetails}
             disabled={placeLoading}
-            className="w-full bg-[#E67E22] hover:bg-[#D35400] disabled:bg-gray-400 text-white font-semibold py-6 rounded-2xl transition-colors shadow-lg min-h-[80px]"
+            className="w-full bg-eldergo-warning hover:bg-eldergo-warning-dark disabled:bg-gray-400 text-white font-semibold py-6 rounded-2xl transition-colors shadow-lg min-h-[80px]"
             style={{ fontSize: `${24 * baseFontSize}px` }}
           >
             {placeLoading ? t('loadingPlaceDetails') : t('moreDetails')}
           </button>
 
           {placeError && (
-            <p className="bg-white rounded-2xl shadow-lg p-6 text-[#E67E22] font-medium" style={{ fontSize: `${18 * baseFontSize}px` }}>
+            <p className="bg-white rounded-2xl shadow-lg p-6 text-eldergo-warning font-medium" style={{ fontSize: `${18 * baseFontSize}px` }}>
               {placeError}
             </p>
           )}

@@ -22,6 +22,7 @@ class Settings(BaseSettings):
         alias="ELDERGO_CORS_ORIGINS",
     )
     google_maps_api_key: str = Field(default="", alias="ELDERGO_GOOGLE_MAPS_API_KEY")
+    openweather_api_key: str = Field(default="", alias="OPENWEATHER_API_KEY")
     demo_mode: bool = Field(default=True, alias="ELDERGO_DEMO_MODE")
 
     model_config = SettingsConfigDict(

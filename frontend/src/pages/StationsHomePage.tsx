@@ -115,7 +115,7 @@ export default function StationsHomePage({
       <div
         className="fixed inset-0 z-0 bg-cover bg-center"
         style={{
-          backgroundImage: 'url(/background-elder.jpg)',
+          backgroundImage: 'url(/background-elder.png)',
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         }}
@@ -136,7 +136,7 @@ export default function StationsHomePage({
         <div className="max-w-2xl mx-auto mt-8">
           <div className="relative mb-10">
             <Search
-              className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400"
+              className="absolute left-5 top-1/2 -translate-y-1/2 text-eldergo-muted"
               size={28 * baseFontSize}
               strokeWidth={2.5}
             />
@@ -145,19 +145,19 @@ export default function StationsHomePage({
               placeholder={t('searchStationPlaceholder')}
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
-              className="w-full pl-16 pr-6 py-5 bg-white border-2 border-gray-300 rounded-xl font-medium text-[#1E3A5F] placeholder:text-gray-400 focus:outline-none focus:border-[#4A90E2] shadow-md"
+              className="w-full pl-16 pr-6 py-5 bg-white border-2 border-eldergo-border rounded-xl font-medium text-eldergo-navy placeholder:text-eldergo-muted focus:outline-none focus:border-eldergo-blue shadow-md"
               style={{ fontSize: `${20 * baseFontSize}px` }}
             />
           </div>
 
           {(error || (hasSearched && searchResults.length === 0)) && (
-            <div className="bg-[#FFE5B4] border-l-4 border-[#E67E22] p-6 rounded-xl mb-6 flex items-center gap-4">
-              <AlertCircle size={28 * baseFontSize} strokeWidth={2.5} className="text-[#E67E22] flex-shrink-0" />
+            <div className="bg-eldergo-warning-bg border-l-4 border-eldergo-warning p-6 rounded-xl mb-6 flex items-center gap-4">
+              <AlertCircle size={28 * baseFontSize} strokeWidth={2.5} className="text-eldergo-warning flex-shrink-0" />
               <div>
-                <p className="font-semibold text-[#1E3A5F] mb-1" style={{ fontSize: `${20 * baseFontSize}px` }}>
+                <p className="font-semibold text-eldergo-navy mb-1" style={{ fontSize: `${20 * baseFontSize}px` }}>
                   {error ? t('stationDataUnavailable') : t('noStationsFound')}
                 </p>
-                <p className="text-gray-700" style={{ fontSize: `${18 * baseFontSize}px` }}>
+                <p className="text-eldergo-muted" style={{ fontSize: `${18 * baseFontSize}px` }}>
                   {error || t('tryDifferentKeyword')}
                 </p>
               </div>
@@ -166,7 +166,7 @@ export default function StationsHomePage({
 
           {shownLocations.length > 0 && (
             <>
-              <h2 className="font-semibold text-[#1E3A5F] mb-6" style={{ fontSize: `${24 * baseFontSize}px` }}>
+              <h2 className="font-semibold text-eldergo-navy mb-6" style={{ fontSize: `${24 * baseFontSize}px` }}>
                 {hasSearched ? `${t('searchResults')} (${searchResults.length})` : t('popularStations')}
               </h2>
               <div className="grid grid-cols-2 gap-4">
@@ -174,15 +174,15 @@ export default function StationsHomePage({
                   <button
                     key={location.id}
                     onClick={() => handleStationClick(location)}
-                    className="bg-[#F5F7FA] border-2 border-gray-300 p-6 rounded-2xl shadow-sm hover:border-[#4A90E2] hover:shadow-md transition-all flex flex-col items-start gap-3 min-h-[140px]"
+                    className="bg-eldergo-bg border-2 border-eldergo-border p-6 rounded-2xl shadow-sm hover:border-eldergo-blue hover:shadow-md transition-all flex flex-col items-start gap-3 min-h-[140px]"
                   >
-                    <span className="font-semibold text-[#1E3A5F] text-left" style={{ fontSize: `${20 * baseFontSize}px` }}>
+                    <span className="font-semibold text-eldergo-navy text-left" style={{ fontSize: `${20 * baseFontSize}px` }}>
                       {location.name}
                     </span>
-                    <span className="text-gray-600 text-left" style={{ fontSize: `${14 * baseFontSize}px` }}>
+                    <span className="text-eldergo-muted text-left" style={{ fontSize: `${14 * baseFontSize}px` }}>
                       {accessibilityLabel(location.accessibility_status)}
                     </span>
-                    <ChevronRight size={24 * baseFontSize} strokeWidth={2.5} className="text-gray-400 ml-auto" />
+                    <ChevronRight size={24 * baseFontSize} strokeWidth={2.5} className="text-eldergo-muted ml-auto" />
                   </button>
                 ))}
               </div>

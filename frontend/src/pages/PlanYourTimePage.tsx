@@ -82,7 +82,7 @@ export default function PlanYourTimePage({
       <div
         className="fixed inset-0 z-0 bg-cover bg-center"
         style={{
-          backgroundImage: 'url(/background-elder.jpg)',
+          backgroundImage: 'url(/background-elder.png)',
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         }}
@@ -97,11 +97,11 @@ export default function PlanYourTimePage({
         />
       </div>
       <div className="relative z-10">
-      <TopBar />
+      <TopBar onLogoClick={onNavigateToPlanning} />
 
       <main className="pt-20 pb-40 px-6">
         <div className="max-w-2xl mx-auto mt-8">
-          <h2 className="font-semibold text-[#1E3A5F] mb-8" style={{ fontSize: `${30 * baseFontSize}px` }}>
+          <h2 className="font-semibold text-eldergo-navy mb-8" style={{ fontSize: `${30 * baseFontSize}px` }}>
             {t('planTimeTitle')}
           </h2>
 
@@ -116,29 +116,29 @@ export default function PlanYourTimePage({
                   onClick={() => setSelectedTime(option.value)}
                   className={`w-full p-6 rounded-2xl shadow-md transition-all flex items-center gap-5 ${
                     isSelected
-                      ? 'bg-white border-3 border-[#4A90E2]'
-                      : 'bg-white border-2 border-gray-200 hover:border-gray-300'
+                      ? 'bg-white border-3 border-eldergo-blue'
+                      : 'bg-white border-2 border-eldergo-border hover:border-eldergo-border'
                   }`}
                 >
                   <div className={`w-14 h-14 rounded-full flex items-center justify-center ${
-                    isSelected ? 'bg-[#4A90E2]' : 'bg-gray-100'
+                    isSelected ? 'bg-eldergo-blue' : 'bg-eldergo-bg'
                   }`}>
                     <IconComponent
                       size={28 * baseFontSize}
                       strokeWidth={2.5}
-                      className={isSelected ? 'text-white' : 'text-[#1E3A5F]'}
+                      className={isSelected ? 'text-white' : 'text-eldergo-navy'}
                     />
                   </div>
                   <div className="flex-1 text-left">
-                    <div className="font-semibold text-[#1E3A5F]" style={{ fontSize: `${22 * baseFontSize}px` }}>
+                    <div className="font-semibold text-eldergo-navy" style={{ fontSize: `${22 * baseFontSize}px` }}>
                       {option.label}
                     </div>
-                    <div className="text-gray-600" style={{ fontSize: `${16 * baseFontSize}px` }}>
+                    <div className="text-eldergo-muted" style={{ fontSize: `${16 * baseFontSize}px` }}>
                       {option.description}
                     </div>
                   </div>
                   {isSelected && (
-                    <Check size={32 * baseFontSize} strokeWidth={3} className="text-[#4A90E2]" />
+                    <Check size={32 * baseFontSize} strokeWidth={3} className="text-eldergo-blue" />
                   )}
                 </button>
               );
@@ -148,7 +148,7 @@ export default function PlanYourTimePage({
           <button
             onClick={handleShowRoute}
             disabled={routeLoading}
-            className="w-full bg-[#E67E22] hover:bg-[#D35400] text-white font-semibold py-5 rounded-xl transition-colors shadow-lg"
+            className="w-full bg-eldergo-warning hover:bg-eldergo-warning-dark text-white font-semibold py-5 rounded-xl transition-colors shadow-lg"
             style={{ fontSize: `${22 * baseFontSize}px` }}
           >
             {routeLoading ? t('planTimeFindingRoute') : t('planTimeShowRoute')}

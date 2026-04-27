@@ -42,23 +42,23 @@ export default function PreferencesModal({ isOpen, onClose }: PreferencesModalPr
       <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 sm:mx-6 p-6 sm:p-8 pt-10" style={{ fontFamily: 'Poppins' }}>
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-[#1E3A5F] hover:bg-gray-100 rounded-full p-2 z-20"
+          className="absolute top-4 right-4 text-eldergo-navy hover:bg-eldergo-bg rounded-full p-2 z-20"
           aria-label="Close preferences modal"
         >
           <X size={28} strokeWidth={2.5} />
         </button>
 
-        <h2 className="text-[26px] sm:text-3xl font-semibold text-[#1E3A5F] mb-8 pr-14 leading-none whitespace-nowrap">
+        <h2 className="text-[26px] sm:text-3xl font-semibold text-eldergo-navy mb-8 pr-14 leading-none whitespace-nowrap">
           {t('travelPreferences')}
         </h2>
 
         <div className="space-y-6 mb-10">
-          <div className="flex items-center justify-between p-6 bg-[#F5F7FA] rounded-xl border-2 border-gray-200">
-            <span className="text-[20px] font-medium text-[#1E3A5F] pr-4 flex-1 leading-tight">
+          <div className="flex items-center justify-between p-6 bg-eldergo-bg rounded-xl border-2 border-eldergo-border">
+            <span className="text-[20px] font-medium text-eldergo-navy pr-4 flex-1 leading-tight">
               {t('accessibilityFirst')}
             </span>
             <Switch.Root
-              className="w-16 h-8 min-w-16 flex-shrink-0 bg-gray-300 rounded-full relative data-[state=checked]:bg-[#6BBF59] transition-colors"
+              className="w-16 h-8 min-w-16 flex-shrink-0 bg-gray-300 rounded-full relative data-[state=checked]:bg-eldergo-green transition-colors"
               checked={localPreferences.accessibilityFirst}
               onCheckedChange={(checked) => setLocalPreferences({ ...localPreferences, accessibilityFirst: checked })}
             >
@@ -66,12 +66,12 @@ export default function PreferencesModal({ isOpen, onClose }: PreferencesModalPr
             </Switch.Root>
           </div>
 
-          <div className="flex items-center justify-between p-6 bg-[#F5F7FA] rounded-xl border-2 border-gray-200">
-            <span className="text-[20px] font-medium text-[#1E3A5F] pr-4 flex-1 leading-tight">
+          <div className="flex items-center justify-between p-6 bg-eldergo-bg rounded-xl border-2 border-eldergo-border">
+            <span className="text-[20px] font-medium text-eldergo-navy pr-4 flex-1 leading-tight">
               {t('leastWalk')}
             </span>
             <Switch.Root
-              className="w-16 h-8 min-w-16 flex-shrink-0 bg-gray-300 rounded-full relative data-[state=checked]:bg-[#6BBF59] transition-colors"
+              className="w-16 h-8 min-w-16 flex-shrink-0 bg-gray-300 rounded-full relative data-[state=checked]:bg-eldergo-green transition-colors"
               checked={localPreferences.leastWalk}
               onCheckedChange={(checked) => setLocalPreferences({ ...localPreferences, leastWalk: checked })}
             >
@@ -79,12 +79,12 @@ export default function PreferencesModal({ isOpen, onClose }: PreferencesModalPr
             </Switch.Root>
           </div>
 
-          <div className="flex items-center justify-between p-6 bg-[#F5F7FA] rounded-xl border-2 border-gray-200">
-            <span className="text-[20px] font-medium text-[#1E3A5F] pr-4 flex-1 leading-tight">
+          <div className="flex items-center justify-between p-6 bg-eldergo-bg rounded-xl border-2 border-eldergo-border">
+            <span className="text-[20px] font-medium text-eldergo-navy pr-4 flex-1 leading-tight">
               {t('fewestTransfers')}
             </span>
             <Switch.Root
-              className="w-16 h-8 min-w-16 flex-shrink-0 bg-gray-300 rounded-full relative data-[state=checked]:bg-[#6BBF59] transition-colors"
+              className="w-16 h-8 min-w-16 flex-shrink-0 bg-gray-300 rounded-full relative data-[state=checked]:bg-eldergo-green transition-colors"
               checked={localPreferences.fewestTransfers}
               onCheckedChange={(checked) => setLocalPreferences({ ...localPreferences, fewestTransfers: checked })}
             >
@@ -95,12 +95,12 @@ export default function PreferencesModal({ isOpen, onClose }: PreferencesModalPr
 
         <button
           onClick={handleSave}
-          className="w-full bg-[#E67E22] hover:bg-[#D35400] text-white text-[22px] font-semibold py-5 rounded-xl transition-colors min-h-[64px]"
+          className="w-full bg-eldergo-warning hover:bg-eldergo-warning-dark text-white text-[22px] font-semibold py-5 rounded-xl transition-colors min-h-[64px]"
         >
           {t('save')}
         </button>
         {showSavedHint && (
-          <div className="mt-4 rounded-lg bg-[#EAF6EA] text-[#2F7A32] px-4 py-3 text-[16px] font-medium">
+          <div className="mt-4 rounded-lg bg-eldergo-green/15 text-eldergo-green px-4 py-3 text-[16px] font-medium">
             {t('preferenceSavedWeakHint')}
           </div>
         )}

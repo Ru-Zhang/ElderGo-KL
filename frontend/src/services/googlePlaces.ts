@@ -1,5 +1,6 @@
 import { PlaceSelection } from '../types/locations';
 import { apiRequest } from './api';
+import { API_BASE_URL } from './api';
 
 export interface GooglePlaceDetail {
   display_name: string;
@@ -54,4 +55,15 @@ export async function getStationGooglePlaceDetail(
   if (lat !== null && lat !== undefined) params.set('lat', String(lat));
   if (lon !== null && lon !== undefined) params.set('lon', String(lon));
   return apiRequest<GooglePlaceDetail>(`/places/station-detail?${params.toString()}`);
+}
+
+export function getStationStaticImageUrl(
+  name: string,
+  lat?: number | null,
+  lon?: number | null
+): string {
+  const params = new URLSearchParams({ name });
+  if (lat !== null && lat !== undefined) params.set('lat', String(lat));
+  if (lon !== null && lon !== undefined) params.set('lon', String(lon));
+  return `${API_BASE_URL}/places/station-image?${params.toString()}`;
 }

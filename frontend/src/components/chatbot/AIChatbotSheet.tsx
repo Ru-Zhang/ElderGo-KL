@@ -53,7 +53,7 @@ export default function AIChatbotSheet({ isOpen, onClose }: AIChatbotSheetProps)
         <div className="relative h-full flex flex-col p-6">
           <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
 
-          <h2 className="text-3xl font-bold text-[#1E3A5F] mb-8">
+          <h2 className="text-3xl font-bold text-eldergo-navy mb-8">
             {t('chatbotGreeting')}
           </h2>
 
@@ -66,15 +66,15 @@ export default function AIChatbotSheet({ isOpen, onClose }: AIChatbotSheetProps)
                     <button
                       key={index}
                       onClick={() => handleQuickQuestion(question.text)}
-                      className="w-full px-6 py-5 bg-white border-3 border-[#4A90E2] rounded-2xl text-[18px] font-semibold text-[#1E3A5F] hover:bg-[#F5F7FA] transition-colors flex items-center justify-between group"
+                      className="w-full px-6 py-5 bg-white border-3 border-eldergo-blue rounded-2xl text-[18px] font-semibold text-eldergo-navy hover:bg-eldergo-bg transition-colors flex items-center justify-between group"
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-[#4A90E2] rounded-lg flex items-center justify-center">
+                        <div className="w-10 h-10 bg-eldergo-blue rounded-lg flex items-center justify-center">
                           <IconComponent size={22} strokeWidth={2.5} className="text-white" />
                         </div>
                         <span>{question.text}</span>
                       </div>
-                      <ArrowRight size={24} strokeWidth={2.5} className="text-gray-400 group-hover:text-[#4A90E2] transition-colors" />
+                      <ArrowRight size={24} strokeWidth={2.5} className="text-eldergo-muted group-hover:text-eldergo-blue transition-colors" />
                     </button>
                   );
                 })}
@@ -89,8 +89,8 @@ export default function AIChatbotSheet({ isOpen, onClose }: AIChatbotSheetProps)
                     <div
                       className={`max-w-[80%] px-5 py-3 rounded-2xl ${
                         msg.isUser
-                          ? 'bg-[#4A90E2] text-white'
-                          : 'bg-gray-100 text-[#1E3A5F]'
+                          ? 'bg-eldergo-blue text-white'
+                          : 'bg-eldergo-bg text-eldergo-navy'
                       }`}
                     >
                       <p className="text-[16px]">{msg.text}</p>
@@ -108,12 +108,12 @@ export default function AIChatbotSheet({ isOpen, onClose }: AIChatbotSheetProps)
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-              className="flex-1 px-5 py-4 border-2 border-gray-300 rounded-xl text-[18px] text-[#1E3A5F] placeholder:text-gray-400 focus:outline-none focus:border-[#4A90E2]"
+              className="flex-1 px-5 py-4 border-2 border-eldergo-border rounded-xl text-[18px] text-eldergo-navy placeholder:text-eldergo-muted focus:outline-none focus:border-eldergo-blue"
               style={{ fontFamily: 'Poppins' }}
             />
             <button
               onClick={handleSend}
-              className="w-16 h-16 bg-[#DC3545] hover:bg-[#C82333] rounded-2xl flex items-center justify-center transition-colors shadow-lg"
+              className="w-16 h-16 bg-eldergo-blue hover:bg-eldergo-blue-dark rounded-2xl flex items-center justify-center transition-colors shadow-lg"
             >
               <Mic size={28} strokeWidth={2.5} className="text-white" />
             </button>

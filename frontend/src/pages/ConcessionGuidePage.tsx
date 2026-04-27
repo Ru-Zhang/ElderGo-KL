@@ -1,4 +1,4 @@
-import { ChevronLeft, CreditCard, CheckCircle } from 'lucide-react';
+import { CreditCard, CheckCircle } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import BottomNav from '../components/layout/BottomNav';
 import { useAppContext } from '../app/AppProvider';
@@ -28,7 +28,7 @@ export default function ConcessionGuidePage({
       <div
         className="fixed inset-0 z-0 bg-cover bg-center"
         style={{
-          backgroundImage: 'url(/background-elder.jpg)',
+          backgroundImage: 'url(/background-elder.png)',
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         }}
@@ -43,31 +43,23 @@ export default function ConcessionGuidePage({
         />
       </div>
       <div className="relative z-10">
-      <TopBar />
+      <TopBar onLogoClick={onNavigateToHelp} />
 
       <main className="pt-20 pb-32 px-6">
         <div className="max-w-2xl mx-auto">
-          <button
-            onClick={onNavigateToHelp}
-            className="flex items-center gap-2 text-[#4A90E2] mb-6 hover:text-[#3A7FD2]"
-          >
-            <ChevronLeft size={24 * baseFontSize} strokeWidth={2.5} />
-            <span className="font-medium" style={{ fontSize: `${18 * baseFontSize}px` }}>{t('backToHelp')}</span>
-          </button>
-
-          <h2 className="font-semibold text-[#1E3A5F] mb-8" style={{ fontSize: `${30 * baseFontSize}px` }}>
+          <h2 className="font-semibold text-eldergo-navy mb-8" style={{ fontSize: `${30 * baseFontSize}px` }}>
             {t('concessionGuideTitle')}
           </h2>
 
           <div className="space-y-6">
-            <div className="bg-[#6BBF59] text-white p-6 rounded-2xl shadow-md">
+            <div className="bg-eldergo-green text-white p-6 rounded-2xl shadow-md">
               <h3 className="font-bold mb-3" style={{ fontSize: `${24 * baseFontSize}px` }}>
                 {t('concessionBenefitTitle')}
               </h3>
               <p className="leading-relaxed" style={{ fontSize: `${20 * baseFontSize}px` }}>
                 {t('concessionBenefitPrefix')}{' '}
                 <span
-                  className="font-extrabold text-[#FFE5B4] bg-[#E67E22] px-3 py-1 rounded-lg inline-block"
+                  className="font-extrabold text-eldergo-warning-bg bg-eldergo-warning px-3 py-1 rounded-lg inline-block"
                   style={{ fontSize: `${30 * baseFontSize}px` }}
                 >
                   {t('concessionBenefitHighlight')}
@@ -77,59 +69,59 @@ export default function ConcessionGuidePage({
             </div>
 
             <div className="bg-white p-6 rounded-2xl shadow-md">
-              <h3 className="font-semibold text-[#1E3A5F] mb-4" style={{ fontSize: `${22 * baseFontSize}px` }}>
+              <h3 className="font-semibold text-eldergo-navy mb-4" style={{ fontSize: `${22 * baseFontSize}px` }}>
                 {t('concessionPrepareTitle')}
               </h3>
-              <div className="flex items-center gap-3 bg-[#F5F7FA] p-4 rounded-xl">
-                <CreditCard size={32 * baseFontSize} strokeWidth={2.5} className="text-[#4A90E2]" />
-                <p className="font-semibold text-[#1E3A5F]" style={{ fontSize: `${20 * baseFontSize}px` }}>
+              <div className="flex items-center gap-3 bg-eldergo-bg p-4 rounded-xl">
+                <CreditCard size={32 * baseFontSize} strokeWidth={2.5} className="text-eldergo-blue" />
+                <p className="font-semibold text-eldergo-navy" style={{ fontSize: `${20 * baseFontSize}px` }}>
                   {t('concessionMyKad')}
                 </p>
               </div>
             </div>
 
             <div className="bg-white p-6 rounded-2xl shadow-md">
-              <h3 className="font-semibold text-[#1E3A5F] mb-4" style={{ fontSize: `${22 * baseFontSize}px` }}>
+              <h3 className="font-semibold text-eldergo-navy mb-4" style={{ fontSize: `${22 * baseFontSize}px` }}>
                 {t('concessionApplyStepsTitle')}
               </h3>
               <div className="space-y-4">
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 bg-[#4A90E2] text-white rounded-full flex items-center justify-center font-bold flex-shrink-0" style={{ fontSize: `${18 * baseFontSize}px` }}>
+                  <div className="w-10 h-10 bg-eldergo-blue text-white rounded-full flex items-center justify-center font-bold flex-shrink-0" style={{ fontSize: `${18 * baseFontSize}px` }}>
                     1
                   </div>
                   <div>
-                    <p className="font-semibold text-[#1E3A5F]" style={{ fontSize: `${20 * baseFontSize}px` }}>{t('concessionStepPrepareTitle')}</p>
-                    <p className="text-gray-700" style={{ fontSize: `${18 * baseFontSize}px` }}>{t('concessionStepPrepareBody')}</p>
+                    <p className="font-semibold text-eldergo-navy" style={{ fontSize: `${20 * baseFontSize}px` }}>{t('concessionStepPrepareTitle')}</p>
+                    <p className="text-eldergo-muted" style={{ fontSize: `${18 * baseFontSize}px` }}>{t('concessionStepPrepareBody')}</p>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 bg-[#4A90E2] text-white rounded-full flex items-center justify-center font-bold flex-shrink-0" style={{ fontSize: `${18 * baseFontSize}px` }}>
+                  <div className="w-10 h-10 bg-eldergo-blue text-white rounded-full flex items-center justify-center font-bold flex-shrink-0" style={{ fontSize: `${18 * baseFontSize}px` }}>
                     2
                   </div>
                   <div>
-                    <p className="font-semibold text-[#1E3A5F]" style={{ fontSize: `${20 * baseFontSize}px` }}>{t('concessionStepCounterTitle')}</p>
-                    <p className="text-gray-700" style={{ fontSize: `${18 * baseFontSize}px` }}>{t('concessionStepCounterBody')}</p>
+                    <p className="font-semibold text-eldergo-navy" style={{ fontSize: `${20 * baseFontSize}px` }}>{t('concessionStepCounterTitle')}</p>
+                    <p className="text-eldergo-muted" style={{ fontSize: `${18 * baseFontSize}px` }}>{t('concessionStepCounterBody')}</p>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 bg-[#4A90E2] text-white rounded-full flex items-center justify-center font-bold flex-shrink-0" style={{ fontSize: `${18 * baseFontSize}px` }}>
+                  <div className="w-10 h-10 bg-eldergo-blue text-white rounded-full flex items-center justify-center font-bold flex-shrink-0" style={{ fontSize: `${18 * baseFontSize}px` }}>
                     3
                   </div>
                   <div>
-                    <p className="font-semibold text-[#1E3A5F]" style={{ fontSize: `${20 * baseFontSize}px` }}>{t('concessionStepFormTitle')}</p>
-                    <p className="text-gray-700" style={{ fontSize: `${18 * baseFontSize}px` }}>{t('concessionStepFormBody')}</p>
+                    <p className="font-semibold text-eldergo-navy" style={{ fontSize: `${20 * baseFontSize}px` }}>{t('concessionStepFormTitle')}</p>
+                    <p className="text-eldergo-muted" style={{ fontSize: `${18 * baseFontSize}px` }}>{t('concessionStepFormBody')}</p>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 bg-[#6BBF59] text-white rounded-full flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 bg-eldergo-green text-white rounded-full flex items-center justify-center flex-shrink-0">
                     <CheckCircle size={24 * baseFontSize} strokeWidth={2.5} />
                   </div>
                   <div>
-                    <p className="font-semibold text-[#1E3A5F]" style={{ fontSize: `${20 * baseFontSize}px` }}>{t('concessionStepCollectTitle')}</p>
-                    <p className="text-gray-700" style={{ fontSize: `${18 * baseFontSize}px` }}>{t('concessionStepCollectBody')}</p>
+                    <p className="font-semibold text-eldergo-navy" style={{ fontSize: `${20 * baseFontSize}px` }}>{t('concessionStepCollectTitle')}</p>
+                    <p className="text-eldergo-muted" style={{ fontSize: `${18 * baseFontSize}px` }}>{t('concessionStepCollectBody')}</p>
                   </div>
                 </div>
               </div>

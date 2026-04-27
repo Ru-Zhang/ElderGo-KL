@@ -1,4 +1,4 @@
-import { ChevronLeft, CreditCard, Coins } from 'lucide-react';
+import { CreditCard, Coins } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import BottomNav from '../components/layout/BottomNav';
 import { useAppContext } from '../app/AppProvider';
@@ -28,7 +28,7 @@ export default function TicketGuidePage({
       <div
         className="fixed inset-0 z-0 bg-cover bg-center"
         style={{
-          backgroundImage: 'url(/background-elder.jpg)',
+          backgroundImage: 'url(/background-elder.png)',
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         }}
@@ -43,54 +43,46 @@ export default function TicketGuidePage({
         />
       </div>
       <div className="relative z-10">
-      <TopBar />
+      <TopBar onLogoClick={onNavigateToHelp} />
 
       <main className="pt-20 pb-32 px-6">
         <div className="max-w-2xl mx-auto">
-          <button
-            onClick={onNavigateToHelp}
-            className="flex items-center gap-2 text-[#4A90E2] mb-6 hover:text-[#3A7FD2]"
-          >
-            <ChevronLeft size={24 * baseFontSize} strokeWidth={2.5} />
-            <span className="font-medium" style={{ fontSize: `${18 * baseFontSize}px` }}>{t('backToHelp')}</span>
-          </button>
-
-          <h2 className="font-semibold text-[#1E3A5F] mb-8" style={{ fontSize: `${30 * baseFontSize}px` }}>
+          <h2 className="font-semibold text-eldergo-navy mb-8" style={{ fontSize: `${30 * baseFontSize}px` }}>
             {t('ticketGuideTitle')}
           </h2>
 
           <div className="space-y-6">
             <div className="bg-white p-6 rounded-2xl shadow-md">
               <div className="flex items-center gap-4 mb-4">
-                <div className="w-14 h-14 bg-[#6BBF59]/20 rounded-full flex items-center justify-center">
-                  <Coins size={28 * baseFontSize} strokeWidth={2.5} className="text-[#6BBF59]" />
+                <div className="w-14 h-14 bg-eldergo-green/20 rounded-full flex items-center justify-center">
+                  <Coins size={28 * baseFontSize} strokeWidth={2.5} className="text-eldergo-green" />
                 </div>
-                <h3 className="font-semibold text-[#1E3A5F]" style={{ fontSize: `${22 * baseFontSize}px` }}>
+                <h3 className="font-semibold text-eldergo-navy" style={{ fontSize: `${22 * baseFontSize}px` }}>
                   {t('ticketMethodToken')}
                 </h3>
               </div>
-              <p className="text-gray-700 leading-relaxed mb-4" style={{ fontSize: `${18 * baseFontSize}px` }}>
+              <p className="text-eldergo-muted leading-relaxed mb-4" style={{ fontSize: `${18 * baseFontSize}px` }}>
                 {t('ticketTokenIntro')}
               </p>
-              <ol className="space-y-3 text-gray-700 leading-relaxed" style={{ fontSize: `${18 * baseFontSize}px` }}>
+              <ol className="space-y-3 text-eldergo-muted leading-relaxed" style={{ fontSize: `${18 * baseFontSize}px` }}>
                 <li className="flex gap-3">
-                  <span className="font-bold text-[#4A90E2] flex-shrink-0">1.</span>
+                  <span className="font-bold text-eldergo-blue flex-shrink-0">1.</span>
                   <span><span className="font-semibold">{t('ticketFindMachineTitle')}</span> {t('ticketFindMachineBody')}</span>
                 </li>
                 <li className="flex gap-3">
-                  <span className="font-bold text-[#4A90E2] flex-shrink-0">2.</span>
+                  <span className="font-bold text-eldergo-blue flex-shrink-0">2.</span>
                   <span><span className="font-semibold">{t('ticketSelectLanguageTitle')}</span> {t('ticketSelectLanguageBody')}</span>
                 </li>
                 <li className="flex gap-3">
-                  <span className="font-bold text-[#4A90E2] flex-shrink-0">3.</span>
+                  <span className="font-bold text-eldergo-blue flex-shrink-0">3.</span>
                   <span><span className="font-semibold">{t('ticketChooseDestinationTitle')}</span> {t('ticketChooseDestinationBody')}</span>
                 </li>
                 <li className="flex gap-3">
-                  <span className="font-bold text-[#4A90E2] flex-shrink-0">4.</span>
+                  <span className="font-bold text-eldergo-blue flex-shrink-0">4.</span>
                   <span><span className="font-semibold">{t('ticketPayTitle')}</span> {t('ticketPayBody')}</span>
                 </li>
                 <li className="flex gap-3">
-                  <span className="font-bold text-[#4A90E2] flex-shrink-0">5.</span>
+                  <span className="font-bold text-eldergo-blue flex-shrink-0">5.</span>
                   <span><span className="font-semibold">{t('ticketCollectTitle')}</span> {t('ticketCollectBody')}</span>
                 </li>
               </ol>
@@ -98,34 +90,34 @@ export default function TicketGuidePage({
 
             <div className="bg-white p-6 rounded-2xl shadow-md">
               <div className="flex items-center gap-4 mb-4">
-                <div className="w-14 h-14 bg-[#4A90E2]/20 rounded-full flex items-center justify-center">
-                  <CreditCard size={28 * baseFontSize} strokeWidth={2.5} className="text-[#4A90E2]" />
+                <div className="w-14 h-14 bg-eldergo-blue/20 rounded-full flex items-center justify-center">
+                  <CreditCard size={28 * baseFontSize} strokeWidth={2.5} className="text-eldergo-blue" />
                 </div>
-                <h3 className="font-semibold text-[#1E3A5F]" style={{ fontSize: `${22 * baseFontSize}px` }}>
+                <h3 className="font-semibold text-eldergo-navy" style={{ fontSize: `${22 * baseFontSize}px` }}>
                   {t('ticketMethodTouchNGo')}
                 </h3>
               </div>
-              <p className="text-gray-700 leading-relaxed mb-3" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                <span className="font-semibold text-[#6BBF59]">{t('ticketHighlyRecommended')}</span> {t('ticketTouchNGoBody')}
+              <p className="text-eldergo-muted leading-relaxed mb-3" style={{ fontSize: `${18 * baseFontSize}px` }}>
+                <span className="font-semibold text-eldergo-green">{t('ticketHighlyRecommended')}</span> {t('ticketTouchNGoBody')}
               </p>
-              <p className="text-gray-700 leading-relaxed mb-3" style={{ fontSize: `${18 * baseFontSize}px` }}>
+              <p className="text-eldergo-muted leading-relaxed mb-3" style={{ fontSize: `${18 * baseFontSize}px` }}>
                 {t('ticketTouchNGoInstruction')}
               </p>
-              <p className="text-gray-700 leading-relaxed" style={{ fontSize: `${18 * baseFontSize}px` }}>
+              <p className="text-eldergo-muted leading-relaxed" style={{ fontSize: `${18 * baseFontSize}px` }}>
                 {t('ticketTouchNGoNoCard')}
               </p>
             </div>
 
-            <div className="bg-[#FFE5B4] border-l-4 border-[#E67E22] p-6 rounded-xl">
-              <p className="font-semibold text-[#1E3A5F] mb-2" style={{ fontSize: `${18 * baseFontSize}px` }}>
+            <div className="bg-eldergo-warning-bg border-l-4 border-eldergo-warning p-6 rounded-xl">
+              <p className="font-semibold text-eldergo-navy mb-2" style={{ fontSize: `${18 * baseFontSize}px` }}>
                 {t('ticketInfoSourceTitle')}
               </p>
-              <p className="text-gray-700 leading-relaxed" style={{ fontSize: `${18 * baseFontSize}px` }}>
+              <p className="text-eldergo-muted leading-relaxed" style={{ fontSize: `${18 * baseFontSize}px` }}>
                 <a
                   href="https://myrapid.com.my/"
                   target="_blank"
                   rel="noreferrer"
-                  className="font-semibold text-[#4A90E2] underline"
+                  className="font-semibold text-eldergo-blue underline"
                 >
                   {t('ticketInfoSourceBody')}
                 </a>
