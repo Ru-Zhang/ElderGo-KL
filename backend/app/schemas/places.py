@@ -11,3 +11,10 @@ class PlaceDetail(BaseModel):
     google_place_id: str
     lat: float | None = None
     lon: float | None = None
+    name: str | None = None
+    formatted_address: str | None = None
+    rating: float | None = None
+    user_ratings_total: int | None = None
+    website: str | None = None
+    phone_number: str | None = None
+    opening_hours: list[str] = []

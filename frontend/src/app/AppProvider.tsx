@@ -127,9 +127,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const toggleLanguage = () => {
+    const nextLanguage = settings.language === 'EN' ? 'BM' : 'EN';
     persistSettings({
       ...settings,
-      language: settings.language === 'EN' ? 'BM' : 'EN'
+      language: nextLanguage
     });
   };
 

@@ -3,13 +3,13 @@ from typing import Literal
 from pydantic import BaseModel
 
 
-AccessibilityStatus = Literal["supported", "limited", "unknown", "not_verified"]
+AccessibilityStatus = Literal["supported", "not_supported", "unknown"]
 
 
 class LocationSummary(BaseModel):
     id: str
     name: str
-    type: Literal["rail_station", "accessibility_point", "place"] = "rail_station"
+    type: str = "rail_station"
     lat: float | None = None
     lon: float | None = None
     accessibility_status: AccessibilityStatus = "unknown"

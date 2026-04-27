@@ -1,43 +1,38 @@
-from hashlib import sha256
-
 from fastapi import APIRouter
 
 from app.schemas.preferences import TravelPreferences
 from app.schemas.settings import UISettings
 from app.schemas.users import AnonymousUserCreate, AnonymousUserResponse
+from app.services.user_service import (
+    create_or_resolve_anonymous_user,
+    get_travel_preferences as get_travel_preferences_service,
+    get_ui_settings as get_ui_settings_service,
+    update_travel_preferences as update_travel_preferences_service,
+    update_ui_settings as update_ui_settings_service,
+)
 
 router = APIRouter()
-
-_settings_cache: dict[str, UISettings] = {}
-_preferences_cache: dict[str, TravelPreferences] = {}
-
-
-def _anonymous_id(device_id: str) -> str:
-    return f"anon_{sha256(device_id.encode('utf-8')).hexdigest()[:24]}"
 
 
 @router.post("/anonymous", response_model=AnonymousUserResponse)
 def create_anonymous_user(payload: AnonymousUserCreate) -> AnonymousUserResponse:
-    anonymous_user_id = _anonymous_id(payload.device_id)
-    _settings_cache.setdefault(anonymous_user_id, UISettings())
-    _preferences_cache.setdefault(anonymous_user_id, TravelPreferences())
+    anonymous_user_id = create_or_resolve_anonymous_user(payload.device_id)
     return AnonymousUserResponse(anonymous_user_id=anonymous_user_id)
 
 
 @router.get("/{anonymous_user_id}/ui-settings", response_model=UISettings)
 def get_ui_settings(anonymous_user_id: str) -> UISettings:
-    return _settings_cache.setdefault(anonymous_user_id, UISettings())
+    return get_ui_settings_service(anonymous_user_id)
 
 
 @router.patch("/{anonymous_user_id}/ui-settings", response_model=UISettings)
 def update_ui_settings(anonymous_user_id: str, payload: UISettings) -> UISettings:
-    _settings_cache[anonymous_user_id] = payload
-    return payload
+    return update_ui_settings_service(anonymous_user_id, payload)
 
 
 @router.get("/{anonymous_user_id}/travel-preferences", response_model=TravelPreferences)
 def get_travel_preferences(anonymous_user_id: str) -> TravelPreferences:
-    return _preferences_cache.setdefault(anonymous_user_id, TravelPreferences())
+    return get_travel_preferences_service(anonymous_user_id)
 
 
 @router.patch("/{anonymous_user_id}/travel-preferences", response_model=TravelPreferences)
@@ -45,5 +40,4 @@ def update_travel_preferences(
     anonymous_user_id: str,
     payload: TravelPreferences,
 ) -> TravelPreferences:
-    _preferences_cache[anonymous_user_id] = payload
-    return payload
+    return update_travel_preferences_service(anonymous_user_id, payload)

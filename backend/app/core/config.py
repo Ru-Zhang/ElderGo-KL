@@ -39,8 +39,6 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    if "DATABASE_URL" in os.environ and "ELDERGO_DATABASE_URL" not in os.environ:
-        os.environ["ELDERGO_DATABASE_URL"] = os.environ["DATABASE_URL"]
     if "GOOGLE_MAPS_API_KEY" in os.environ and "ELDERGO_GOOGLE_MAPS_API_KEY" not in os.environ:
         os.environ["ELDERGO_GOOGLE_MAPS_API_KEY"] = os.environ["GOOGLE_MAPS_API_KEY"]
     return Settings()
