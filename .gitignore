@@ -21,6 +21,9 @@ venv/
 .env.*
 !.env.example
 .venv/
+.venv-backend-test/
+.venv-backend/
+.venv-frontend/
 
 # distribution / packaging
 build/

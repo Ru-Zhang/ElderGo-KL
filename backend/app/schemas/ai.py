@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic import BaseModel
 
 
@@ -7,8 +9,8 @@ class AIConversationResponse(BaseModel):
 
 class AIMessageRequest(BaseModel):
     message: str
-    current_route_id: str | None = None
-    selected_location_id: str | None = None
+    current_route_id: Optional[str] = None
+    selected_location_id: Optional[str] = None
 
 
 class AIMessageResponse(BaseModel):
