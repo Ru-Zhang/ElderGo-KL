@@ -23,13 +23,15 @@ export default function PreferencePage({
 }: PreferencePageProps) {
   const { fontSize, language, preferences, updatePreferences, clearPreferences } = useAppContext();
   const [localPreferences, setLocalPreferences] = useState(preferences);
+  const [showSavedHint, setShowSavedHint] = useState(false);
 
   const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
   const t = (key: string) => getTranslation(language, key as any);
 
   const handleSave = () => {
     updatePreferences(localPreferences);
-    alert(t('preferencesSaved'));
+    setShowSavedHint(true);
+    window.setTimeout(() => setShowSavedHint(false), 2000);
   };
 
   const handleCancel = () => {
@@ -122,6 +124,11 @@ export default function PreferencePage({
               {t('cancel')}
             </button>
           </div>
+          {showSavedHint && (
+            <div className="mt-4 rounded-lg bg-[#EAF6EA] text-[#2F7A32] px-4 py-3 text-[16px] font-medium">
+              {t('preferenceSavedWeakHint')}
+            </div>
+          )}
         </div>
       </main>
 

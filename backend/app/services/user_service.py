@@ -2,10 +2,14 @@ from __future__ import annotations
 
 from hashlib import sha256
 from uuid import UUID
+from uuid import uuid4
 
+from app.core.config import get_settings
 from app.schemas.preferences import TravelPreferences
 from app.schemas.settings import UISettings
 from app.services.database import get_connection
+
+settings = get_settings()
 
 
 def _device_hash(device_id: str) -> str:
@@ -63,6 +67,9 @@ def _ensure_default_user_rows(conn, anonymous_user_id: str) -> None:
 
 
 def create_or_resolve_anonymous_user(device_id: str) -> str:
+    if settings.demo_mode:
+        return str(uuid4())
+
     with get_connection() as conn:
         row = conn.execute(
             """
@@ -83,6 +90,9 @@ def create_or_resolve_anonymous_user(device_id: str) -> str:
 
 
 def get_ui_settings(anonymous_user_id: str) -> UISettings:
+    if settings.demo_mode:
+        return UISettings()
+
     if _parse_uuid(anonymous_user_id) is None:
         return UISettings()
 
@@ -106,6 +116,9 @@ def get_ui_settings(anonymous_user_id: str) -> UISettings:
 
 
 def update_ui_settings(anonymous_user_id: str, payload: UISettings) -> UISettings:
+    if settings.demo_mode:
+        return payload
+
     if _parse_uuid(anonymous_user_id) is None:
         return payload
 
@@ -143,6 +156,9 @@ def update_ui_settings(anonymous_user_id: str, payload: UISettings) -> UISetting
 
 
 def get_travel_preferences(anonymous_user_id: str) -> TravelPreferences:
+    if settings.demo_mode:
+        return TravelPreferences()
+
     if _parse_uuid(anonymous_user_id) is None:
         return TravelPreferences()
 
@@ -169,6 +185,9 @@ def update_travel_preferences(
     anonymous_user_id: str,
     payload: TravelPreferences,
 ) -> TravelPreferences:
+    if settings.demo_mode:
+        return payload
+
     if _parse_uuid(anonymous_user_id) is None:
         return payload
 

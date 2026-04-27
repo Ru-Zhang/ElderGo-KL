@@ -12,6 +12,7 @@ interface PreferencesModalProps {
 export default function PreferencesModal({ isOpen, onClose }: PreferencesModalProps) {
   const { language, preferences, updatePreferences, setOnboardingCompleted } = useAppContext();
   const [localPreferences, setLocalPreferences] = useState(preferences);
+  const [showSavedHint, setShowSavedHint] = useState(false);
   const t = (key: string) => getTranslation(language, key as any);
 
   useEffect(() => {
@@ -23,7 +24,11 @@ export default function PreferencesModal({ isOpen, onClose }: PreferencesModalPr
   const handleSave = () => {
     updatePreferences(localPreferences);
     setOnboardingCompleted(true);
-    onClose();
+    setShowSavedHint(true);
+    window.setTimeout(() => {
+      setShowSavedHint(false);
+      onClose();
+    }, 1200);
   };
 
   if (!isOpen) return null;
@@ -34,25 +39,26 @@ export default function PreferencesModal({ isOpen, onClose }: PreferencesModalPr
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-6 p-8" style={{ fontFamily: 'Poppins' }}>
+      <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 sm:mx-6 p-6 sm:p-8 pt-10" style={{ fontFamily: 'Poppins' }}>
         <button
           onClick={onClose}
-          className="absolute top-6 right-6 text-[#1E3A5F] hover:bg-gray-100 rounded-full p-2"
+          className="absolute top-4 right-4 text-[#1E3A5F] hover:bg-gray-100 rounded-full p-2 z-20"
+          aria-label="Close preferences modal"
         >
           <X size={28} strokeWidth={2.5} />
         </button>
 
-        <h2 className="text-3xl font-semibold text-[#1E3A5F] mb-8">
+        <h2 className="text-[26px] sm:text-3xl font-semibold text-[#1E3A5F] mb-8 pr-14 leading-none whitespace-nowrap">
           {t('travelPreferences')}
         </h2>
 
         <div className="space-y-6 mb-10">
           <div className="flex items-center justify-between p-6 bg-[#F5F7FA] rounded-xl border-2 border-gray-200">
-            <span className="text-[20px] font-medium text-[#1E3A5F]">
+            <span className="text-[20px] font-medium text-[#1E3A5F] pr-4 flex-1 leading-tight">
               {t('accessibilityFirst')}
             </span>
             <Switch.Root
-              className="w-16 h-8 bg-gray-300 rounded-full relative data-[state=checked]:bg-[#6BBF59] transition-colors"
+              className="w-16 h-8 min-w-16 flex-shrink-0 bg-gray-300 rounded-full relative data-[state=checked]:bg-[#6BBF59] transition-colors"
               checked={localPreferences.accessibilityFirst}
               onCheckedChange={(checked) => setLocalPreferences({ ...localPreferences, accessibilityFirst: checked })}
             >
@@ -61,11 +67,11 @@ export default function PreferencesModal({ isOpen, onClose }: PreferencesModalPr
           </div>
 
           <div className="flex items-center justify-between p-6 bg-[#F5F7FA] rounded-xl border-2 border-gray-200">
-            <span className="text-[20px] font-medium text-[#1E3A5F]">
+            <span className="text-[20px] font-medium text-[#1E3A5F] pr-4 flex-1 leading-tight">
               {t('leastWalk')}
             </span>
             <Switch.Root
-              className="w-16 h-8 bg-gray-300 rounded-full relative data-[state=checked]:bg-[#6BBF59] transition-colors"
+              className="w-16 h-8 min-w-16 flex-shrink-0 bg-gray-300 rounded-full relative data-[state=checked]:bg-[#6BBF59] transition-colors"
               checked={localPreferences.leastWalk}
               onCheckedChange={(checked) => setLocalPreferences({ ...localPreferences, leastWalk: checked })}
             >
@@ -74,11 +80,11 @@ export default function PreferencesModal({ isOpen, onClose }: PreferencesModalPr
           </div>
 
           <div className="flex items-center justify-between p-6 bg-[#F5F7FA] rounded-xl border-2 border-gray-200">
-            <span className="text-[20px] font-medium text-[#1E3A5F]">
+            <span className="text-[20px] font-medium text-[#1E3A5F] pr-4 flex-1 leading-tight">
               {t('fewestTransfers')}
             </span>
             <Switch.Root
-              className="w-16 h-8 bg-gray-300 rounded-full relative data-[state=checked]:bg-[#6BBF59] transition-colors"
+              className="w-16 h-8 min-w-16 flex-shrink-0 bg-gray-300 rounded-full relative data-[state=checked]:bg-[#6BBF59] transition-colors"
               checked={localPreferences.fewestTransfers}
               onCheckedChange={(checked) => setLocalPreferences({ ...localPreferences, fewestTransfers: checked })}
             >
@@ -93,6 +99,11 @@ export default function PreferencesModal({ isOpen, onClose }: PreferencesModalPr
         >
           {t('save')}
         </button>
+        {showSavedHint && (
+          <div className="mt-4 rounded-lg bg-[#EAF6EA] text-[#2F7A32] px-4 py-3 text-[16px] font-medium">
+            {t('preferenceSavedWeakHint')}
+          </div>
+        )}
       </div>
     </div>
   );

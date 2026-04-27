@@ -4,6 +4,7 @@ import TopBar from '../components/layout/TopBar';
 import BottomNav from '../components/layout/BottomNav';
 import { useAppContext } from '../app/AppProvider';
 import { recommendRoute } from '../services/routesApi';
+import { getTranslation } from '../i18n/translations';
 
 interface PlanYourTimePageProps {
   onNavigateToPlanning: () => void;
@@ -22,11 +23,12 @@ export default function PlanYourTimePage({
   onNavigateToPreference,
   onShowChatbot
 }: PlanYourTimePageProps) {
-  const [selectedTime, setSelectedTime] = useState('Now');
+  const [selectedTime, setSelectedTime] = useState<'now' | 'morning' | 'afternoon' | 'evening'>('now');
   const {
     anonymousUserId,
     destination,
     fontSize,
+    language,
     origin,
     preferences,
     routeLoading,
@@ -37,15 +39,16 @@ export default function PlanYourTimePage({
   } = useAppContext();
 
   const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
+  const t = (key: string) => getTranslation(language, key as any);
 
   const handleShowRoute = async () => {
     if (!origin || !destination) {
-      setRouteError('Please choose your starting point and destination first.');
+      setRouteError(t('planTimeMissingPoints'));
       onNavigateToPlanning();
       return;
     }
 
-    const departureTime = selectedTime === 'Now' ? 'now' : selectedTime.toLowerCase();
+    const departureTime = selectedTime;
     setDepartureTime(departureTime);
     setRouteLoading(true);
     setRouteError(null);
@@ -61,17 +64,17 @@ export default function PlanYourTimePage({
       setCurrentRoute(route);
       onNavigateToRouteResult();
     } catch {
-      setRouteError('Unable to get a route right now. Please try again.');
+      setRouteError(t('planTimeUnableToRoute'));
     } finally {
       setRouteLoading(false);
     }
   };
 
   const timeOptions = [
-    { label: 'Now', icon: Clock, description: 'Leave immediately' },
-    { label: 'Morning', icon: Sun, description: '6:00 AM - 12:00 PM' },
-    { label: 'Afternoon', icon: Sunset, description: '12:00 PM - 6:00 PM' },
-    { label: 'Evening', icon: Moon, description: '6:00 PM - 12:00 AM' }
+    { value: 'now' as const, label: t('planTimeNow'), icon: Clock, description: t('planTimeNowDesc') },
+    { value: 'morning' as const, label: t('planTimeMorning'), icon: Sun, description: t('planTimeMorningDesc') },
+    { value: 'afternoon' as const, label: t('planTimeAfternoon'), icon: Sunset, description: t('planTimeAfternoonDesc') },
+    { value: 'evening' as const, label: t('planTimeEvening'), icon: Moon, description: t('planTimeEveningDesc') }
   ];
 
   return (
@@ -99,18 +102,18 @@ export default function PlanYourTimePage({
       <main className="pt-20 pb-40 px-6">
         <div className="max-w-2xl mx-auto mt-8">
           <h2 className="font-semibold text-[#1E3A5F] mb-8" style={{ fontSize: `${30 * baseFontSize}px` }}>
-            When are you leaving?
+            {t('planTimeTitle')}
           </h2>
 
           <div className="space-y-4 mb-8">
             {timeOptions.map((option) => {
               const IconComponent = option.icon;
-              const isSelected = selectedTime === option.label;
+              const isSelected = selectedTime === option.value;
 
               return (
                 <button
-                  key={option.label}
-                  onClick={() => setSelectedTime(option.label)}
+                  key={option.value}
+                  onClick={() => setSelectedTime(option.value)}
                   className={`w-full p-6 rounded-2xl shadow-md transition-all flex items-center gap-5 ${
                     isSelected
                       ? 'bg-white border-3 border-[#4A90E2]'
@@ -148,7 +151,7 @@ export default function PlanYourTimePage({
             className="w-full bg-[#E67E22] hover:bg-[#D35400] text-white font-semibold py-5 rounded-xl transition-colors shadow-lg"
             style={{ fontSize: `${22 * baseFontSize}px` }}
           >
-            {routeLoading ? 'Finding Route...' : 'Show My Route'}
+            {routeLoading ? t('planTimeFindingRoute') : t('planTimeShowRoute')}
           </button>
         </div>
       </main>
