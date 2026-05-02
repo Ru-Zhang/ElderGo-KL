@@ -2,11 +2,11 @@
 
 Age-friendly travel and navigation platform for elderly users in Kuala Lumpur.
 
-![Frontend](https://img.shields.io/badge/Frontend-React%20%2B%20TypeScript-61DAFB)
-![Backend](https://img.shields.io/badge/Backend-FastAPI-009688)
-![Database](https://img.shields.io/badge/Database-PostgreSQL-336791)
-![UI](https://img.shields.io/badge/UI-Tailwind%20CSS-38BDF8)
-![Status](https://img.shields.io/badge/Status-Capstone%20Prototype-F59E0B)
+Frontend
+Backend
+Database
+UI
+Status
 
 ---
 
@@ -18,12 +18,14 @@ For elderly users, this often means tiny text, too many route options, confusing
 ElderGo KL is built to reduce that friction. The product focuses on a simpler route decision flow, larger readable UI, multilingual support, and accessibility-oriented interaction design.
 
 ### Problem Context
+
 - Existing transit apps can overload users with too many route choices
 - Critical travel details are often visually dense
 - Accessibility information is inconsistent or difficult to interpret
 - Elderly users need confidence and clarity, not just shortest-time routing
 
 ### Target Users
+
 - Elderly commuters in Klang Valley
 - Elderly users with low-to-moderate digital confidence
 - Family/caregivers supporting trip planning
@@ -35,6 +37,7 @@ ElderGo KL is built to reduce that friction. The product focuses on a simpler ro
 ElderGo KL was redesigned during development after we identified usability gaps in the original concept. Instead of only polishing visuals, the team refactored critical user flows to improve readability, action clarity, and step-by-step comprehension.
 
 ### Evolution Highlights
+
 - **Input flow refinement:** from generic input to validated, suggestion-based location entry
 - **Result readability:** from mixed route wording to cleaner step hierarchy and labels
 - **Preference setup:** from hidden/secondary settings to onboarding-first preference capture
@@ -61,6 +64,7 @@ ElderGo KL was redesigned during development after we identified usability gaps 
 Accessibility is treated as a core product requirement, not a cosmetic layer.
 
 ### Design Principles
+
 - **Readable first:** larger default typography and scalable font modes
 - **Low cognitive load:** fewer competing actions and clearer primary pathways
 - **Inclusive language support:** EN/BM switching in key travel flows
@@ -68,6 +72,7 @@ Accessibility is treated as a core product requirement, not a cosmetic layer.
 - **Honest confidence signals:** unknown/verified accessibility states are explicitly presented
 
 ### How It Appears in Product
+
 - Top bar controls for language and font size
 - Preference modal + settings page for route behavior tuning
 - Step-by-step cards optimized for readability in mobile layouts
@@ -77,13 +82,15 @@ Accessibility is treated as a core product requirement, not a cosmetic layer.
 
 ## 5) Tech Stack
 
-| Layer | Technology | Why We Use It |
-|---|---|---|
-| Frontend | React, TypeScript, Tailwind CSS | Fast iteration, component-driven UI, safer typed logic |
-| Backend | FastAPI, Python | Lightweight API implementation and service-oriented structure |
-| Data | PostgreSQL | Persistent storage for user settings and route-related records |
-| Design | Figma | UX exploration and iteration before implementation |
-| Collaboration | GitHub | Branching, pull requests, code reviews, team workflow |
+
+| Layer         | Technology                      | Why We Use It                                                  |
+| ------------- | ------------------------------- | -------------------------------------------------------------- |
+| Frontend      | React, TypeScript, Tailwind CSS | Fast iteration, component-driven UI, safer typed logic         |
+| Backend       | FastAPI, Python                 | Lightweight API implementation and service-oriented structure  |
+| Data          | PostgreSQL                      | Persistent storage for user settings and route-related records |
+| Design        | Figma                           | UX exploration and iteration before implementation             |
+| Collaboration | GitHub                          | Branching, pull requests, code reviews, team workflow          |
+
 
 ---
 
@@ -98,6 +105,8 @@ flowchart LR
     Backend --> Database["PostgreSQL"]
 ```
 
+
+
 - Frontend manages interaction flow, readability controls, and result presentation.
 - Backend handles recommendation logic, preference-aware scoring, and data services.
 - External APIs provide routing, location, and weather context.
@@ -108,6 +117,7 @@ flowchart LR
 ## 7) Installation & Setup
 
 ### Prerequisites
+
 - Node.js 18+
 - npm
 - Python 3.11+ (deployment runtime pinned separately in `runtime.txt`)
@@ -150,24 +160,29 @@ make backend-dev
 
 Backend (`backend/.env`):
 
-| Variable | Required | Description |
-|---|---|---|
-| `ELDERGO_ENV` | Yes | Environment mode (`development`/`production`) |
-| `ELDERGO_DEMO_MODE` | Yes | Demo fallback behavior toggle |
-| `ELDERGO_CORS_ORIGINS` | Yes | Frontend origin allowlist |
-| `ELDERGO_DATABASE_URL` | Yes (non-demo) | PostgreSQL connection string |
-| `ELDERGO_GOOGLE_MAPS_API_KEY` | Yes | Google Maps / Places backend access |
-| `OPENWEATHER_API_KEY` | Optional | Weather guidance integration |
+
+| Variable                      | Required       | Description                                   |
+| ----------------------------- | -------------- | --------------------------------------------- |
+| `ELDERGO_ENV`                 | Yes            | Environment mode (`development`/`production`) |
+| `ELDERGO_DEMO_MODE`           | Yes            | Demo fallback behavior toggle                 |
+| `ELDERGO_CORS_ORIGINS`        | Yes            | Frontend origin allowlist                     |
+| `ELDERGO_DATABASE_URL`        | Yes (non-demo) | PostgreSQL connection string                  |
+| `ELDERGO_GOOGLE_MAPS_API_KEY` | Yes            | Google Maps / Places backend access           |
+| `OPENWEATHER_API_KEY`         | Optional       | Weather guidance integration                  |
+
 
 Frontend:
 
-| Variable | Required | Description |
-|---|---|---|
-| `VITE_API_BASE_URL` | Yes | Backend API base URL |
-| `VITE_GOOGLE_MAPS_API_KEY` | Recommended | Browser map embedding key |
-| `VITE_GOOGLE_MAPS_BROWSER_KEY` | Optional | Fallback browser key |
+
+| Variable                       | Required    | Description               |
+| ------------------------------ | ----------- | ------------------------- |
+| `VITE_API_BASE_URL`            | Yes         | Backend API base URL      |
+| `VITE_GOOGLE_MAPS_API_KEY`     | Recommended | Browser map embedding key |
+| `VITE_GOOGLE_MAPS_BROWSER_KEY` | Optional    | Fallback browser key      |
+
 
 Security note:
+
 - Do not commit real API keys or live credential values.
 
 ---
@@ -213,19 +228,7 @@ Security note:
 
 ---
 
-## 10) Team Contributions
-
-| Member | Focus Areas | Key Contributions |
-|---|---|---|
-| Member A | Frontend UX & interaction | Route UI flow, mobile behavior, accessibility polish |
-| Member B | Backend services & data | Route scoring, API behavior, integration reliability |
-| Shared | Product quality | Pair programming, review, iteration, and debugging |
-
-> Replace placeholders with actual team names before final submission.
-
----
-
-## 11) Future Improvements
+## 10) Future Improvements
 
 - AI-assisted recommendation explanation layer
 - Stronger route analysis transparency (why this route, not others)
@@ -235,7 +238,7 @@ Security note:
 
 ---
 
-## 12) License
+## 11) License
 
 This repository currently represents a university capstone/startup prototype.  
 Add and reference your final license file (for example MIT) once release terms are confirmed.
@@ -245,11 +248,13 @@ Add and reference your final license file (for example MIT) once release terms a
 ## Additional Notes
 
 ### Deployment
+
 - Render deployment configuration is provided in `render.yaml`.
 - Python deployment runtime pin is in `runtime.txt`.
 - Extended operational deployment notes are in `doc/ElderGo_KL_Render_Deployment_Manual.md`.
 
 ### Known Limitations
+
 - Chatbot UI currently uses local/canned interaction behavior.
 - App navigation is state-based (not full URL routing), so deep-linking is limited.
 - Accessibility confidence still depends on available imported station datasets.
