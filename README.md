@@ -1,280 +1,256 @@
-# ElderGo-KL
+# ElderGo KL
 
-  This is a code bundle for ElderGo KL. The original project is available at https://www.figma.com/design/ZBhP0dT1Vp8p9a46BeErE1/ElderGo-KL.
+Age-friendly travel and navigation platform for elderly users in Kuala Lumpur.
 
-  ## Running the code
+![Frontend](https://img.shields.io/badge/Frontend-React%20%2B%20TypeScript-61DAFB)
+![Backend](https://img.shields.io/badge/Backend-FastAPI-009688)
+![Database](https://img.shields.io/badge/Database-PostgreSQL-336791)
+![UI](https://img.shields.io/badge/UI-Tailwind%20CSS-38BDF8)
+![Status](https://img.shields.io/badge/Status-Capstone%20Prototype-F59E0B)
 
-  Run `npm i` to install the dependencies.
+---
 
-  Run `npm run dev` to start the development server.
+## 1) Overview
 
+Many public transport apps are optimized for speed and complexity, not for clarity.  
+For elderly users, this often means tiny text, too many route options, confusing transfer details, and interaction patterns that are easy to mis-tap.
 
+ElderGo KL is built to reduce that friction. The product focuses on a simpler route decision flow, larger readable UI, multilingual support, and accessibility-oriented interaction design.
 
+### Problem Context
+- Existing transit apps can overload users with too many route choices
+- Critical travel details are often visually dense
+- Accessibility information is inconsistent or difficult to interpret
+- Elderly users need confidence and clarity, not just shortest-time routing
+
+### Target Users
+- Elderly commuters in Klang Valley
+- Elderly users with low-to-moderate digital confidence
+- Family/caregivers supporting trip planning
+
+---
+
+## 2) Product Evolution
+
+ElderGo KL was redesigned during development after we identified usability gaps in the original concept. Instead of only polishing visuals, the team refactored critical user flows to improve readability, action clarity, and step-by-step comprehension.
+
+### Evolution Highlights
+- **Input flow refinement:** from generic input to validated, suggestion-based location entry
+- **Result readability:** from mixed route wording to cleaner step hierarchy and labels
+- **Preference setup:** from hidden/secondary settings to onboarding-first preference capture
+- **Actionability:** from static controls to working Save/Share actions on route result page
+- **Localization depth:** from partial language switching to broader EN/BM route-related text coverage
+
+---
+
+## 3) Key Features
+
+- **Large text accessibility mode** with global font scaling for improved readability
+- **Simplified travel flow** from planning to route result with reduced decision load
+- **Multilingual interface** with English and Bahasa Melayu support
+- **Personalized travel preferences** (`accessibilityFirst`, `leastWalk`, `fewestTransfers`)
+- **Elderly-friendly UI patterns** with clear action hierarchy and reduced ambiguity
+- **Responsive design** tuned for mobile-first interaction behavior
+- **Accessibility-aware route outputs** with annotation messaging and transparent fallbacks
+- **Practical route actions** including local image save and share link flow
+
+---
+
+## 4) Accessibility-First Design
+
+Accessibility is treated as a core product requirement, not a cosmetic layer.
+
+### Design Principles
+- **Readable first:** larger default typography and scalable font modes
+- **Low cognitive load:** fewer competing actions and clearer primary pathways
+- **Inclusive language support:** EN/BM switching in key travel flows
+- **Step transparency:** route cards show action, duration, and annotation in a consistent structure
+- **Honest confidence signals:** unknown/verified accessibility states are explicitly presented
+
+### How It Appears in Product
+- Top bar controls for language and font size
+- Preference modal + settings page for route behavior tuning
+- Step-by-step cards optimized for readability in mobile layouts
+- Help pages written in practical, low-jargon guidance style
+
+---
+
+## 5) Tech Stack
+
+| Layer | Technology | Why We Use It |
+|---|---|---|
+| Frontend | React, TypeScript, Tailwind CSS | Fast iteration, component-driven UI, safer typed logic |
+| Backend | FastAPI, Python | Lightweight API implementation and service-oriented structure |
+| Data | PostgreSQL | Persistent storage for user settings and route-related records |
+| Design | Figma | UX exploration and iteration before implementation |
+| Collaboration | GitHub | Branching, pull requests, code reviews, team workflow |
+
+---
+
+## 6) System Architecture
+
+```mermaid
+flowchart LR
+    User["ElderlyUserOrCaregiver"] --> Frontend["ReactApp"]
+    Frontend --> Backend["FastAPIService"]
+    Backend --> Google["GoogleMapsAndPlaces"]
+    Backend --> Weather["OpenWeatherAPI"]
+    Backend --> Database["PostgreSQL"]
 ```
-backend/
-│
-├── app/
-│   ├── main.py              # 入口
-│   │
-│   ├── api/                # 路由层（Controller）
-│   │   ├── v1/
-│   │   │   ├── endpoints/
-│   │   │   │   ├── users.py
-│   │   │   │   ├── routes.py
-│   │   │   │   └── health.py
-│   │   │   └── router.py
-│   │
-│   ├── core/               # 核心配置
-│   │   ├── config.py
-│   │   ├── security.py
-│   │
-│   ├── models/             # 数据库模型（ORM）
-│   │   ├── user.py
-│   │   └── route.py
-│   │
-│   ├── schemas/            # Pydantic schemas（数据验证）
-│   │   ├── user.py
-│   │   └── route.py
-│   │
-│   ├── services/           # 业务逻辑（重点）
-│   │   ├── user_service.py
-│   │   └── route_service.py
-│   │
-│   ├── db/
-│   │   ├── session.py      # DB连接
-│   │   ├── base.py         # Base model
-│   │
-│   └── utils/              # 工具函数
-│       └── helpers.py
-│
-├── tests/                  # 测试
-│   └── test_users.py
-│
-├── requirements.txt
-├── .env
-└── alembic/ (optional)
-```
 
-
-
-
-
-````markdown id="readme-eldergo-kl"
-# ElderGo KL 🚆👴
-
-A senior-friendly public transport navigation system designed for the Klang Valley.  
-ElderGo KL simplifies complex route options into safe, accessible, and easy-to-understand journeys for elderly users.
+- Frontend manages interaction flow, readability controls, and result presentation.
+- Backend handles recommendation logic, preference-aware scoring, and data services.
+- External APIs provide routing, location, and weather context.
+- PostgreSQL persists app data when persistence mode is enabled.
 
 ---
 
-## 📌 Project Overview
+## 7) Installation & Setup
 
-In Kuala Lumpur and the Klang Valley, elderly users often struggle with existing transport apps due to:
-- Information overload (too many route choices)
-- Small text and poor readability
-- Lack of accessibility information (lifts, walking distance, transfers)
+### Prerequisites
+- Node.js 18+
+- npm
+- Python 3.11+ (deployment runtime pinned separately in `runtime.txt`)
 
-**ElderGo KL solves this by focusing on simplicity and accessibility.**
-
----
-
-## 🎯 Key Features
-
-- 🧭 Simplified route recommendation (best route only)
-- 👓 Large, readable UI (3-level font scaling)
-- ♿ Accessibility-aware navigation (lifts, ramps, walking distance)
-- 🏠 One-tap "Home" navigation button
-- 🌐 Multi-language support (EN / BM)
-
----
-
-## 🏗️ Project Structure
-
-```bash
-project-root/
-│
-├── frontend/        # React application
-├── backend/         # Python backend
-├── docs/            # Documentation
-└── README.md
-````
-
----
-
-## ⚙️ Tech Stack
-
-* Frontend: React
-* Backend: Python
-* Version Control: Git
-* Repository: GitHub
-
----
-
-## 👥 Team Members
-
-
-
----
-
-## 🧪 Development Approach
-
-This project uses **Pair Programming**:
-
-* Driver: writes code
-* Navigator: reviews and guides
-* Roles switch regularly
-
----
-
-## 🚀 Getting Started
-
-### 1. Clone repository
+### Clone
 
 ```bash
 git clone <your-repo-url>
+cd ElderGo-KL
 ```
 
-### 2. Install dependencies
-
-Frontend:
+### Frontend Setup
 
 ```bash
 cd frontend
 npm install
+npm run dev
 ```
 
-Backend:
+### Backend Setup
 
 ```bash
 cd backend
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
+python -m uvicorn app.main:app --reload --app-dir . --host 127.0.0.1 --port 8000
 ```
 
-### 3. Run project
+### Optional Stable Local Dev Mode
+
+From project root:
+
+```bash
+make frontend-dev
+make backend-dev
+```
+
+### Environment Variables
+
+Backend (`backend/.env`):
+
+| Variable | Required | Description |
+|---|---|---|
+| `ELDERGO_ENV` | Yes | Environment mode (`development`/`production`) |
+| `ELDERGO_DEMO_MODE` | Yes | Demo fallback behavior toggle |
+| `ELDERGO_CORS_ORIGINS` | Yes | Frontend origin allowlist |
+| `ELDERGO_DATABASE_URL` | Yes (non-demo) | PostgreSQL connection string |
+| `ELDERGO_GOOGLE_MAPS_API_KEY` | Yes | Google Maps / Places backend access |
+| `OPENWEATHER_API_KEY` | Optional | Weather guidance integration |
 
 Frontend:
 
-```bash
-npm start
-```
+| Variable | Required | Description |
+|---|---|---|
+| `VITE_API_BASE_URL` | Yes | Backend API base URL |
+| `VITE_GOOGLE_MAPS_API_KEY` | Recommended | Browser map embedding key |
+| `VITE_GOOGLE_MAPS_BROWSER_KEY` | Optional | Fallback browser key |
 
-Backend:
-
-```bash
-python app.py
-```
-
----
-
-## 📄 Documentation
-
-* Pair Programming Report
-* System Design (A&D)
-* User Personas
+Security note:
+- Do not commit real API keys or live credential values.
 
 ---
 
-## 📌 Notes
+## 8) Project Structure
 
-This project is developed for academic purposes.
-
-````
-
----
-
-# ✅ Git guidelines（`CONTRIBUTING.md` or README）
-
-```markdown id="git-guidelines"
-# Git Workflow & Contribution Guidelines
-
-## 🌿 Branch Strategy
-
-We follow a simplified Git workflow:
-
-- `main` → stable production-ready code  
-- `dev` → integration branch  
-- `feature/*` → new features  
-- `fix/*` → bug fixes  
-
-### Example:
-````
-
-feature/login-ui
-feature/route-algorithm
-fix/navigation-bug
-
+```text
+.
+├── backend
+│   ├── app
+│   │   ├── api
+│   │   ├── core
+│   │   ├── schemas
+│   │   └── services
+│   ├── requirements.txt
+│   └── tests
+├── frontend
+│   ├── src
+│   │   ├── app
+│   │   ├── components
+│   │   ├── i18n
+│   │   ├── pages
+│   │   ├── services
+│   │   └── types
+│   └── package.json
+├── doc
+├── render.yaml
+├── runtime.txt
+├── Makefile
+└── README.md
 ```
 
 ---
 
-## 🔄 Workflow
+## 9) Development Workflow
 
-1. Create a new branch from `dev`
-2. Implement feature using Pair Programming
-3. Commit changes with proper message format
-4. Push branch to GitHub
-5. Create Pull Request → merge into `dev`
-
----
-
-## 📝 Commit Message Convention
-
-We follow a structured commit format:
-
-```
-
-<type>: <short description>
-
-```
-
-### Types:
-
-- `feat` → new feature  
-- `fix` → bug fix  
-- `docs` → documentation  
-- `style` → formatting (no logic change)  
-- `refactor` → code restructuring  
-- `test` → testing  
-- `chore` → maintenance  
+- GitHub branch-based collaboration with pull requests
+- Pair programming for core feature implementation and bug-fixing loops
+- UI/UX discussion anchored in Figma iterations
+- Sprint-based task planning and refinement
+- Code reviews focused on behavior stability, readability, and UX impact
+- Manual smoke validation for language modes and mobile flows before merge
 
 ---
 
-### ✅ Examples
+## 10) Team Contributions
 
-```
+| Member | Focus Areas | Key Contributions |
+|---|---|---|
+| Member A | Frontend UX & interaction | Route UI flow, mobile behavior, accessibility polish |
+| Member B | Backend services & data | Route scoring, API behavior, integration reliability |
+| Shared | Product quality | Pair programming, review, iteration, and debugging |
 
-feat: add simplified route recommendation
-fix: correct navigation button alignment
-docs: update README with setup instructions
-refactor: improve route scoring logic
-
-```
-
----
-
-## 🚫 What to Avoid
-
-- ❌ vague messages like: "update", "fix stuff"
-- ❌ committing large unrelated changes together
-- ❌ pushing directly to main branch
+> Replace placeholders with actual team names before final submission.
 
 ---
 
-## 👥 Pair Programming Rules
+## 11) Future Improvements
 
-- Roles must switch regularly
-- Both members review every commit
-- Code should not be committed without mutual agreement
+- AI-assisted recommendation explanation layer
+- Stronger route analysis transparency (why this route, not others)
+- Deeper accessibility data coverage across more stations
+- Better deep-link navigation and session recovery support
+- Enhanced offline package export beyond static image output
+
+---
+
+## 12) License
+
+This repository currently represents a university capstone/startup prototype.  
+Add and reference your final license file (for example MIT) once release terms are confirmed.
 
 ---
 
-## 🔍 Code Review
+## Additional Notes
 
-Before merging:
-- Ensure code is readable
-- Check for bugs
-- Verify feature works as expected
-```
+### Deployment
+- Render deployment configuration is provided in `render.yaml`.
+- Python deployment runtime pin is in `runtime.txt`.
+- Extended operational deployment notes are in `doc/ElderGo_KL_Render_Deployment_Manual.md`.
 
----
+### Known Limitations
+- Chatbot UI currently uses local/canned interaction behavior.
+- App navigation is state-based (not full URL routing), so deep-linking is limited.
+- Accessibility confidence still depends on available imported station datasets.
 
