@@ -13,6 +13,7 @@ function ScrollArea({
   return (
     <ScrollAreaPrimitive.Root
       data-slot="scroll-area"
+      // Root wraps viewport + custom scrollbar for consistent cross-browser UI.
       className={cn("relative", className)}
       {...props}
     >

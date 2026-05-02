@@ -16,6 +16,7 @@ router = APIRouter()
 
 @router.post("/anonymous", response_model=AnonymousUserResponse)
 def create_anonymous_user(payload: AnonymousUserCreate) -> AnonymousUserResponse:
+    # Create-or-resolve semantics make repeated launches idempotent for same device.
     anonymous_user_id = create_or_resolve_anonymous_user(payload.device_id)
     return AnonymousUserResponse(anonymous_user_id=anonymous_user_id)
 
@@ -27,6 +28,7 @@ def get_ui_settings(anonymous_user_id: str) -> UISettings:
 
 @router.patch("/{anonymous_user_id}/ui-settings", response_model=UISettings)
 def update_ui_settings(anonymous_user_id: str, payload: UISettings) -> UISettings:
+    # Endpoint delegates validation/storage fallback behavior to service layer.
     return update_ui_settings_service(anonymous_user_id, payload)
 
 

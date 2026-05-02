@@ -8,6 +8,7 @@ WeatherRiskLevel = Literal["clear", "rain", "hot", "storm", "unavailable"]
 
 
 class WeatherForecastRequest(BaseModel):
+    # Destination name is mandatory so backend can geocode when lat/lon are absent.
     destination_name: str = Field(min_length=1)
     lat: float | None = None
     lon: float | None = None

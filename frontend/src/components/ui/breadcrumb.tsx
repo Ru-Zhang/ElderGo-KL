@@ -53,6 +53,7 @@ function BreadcrumbPage({ className, ...props }: React.ComponentProps<"span">) {
   return (
     <span
       data-slot="breadcrumb-page"
+      // Current page is intentionally non-clickable but still exposed semantically.
       role="link"
       aria-disabled="true"
       aria-current="page"

@@ -7,6 +7,8 @@ def score_candidate(
     least_walk: bool = False,
     fewest_transfers: bool = False,
 ) -> float:
+    # Weighted score provides stable tie-breaking; preference toggles increase
+    # penalty on the corresponding factors instead of hard-filtering routes.
     accessibility_weight = 50 if accessibility_first else 15
     walking_weight = 0.04 if least_walk else 0.02
     transfer_weight = 14 if fewest_transfers else 8
@@ -43,6 +45,8 @@ def choose_best_candidate(
         if fewest_transfers:
             key_parts.append(candidate.transfers)
 
+        # Always end with weighted score so deterministic ranking still works
+        # when multiple routes have the same priority fields.
         key_parts.append(
             score_candidate(
                 candidate,

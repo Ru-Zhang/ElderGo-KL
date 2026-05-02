@@ -169,6 +169,7 @@ export default function RouteResultPage({
       return;
     }
 
+    // Prevent stale async weather responses from overwriting newer route selections.
     let cancelled = false;
     setWeatherStatus('loading');
     getDestinationWeather({
@@ -214,6 +215,7 @@ export default function RouteResultPage({
 
   const weatherPeriodLabel = () => {
     if (weatherStatus !== 'ready' || !weather) return '-';
+    // Show a rain period only when there is meaningful rain signal for trip timing.
     const hasRainSignal = weather.riskLevel === 'rain' || weather.riskLevel === 'storm' || (weather.precipitationProbabilityPercent ?? 0) > 0 || weather.rainMm > 0;
     if (!hasRainSignal) return '-';
     const periodKeys = {
@@ -293,6 +295,7 @@ export default function RouteResultPage({
   const mapEmbedSrc = currentRoute
     ? GOOGLE_MAPS_EMBED_KEY
       ? `https://www.google.com/maps/embed/v1/directions?key=${encodeURIComponent(GOOGLE_MAPS_EMBED_KEY)}&origin=${encodeURIComponent(currentRoute.origin_name)}&destination=${encodeURIComponent(currentRoute.destination_name)}&mode=transit`
+      // Fallback keeps map view functional even without Maps Embed API key.
       : `https://www.google.com/maps?output=embed&saddr=${encodeURIComponent(currentRoute.origin_name)}&daddr=${encodeURIComponent(currentRoute.destination_name)}&dirflg=r`
     : null;
 
@@ -352,6 +355,7 @@ export default function RouteResultPage({
       const contentWidth = width - padding * 2;
       const stepTitleWidth = contentWidth - 200;
 
+      // Pre-measure text to compute a canvas height that fits all wrapped cards.
       const preCanvas = document.createElement('canvas');
       const preCtx = preCanvas.getContext('2d');
       if (!preCtx) {
@@ -464,6 +468,7 @@ export default function RouteResultPage({
         y += height + cardGap;
       });
 
+      // Use client-side download so users can save/share route summaries instantly.
       const link = document.createElement('a');
       link.href = canvas.toDataURL('image/png');
       link.download = `eldergo-route-${new Date().toISOString().slice(0, 10)}.png`;

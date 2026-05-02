@@ -11,18 +11,21 @@ interface PreferencesModalProps {
 
 export default function PreferencesModal({ isOpen, onClose }: PreferencesModalProps) {
   const { language, preferences, updatePreferences, setOnboardingCompleted } = useAppContext();
+  // Local copy lets users adjust multiple toggles before one save action.
   const [localPreferences, setLocalPreferences] = useState(preferences);
   const [showSavedHint, setShowSavedHint] = useState(false);
   const t = (key: string) => getTranslation(language, key as any);
 
   useEffect(() => {
     if (isOpen) {
+      // Reset draft values each time modal opens to reflect latest stored prefs.
       setLocalPreferences(preferences);
     }
   }, [isOpen, preferences]);
 
   const handleSave = () => {
     updatePreferences(localPreferences);
+    // Completing this modal marks onboarding preference step as done.
     setOnboardingCompleted(true);
     setShowSavedHint(true);
     window.setTimeout(() => {

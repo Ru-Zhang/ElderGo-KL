@@ -80,6 +80,7 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
 
   return (
     <style
+      // Inject per-chart CSS variables so series colors can be themed dynamically.
       dangerouslySetInnerHTML={{
         __html: Object.entries(THEMES)
           .map(

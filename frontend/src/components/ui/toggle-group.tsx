@@ -48,6 +48,7 @@ function ToggleGroupItem({
   ...props
 }: React.ComponentProps<typeof ToggleGroupPrimitive.Item> &
   VariantProps<typeof toggleVariants>) {
+  // Group-level variant/size defaults are inherited unless explicitly overridden.
   const context = React.useContext(ToggleGroupContext);
 
   return (

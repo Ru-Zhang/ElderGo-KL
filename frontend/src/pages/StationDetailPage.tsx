@@ -25,6 +25,7 @@ export default function StationDetailPage({
   const { fontSize, language, selectedStation } = useAppContext();
   const [placeLoading, setPlaceLoading] = useState(false);
   const [placeError, setPlaceError] = useState<string | null>(null);
+  // Use static map fallback so station header still renders when photo APIs fail.
   const stationImageUrl = selectedStation
     ? getStationStaticImageUrl(selectedStation.name, selectedStation.lat, selectedStation.lon)
     : '/background-elder.png';
@@ -45,6 +46,7 @@ export default function StationDetailPage({
         selectedStation.lat,
         selectedStation.lon
       );
+      // Open external Maps page with place_id for precise destination resolution.
       const mapsUrl = new URL('https://www.google.com/maps/search/');
       mapsUrl.searchParams.set('api', '1');
       mapsUrl.searchParams.set('query', detail.name || selectedStation.name);
@@ -58,6 +60,8 @@ export default function StationDetailPage({
   };
 
   if (!selectedStation) {
+    // Guard route-entry edge cases (refresh/direct navigation) where station
+    // context was not restored yet.
     return (
       <div className="min-h-screen relative" style={{ fontFamily: 'Poppins' }}>
         <div

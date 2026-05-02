@@ -35,11 +35,15 @@ class Settings(BaseSettings):
 
     @property
     def cors_origin_list(self) -> list[str]:
+        # Keep env var format simple (comma-separated string) while exposing a
+        # normalized list to FastAPI CORS middleware.
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
 
 @lru_cache
 def get_settings() -> Settings:
+    # Backward-compatibility bridge for legacy env name still used in some local
+    # setups and deployment environments.
     if "GOOGLE_MAPS_API_KEY" in os.environ and "ELDERGO_GOOGLE_MAPS_API_KEY" not in os.environ:
         os.environ["ELDERGO_GOOGLE_MAPS_API_KEY"] = os.environ["GOOGLE_MAPS_API_KEY"]
     return Settings()

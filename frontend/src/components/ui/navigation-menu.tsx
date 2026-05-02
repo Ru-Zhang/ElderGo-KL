@@ -24,6 +24,7 @@ function NavigationMenu({
       {...props}
     >
       {children}
+      {/* Optional viewport enables Radix content measurement/animation container. */}
       {viewport && <NavigationMenuViewport />}
     </NavigationMenuPrimitive.Root>
   );

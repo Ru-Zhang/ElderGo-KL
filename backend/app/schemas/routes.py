@@ -17,6 +17,7 @@ class RouteRecommendationRequest(BaseModel):
     origin: PlaceInput
     destination: PlaceInput
     departure_time: str = "now"
+    # Default preferences allow recommendation API to work without onboarding payload.
     preferences: TravelPreferences = Field(default_factory=TravelPreferences)
 
 
@@ -65,4 +66,5 @@ class RecommendedRoute(BaseModel):
     recommendation_reason: str
     map_polyline: str | None = None
     steps: list[RouteStep]
+    # Accessibility points are optional enrichments extracted from walking segments.
     accessibility_points: list[RouteAccessibilityPoint] = Field(default_factory=list)

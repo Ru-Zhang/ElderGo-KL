@@ -9,6 +9,7 @@ export function ImageWithFallback({ src, alt, className, ...props }: ImageWithFa
   const [error, setError] = useState(false);
 
   if (error) {
+    // Keep layout stable when remote image fails to load.
     return (
       <div className={`bg-gray-200 flex items-center justify-center ${className}`}>
         <span className="text-eldergo-muted text-sm">Image unavailable</span>

@@ -64,6 +64,7 @@ export default function TicketGuidePage({
               <p className="text-eldergo-muted leading-relaxed mb-4" style={{ fontSize: `${18 * baseFontSize}px` }}>
                 {t('ticketTokenIntro')}
               </p>
+              {/* Keep machine flow as fixed numbered steps to reduce cognitive load. */}
               <ol className="space-y-3 text-eldergo-muted leading-relaxed" style={{ fontSize: `${18 * baseFontSize}px` }}>
                 <li className="flex gap-3">
                   <span className="font-bold text-eldergo-blue flex-shrink-0">1.</span>
@@ -109,6 +110,7 @@ export default function TicketGuidePage({
             </div>
 
             <div className="bg-eldergo-warning-bg border-l-4 border-eldergo-warning p-6 rounded-xl">
+              {/* External source link is displayed as trust signal for fare guidance. */}
               <p className="font-semibold text-eldergo-navy mb-2" style={{ fontSize: `${18 * baseFontSize}px` }}>
                 {t('ticketInfoSourceTitle')}
               </p>

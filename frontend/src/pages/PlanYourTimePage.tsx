@@ -47,6 +47,7 @@ export default function PlanYourTimePage({
   const t = (key: string) => getTranslation(language, key as any);
 
   const handleShowRoute = async () => {
+    // Guard against stale navigation paths where origin/destination were cleared.
     if (!origin || !destination) {
       setRouteError(t('planTimeMissingPoints'));
       onNavigateToPlanning();
@@ -59,6 +60,8 @@ export default function PlanYourTimePage({
     setRouteError(null);
 
     try {
+      // Persist selected departure period in global context so weather/routing
+      // pages can stay consistent with the user's latest choice.
       const route = await recommendRoute({
         anonymousUserId,
         origin,
@@ -76,6 +79,7 @@ export default function PlanYourTimePage({
   };
 
   const timeOptions = [
+    // Keep options explicit and localized for elderly-friendly readability.
     { value: 'now' as const, label: t('planTimeNow'), icon: Clock, description: t('planTimeNowDesc') },
     { value: 'morning' as const, label: t('planTimeMorning'), icon: Sun, description: t('planTimeMorningDesc') },
     { value: 'afternoon' as const, label: t('planTimeAfternoon'), icon: Sunset, description: t('planTimeAfternoonDesc') },

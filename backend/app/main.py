@@ -9,6 +9,8 @@ settings = get_settings()
 
 app = FastAPI(title=settings.app_name)
 
+# CORS stays open to configured frontend origins so local web and deployed UI
+# can call the API without browser preflight failures.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
@@ -22,4 +24,5 @@ app.include_router(api_router)
 
 @app.get("/")
 def root() -> dict[str, str]:
+    # Simple root endpoint used as quick service sanity check.
     return {"name": settings.app_name, "status": "ok"}

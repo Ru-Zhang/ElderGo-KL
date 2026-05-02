@@ -24,5 +24,7 @@ IN_SCOPE_KEYWORDS = {
 
 
 def is_in_scope(message: str) -> bool:
+    # Keyword match is intentionally lightweight for deterministic guardrail
+    # behavior in the prototype chatbot flow.
     lowered = message.lower()
     return any(keyword in lowered for keyword in IN_SCOPE_KEYWORDS)

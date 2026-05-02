@@ -14,9 +14,11 @@ function Separator({
   return (
     <SeparatorPrimitive.Root
       data-slot="separator-root"
+      // `decorative` defaults true so screen readers skip purely visual dividers.
       decorative={decorative}
       orientation={orientation}
       className={cn(
+        // Orientation switches between horizontal rule and vertical divider.
         "bg-border shrink-0 data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-px",
         className,
       )}

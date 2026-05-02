@@ -35,6 +35,8 @@ function dedupeLocations(locations: LocationSummary[]): LocationSummary[] {
     }
     seenIds.add(location.id);
 
+    // Keep one card per canonical station name to avoid duplicate entries
+    // coming from multiple source systems.
     if (location.type === 'rail_station') {
       const stationKey = canonicalStationName(location.name);
       if (seenStationNames.has(stationKey)) {
@@ -72,6 +74,7 @@ export default function StationsHomePage({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Re-fetch on language change so fallback/error messages stay localized.
     getPopularLocations()
       .then((locations) => setPopularStations(dedupeLocations(locations)))
       .catch(() => setError(t('stationDatabaseNotReady')));
@@ -85,6 +88,7 @@ export default function StationsHomePage({
       return;
     }
 
+    // Mark searched state only for non-empty input to control empty-state UI.
     setHasSearched(true);
     try {
       const locations = await searchLocations(query);
@@ -98,6 +102,8 @@ export default function StationsHomePage({
 
   const handleStationClick = async (location: LocationSummary) => {
     try {
+      // Load full detail payload before navigation so destination page can render
+      // immediately without another blocking fetch.
       const detail = await getLocationDetail(location.id);
       if (detail) {
         setSelectedStation(detail);

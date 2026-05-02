@@ -8,6 +8,7 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
     <div
       data-slot="table-container"
+      // Horizontal scroll wrapper prevents layout break on narrow screens.
       className="relative w-full overflow-x-auto"
     >
       <table

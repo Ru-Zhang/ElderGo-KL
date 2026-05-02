@@ -7,6 +7,7 @@ router = APIRouter()
 
 @router.get("/health")
 def health() -> dict[str, str]:
+    # Lightweight liveness probe (process is running).
     return {"status": "ok"}
 
 
@@ -14,6 +15,7 @@ def health() -> dict[str, str]:
 def health_db() -> dict[str, str]:
     try:
         with get_connection() as conn:
+            # Minimal round-trip query used by readiness checks.
             conn.execute("SELECT 1").fetchone()
         return {"status": "ok", "database": "connected"}
     except Exception as exc:

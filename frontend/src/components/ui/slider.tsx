@@ -50,6 +50,7 @@ function Slider({
         />
       </SliderPrimitive.Track>
       {Array.from({ length: _values.length }, (_, index) => (
+        // Render one thumb per value to support single-value and range sliders.
         <SliderPrimitive.Thumb
           data-slot="slider-thumb"
           key={index}

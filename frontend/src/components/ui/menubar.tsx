@@ -72,6 +72,7 @@ function MenubarContent({
   ...props
 }: React.ComponentProps<typeof MenubarPrimitive.Content>) {
   return (
+    // Content is portaled to avoid clipping by surrounding layout containers.
     <MenubarPortal>
       <MenubarPrimitive.Content
         data-slot="menubar-content"

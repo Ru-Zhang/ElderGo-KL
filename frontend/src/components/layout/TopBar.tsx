@@ -19,6 +19,7 @@ export default function TopBar({ onLogoClick }: TopBarProps) {
     <div className="fixed top-0 left-0 right-0 bg-white border-b border-eldergo-border/50 px-6 py-2 flex justify-between items-center z-50">
       <div className="flex items-center gap-3">
         {onLogoClick ? (
+          // When page provides a handler, logo area becomes a back action.
           <button
             type="button"
             onClick={onLogoClick}

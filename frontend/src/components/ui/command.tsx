@@ -40,6 +40,7 @@ function CommandDialog({
 }) {
   return (
     <Dialog {...props}>
+      {/* Hidden heading keeps dialog screen-reader friendly without visual clutter. */}
       <DialogHeader className="sr-only">
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>{description}</DialogDescription>

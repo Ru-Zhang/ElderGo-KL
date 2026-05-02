@@ -7,6 +7,7 @@ interface AnonymousUserResponse {
 }
 
 export async function createAnonymousUser(deviceId: string): Promise<string> {
+  // Device id is resolved server-side into a stable anonymous UUID.
   const response = await apiRequest<AnonymousUserResponse>('/users/anonymous', {
     method: 'POST',
     body: JSON.stringify({ device_id: deviceId })
@@ -15,6 +16,7 @@ export async function createAnonymousUser(deviceId: string): Promise<string> {
 }
 
 export async function getUISettings(anonymousUserId: string): Promise<UISettings> {
+  // Convert API shape to frontend shape at the boundary.
   return fromApiSettings(await apiRequest<ApiUISettings>(`/users/${anonymousUserId}/ui-settings`));
 }
 

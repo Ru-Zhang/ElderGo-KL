@@ -23,6 +23,7 @@ function CollapsibleContent({
   ...props
 }: React.ComponentProps<typeof CollapsiblePrimitive.CollapsibleContent>) {
   return (
+    // Thin wrappers keep a consistent slot API across Radix primitives.
     <CollapsiblePrimitive.CollapsibleContent
       data-slot="collapsible-content"
       {...props}

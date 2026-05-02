@@ -39,6 +39,8 @@ def _dedupe_location_rows(rows: list[dict], limit: int) -> list[dict]:
             continue
         seen_ids.add(location_id)
 
+        # Rail stations may appear multiple times across merged source systems.
+        # We collapse them by canonicalized display name for search/popular lists.
         if row.get("location_type") == "rail_station":
             canonical_name = _canonical_station_name(str(row["display_name"]))
             if canonical_name in seen_station_names:
@@ -121,6 +123,7 @@ def popular_locations() -> list[LocationSummary]:
                 LIMIT 24
                 """
             ).fetchall()
+            # Query more rows first, then dedupe to keep enough meaningful results.
             deduped_rows = _dedupe_location_rows(rows, limit=8)
             return [_location_summary(row) for row in deduped_rows]
     except Exception as exc:
@@ -156,6 +159,7 @@ def search_locations(q: str = "") -> list[LocationSummary]:
                 """,
                 {"query": query, "like_query": f"%{query}%"},
             ).fetchall()
+            # Similarity ranking can still return name duplicates; normalize in API layer.
             deduped_rows = _dedupe_location_rows(rows, limit=20)
             return [_location_summary(row) for row in deduped_rows]
     except Exception as exc:
@@ -206,9 +210,11 @@ def location_detail(location_id: str) -> LocationDetail:
                     {"station_group_id": data["location_id"]},
                 ).fetchall()
                 station_ids = [member["station_id"] for member in member_rows]
+                # Legacy rows may not have station_group_members yet.
                 if not station_ids and data.get("source_id"):
                     station_ids = [data["source_id"]]
 
+                # Aggregate route labels across all station members in the group.
                 routes = [
                     route_row["route_name"]
                     for route_row in conn.execute(
@@ -226,6 +232,8 @@ def location_detail(location_id: str) -> LocationDetail:
                 ]
                 routes = sorted(set(routes))
 
+                # Nearby accessibility facilities are inferred from points within
+                # 50m of grouped station geometries.
                 facility_row = conn.execute(
                     """
                     SELECT
@@ -281,11 +289,14 @@ def location_detail(location_id: str) -> LocationDetail:
                 source_list=source_list,
             )
     except HTTPException:
+        # Preserve explicit 404/other HTTP semantics but still try CSV fallback
+        # for demo/local environments without fully populated DB views.
         csv_location = get_csv_location(location_id)
         if csv_location:
             return csv_location
         raise
     except Exception as exc:
+        # Last-resort fallback for DB outages or missing views in local setups.
         csv_location = get_csv_location(location_id)
         if csv_location:
             return csv_location

@@ -19,6 +19,7 @@ export interface LocationDetail extends LocationSummary {
 }
 
 export interface PlaceSelection {
+  // Lightweight location shape used across planning flow and API requests.
   displayName: string;
   lat?: number | null;
   lon?: number | null;

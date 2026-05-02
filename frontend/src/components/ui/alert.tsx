@@ -27,6 +27,7 @@ function Alert({
   return (
     <div
       data-slot="alert"
+      // `role=alert` ensures assistive tech announces important messages.
       role="alert"
       className={cn(alertVariants({ variant }), className)}
       {...props}

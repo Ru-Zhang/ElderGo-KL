@@ -22,6 +22,7 @@ export function toApiSettings(settings: UISettings): ApiUISettings {
 }
 
 export function fromApiSettings(settings: ApiUISettings): UISettings {
+  // Normalize backend naming for app context consumption.
   return {
     language: settings.language,
     fontSize: settings.font_size,
