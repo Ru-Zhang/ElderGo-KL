@@ -111,6 +111,7 @@ function FormControl({ ...props }: React.ComponentProps<typeof Slot>) {
   return (
     <Slot
       data-slot="form-control"
+      // Wire ids/aria attributes so labels, hints, and errors are announced correctly.
       id={formItemId}
       aria-describedby={
         !error

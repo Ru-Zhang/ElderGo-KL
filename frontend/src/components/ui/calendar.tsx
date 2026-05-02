@@ -15,6 +15,7 @@ function Calendar({
 }: React.ComponentProps<typeof DayPicker>) {
   return (
     <DayPicker
+      // Keep outside days visible for easier month-to-month date context.
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
       classNames={{

@@ -23,6 +23,7 @@ export default function BottomNav({
   const t = (key: string) => getTranslation(language, key as any);
 
   return (
+    // Fixed bottom nav keeps primary actions reachable with one tap.
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-eldergo-border px-4 py-3 z-50">
       <div className="grid grid-cols-5 gap-2 items-center max-w-5xl mx-auto">
         <button

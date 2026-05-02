@@ -38,6 +38,7 @@ function Toggle({
   return (
     <TogglePrimitive.Root
       data-slot="toggle"
+      // Variant map centralizes shared toggle state styling across usages.
       className={cn(toggleVariants({ variant, size, className }))}
       {...props}
     />

@@ -42,6 +42,7 @@ interface ApiWeatherForecastResponse {
 }
 
 export async function getDestinationWeather(request: WeatherForecastRequest): Promise<DestinationWeather> {
+  // Translate frontend request fields into backend contract keys.
   const body = await apiRequest<ApiWeatherForecastResponse>('/weather/forecast', {
     method: 'POST',
     body: JSON.stringify({
@@ -51,6 +52,7 @@ export async function getDestinationWeather(request: WeatherForecastRequest): Pr
       departure_time: request.departureTime
     })
   });
+  // Normalize response back to frontend camelCase for view components.
   return {
     destinationName: body.destination_name,
     forecastTime: body.forecast_time,

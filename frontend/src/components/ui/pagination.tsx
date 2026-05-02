@@ -50,6 +50,7 @@ function PaginationLink({
 }: PaginationLinkProps) {
   return (
     <a
+      // `aria-current` helps screen readers identify the active page.
       aria-current={isActive ? "page" : undefined}
       data-slot="pagination-link"
       data-active={isActive}

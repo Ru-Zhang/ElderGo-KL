@@ -44,6 +44,7 @@ function Button({
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
   }) {
+  // `asChild` lets consumers reuse button styles on custom interactive elements.
   const Comp = asChild ? Slot : "button";
 
   return (

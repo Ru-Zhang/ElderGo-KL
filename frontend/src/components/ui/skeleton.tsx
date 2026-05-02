@@ -4,6 +4,7 @@ function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="skeleton"
+      // Pulse placeholder indicates loading while preserving final layout space.
       className={cn("bg-accent animate-pulse rounded-md", className)}
       {...props}
     />

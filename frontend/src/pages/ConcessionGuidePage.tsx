@@ -53,6 +53,8 @@ export default function ConcessionGuidePage({
 
           <div className="space-y-6">
             <div className="bg-eldergo-green text-white p-6 rounded-2xl shadow-md">
+              {/* Lead with the discount value so elderly users can quickly
+                  understand the main benefit before reading steps. */}
               <h3 className="font-bold mb-3" style={{ fontSize: `${24 * baseFontSize}px` }}>
                 {t('concessionBenefitTitle')}
               </h3>
@@ -84,6 +86,7 @@ export default function ConcessionGuidePage({
               <h3 className="font-semibold text-eldergo-navy mb-4" style={{ fontSize: `${22 * baseFontSize}px` }}>
                 {t('concessionApplyStepsTitle')}
               </h3>
+              {/* Numbered checklist mirrors in-person counter process sequence. */}
               <div className="space-y-4">
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 bg-eldergo-blue text-white rounded-full flex items-center justify-center font-bold flex-shrink-0" style={{ fontSize: `${18 * baseFontSize}px` }}>

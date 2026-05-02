@@ -11,6 +11,7 @@ export interface ApiTravelPreferences {
 }
 
 export function toApiPreferences(preferences: TravelPreferences): ApiTravelPreferences {
+  // Boundary mapper between frontend camelCase and backend snake_case.
   return {
     accessibility_first: preferences.accessibilityFirst,
     least_walk: preferences.leastWalk,

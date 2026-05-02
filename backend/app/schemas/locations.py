@@ -18,6 +18,7 @@ class LocationSummary(BaseModel):
 
 
 class LocationDetail(LocationSummary):
+    # Detail view extends summary with station-specific enrichment fields.
     routes: list[str] = []
     known_facilities: list[str] = []
     source_list: list[str] = []

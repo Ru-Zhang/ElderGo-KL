@@ -8,6 +8,7 @@ export function useIsMobile() {
   );
 
   React.useEffect(() => {
+    // Subscribe to viewport breakpoint changes and keep hook state in sync.
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
     const onChange = () => {
       setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);

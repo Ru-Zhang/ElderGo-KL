@@ -8,6 +8,7 @@ export class ApiError extends Error {
 }
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  // Shared request wrapper keeps error wording and headers consistent across pages.
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {

@@ -1,4 +1,5 @@
 export const translations = {
+  // Translation catalog stays flat for predictable key lookup in UI components.
   EN: {
     // Planning Page
     howToUse: "How to use ElderGo?",

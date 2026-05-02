@@ -11,6 +11,7 @@ class PlaceSuggestion(BaseModel):
 class PlaceDetail(BaseModel):
     display_name: str
     google_place_id: str
+    # Coordinates can be missing when upstream provider does not return geometry.
     lat: float | None = None
     lon: float | None = None
     name: str | None = None

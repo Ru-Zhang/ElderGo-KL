@@ -17,6 +17,7 @@ _demo_travel_preferences: dict[str, TravelPreferences] = {}
 
 
 def _device_hash(device_id: str) -> str:
+    # Store only hashed device identifiers to avoid persisting raw client ids.
     return sha256(device_id.encode("utf-8")).hexdigest()
 
 
@@ -40,6 +41,8 @@ def _api_language_to_db(value: str) -> str:
 
 
 def _ensure_default_user_rows(conn, anonymous_user_id: str) -> None:
+    # Keep UI settings and travel preferences rows in sync so callers can safely
+    # read either table without checking first-time-user edge cases.
     conn.execute(
         """
         INSERT INTO user_ui_settings (
@@ -72,6 +75,7 @@ def _ensure_default_user_rows(conn, anonymous_user_id: str) -> None:
 
 def create_or_resolve_anonymous_user(device_id: str) -> str:
     if settings.demo_mode:
+        # Deterministic UUID keeps local/demo state stable across sessions.
         anonymous_user_id = str(uuid5(NAMESPACE_URL, _device_hash(device_id)))
         _demo_ui_settings.setdefault(anonymous_user_id, UISettings())
         _demo_travel_preferences.setdefault(anonymous_user_id, TravelPreferences())
@@ -100,6 +104,7 @@ def get_ui_settings(anonymous_user_id: str) -> UISettings:
     if settings.demo_mode:
         return _demo_ui_settings.setdefault(anonymous_user_id, UISettings())
 
+    # Invalid ids should not hard-fail UI bootstrapping.
     if _parse_uuid(anonymous_user_id) is None:
         return UISettings()
 
@@ -127,6 +132,7 @@ def update_ui_settings(anonymous_user_id: str, payload: UISettings) -> UISetting
         _demo_ui_settings[anonymous_user_id] = payload
         return payload
 
+    # Accept payload and skip DB write for malformed ids to keep client flow usable.
     if _parse_uuid(anonymous_user_id) is None:
         return payload
 

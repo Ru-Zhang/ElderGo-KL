@@ -20,6 +20,8 @@ class CandidateRoute:
 
 
 def _place_value(place: PlaceInput) -> str:
+    # Prefer coordinates/place_id over free text to improve Directions accuracy
+    # and reduce ambiguous place resolution.
     if place.lat is not None and place.lon is not None:
         return f"{place.lat},{place.lon}"
     if place.google_place_id:
@@ -62,6 +64,7 @@ async def fetch_candidate_routes(origin: PlaceInput, destination: PlaceInput, de
             for step in steps
             if step.get("travel_mode") == "WALKING"
         )
+        # Number of transit legs minus one gives transfer count.
         transfers = sum(1 for step in steps if step.get("travel_mode") == "TRANSIT")
         candidates.append(
             CandidateRoute(

@@ -78,6 +78,7 @@ export interface RecommendedRoute {
 }
 
 export function toApiRouteRequest(request: RouteRecommendationRequest): ApiRouteRecommendationRequest {
+  // Keep route request transformation in one place for consistent API payloads.
   return {
     anonymous_user_id: request.anonymousUserId,
     origin: {

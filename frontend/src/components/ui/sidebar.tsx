@@ -129,6 +129,7 @@ function SidebarProvider({
   return (
     <SidebarContext.Provider value={contextValue}>
       <TooltipProvider delayDuration={0}>
+        {/* CSS variables centralize width values shared across all sidebar variants. */}
         <div
           data-slot="sidebar-wrapper"
           style={
@@ -181,6 +182,7 @@ function Sidebar({
   }
 
   if (isMobile) {
+    // Mobile uses sheet-based navigation instead of persistent desktop rail.
     return (
       <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
         <SheetContent

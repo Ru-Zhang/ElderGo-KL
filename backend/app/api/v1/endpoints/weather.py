@@ -8,4 +8,6 @@ router = APIRouter()
 
 @router.post("/forecast", response_model=WeatherForecastResponse)
 async def weather_forecast(payload: WeatherForecastRequest) -> WeatherForecastResponse:
+    # Delegate to service so endpoint remains transport-only (validation +
+    # response typing) and weather heuristics live in one place.
     return await get_weather_forecast(payload)

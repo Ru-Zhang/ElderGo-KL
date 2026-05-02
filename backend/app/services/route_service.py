@@ -98,6 +98,8 @@ def _clean_html_instruction(value: str | None) -> str:
 
 
 def _step_from_google(step_number: int, google_step: dict) -> PreparedRouteStep:
+    # Normalize a Google step into our internal route step shape while keeping
+    # raw geometry/line metadata for later persistence and map rendering.
     mode = google_step.get("travel_mode")
     step_type = "transit" if mode == "TRANSIT" else "walking"
     transit = google_step.get("transit_details", {})
@@ -129,6 +131,8 @@ def _route_from_candidate(payload: RouteRecommendationRequest, candidate: Candid
         for index, step in enumerate(candidate.steps)
     ]
     accessibility_points: list[RouteAccessibilityPoint] = []
+    # Accessibility points are attached only when a step-level annotation is
+    # backed by a concrete nearby point from local datasets.
     for prepared in prepared_steps:
         point = prepared.annotation_result.accessibility_point
         if point is not None:
@@ -193,6 +197,7 @@ def _annotation_type(step_type: str) -> str:
 def _persist_route(payload: RouteRecommendationRequest, prepared: PreparedRecommendation) -> str:
     route = prepared.route
     anonymous_user_id = _parse_optional_uuid(payload.anonymous_user_id)
+    # Keep recommendation snapshots short-lived to avoid stale guidance being reused.
     expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(minutes=30)
 
     with get_connection() as conn:
@@ -269,6 +274,8 @@ def _persist_route(payload: RouteRecommendationRequest, prepared: PreparedRecomm
         ).fetchone()
         recommended_route_id = recommended_row["recommended_route_id"]
 
+        # Persist each step and its annotation separately so downstream UI can
+        # explain accessibility confidence per segment.
         for prepared_step in prepared.prepared_steps:
             step = prepared_step.step
             annotation_result = prepared_step.annotation_result
@@ -388,6 +395,8 @@ async def recommend_route(payload: RouteRecommendationRequest) -> RecommendedRou
     if settings.demo_mode:
         return recommendation.model_copy(update={"recommended_route_id": f"demo_{uuid.uuid4().hex[:12]}"})
 
+    # Route recommendation should still be returned even when persistence fails.
+    # We generate an ephemeral id so frontend flows remain usable.
     try:
         recommended_route_id = _persist_route(payload, prepared)
     except Exception:

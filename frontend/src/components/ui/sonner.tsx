@@ -8,6 +8,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
 
   return (
     <Sonner
+      // Reuse app theme tokens so toast styling matches current light/dark mode.
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
       style={

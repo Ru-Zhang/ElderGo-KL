@@ -82,6 +82,7 @@ def _decode_google_polyline(encoded: str | None) -> list[tuple[float, float]]:
     lat = 0
     lng = 0
 
+    # Decode Google encoded polyline into (lat, lon) pairs.
     while index < len(encoded):
         result = 0
         shift = 0
@@ -115,6 +116,8 @@ def _decode_google_polyline(encoded: str | None) -> list[tuple[float, float]]:
 def _line_wkt_from_step(google_step: dict[str, Any]) -> str | None:
     coords = _decode_google_polyline(google_step.get("polyline", {}).get("points"))
     if len(coords) < 2:
+        # Some steps do not include a decodable polyline; fallback to a straight
+        # segment from start/end so spatial lookups still work.
         start = google_step.get("start_location")
         end = google_step.get("end_location")
         if start and end:
@@ -253,6 +256,8 @@ def _find_station(stop: dict[str, Any] | None) -> StationMatch | None:
     location = stop.get("location", {})
     lat = location.get("lat")
     lon = location.get("lng", location.get("lon"))
+    # Prefer geo match for precision, fallback to fuzzy name match when coordinates
+    # are missing or outside our import tolerance.
     return _find_station_by_coordinate(lat, lon) or _find_station_by_name(stop.get("name"))
 
 
@@ -282,6 +287,8 @@ def _walking_accessibility_result(path_wkt: str) -> dict[str, Any] | None:
               )
             ORDER BY
                 CASE
+                    -- Rank sheltered points first for elderly comfort, then
+                    -- explicit accessibility support, then nearest fallback.
                     WHEN LOWER(COALESCE(shelter, '')) = 'yes'
                       OR LOWER(COALESCE(covered, '')) = 'yes' THEN 0
                     WHEN LOWER(COALESCE(wheelchair, '')) = 'yes'
@@ -359,6 +366,8 @@ def annotate_google_step(google_step: dict[str, Any]) -> AccessibilityAnnotation
                 path_wkt=path_wkt,
             )
 
+        # Database lookups are best-effort; annotation generation should never
+        # hard-fail route planning.
         try:
             from_station = _find_station(departure_stop)
             to_station = _find_station(arrival_stop)
@@ -402,6 +411,8 @@ def annotate_google_step(google_step: dict[str, Any]) -> AccessibilityAnnotation
 
     if travel_mode == "WALKING":
         if path_wkt:
+            # Nearby-point annotation is optional enrichment and should degrade
+            # gracefully if spatial data is unavailable.
             try:
                 walking_result = _walking_accessibility_result(path_wkt)
             except Exception:

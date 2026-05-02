@@ -8,4 +8,6 @@ router = APIRouter()
 
 @router.post("/recommend", response_model=RecommendedRoute)
 async def recommend_route(payload: RouteRecommendationRequest) -> RecommendedRoute:
+    # Endpoint stays thin so scoring/persistence behavior is centralized in
+    # service layer and reused by tests.
     return await recommend_route_service(payload)

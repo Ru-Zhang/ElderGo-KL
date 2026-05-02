@@ -34,6 +34,8 @@ export default function HelpPage({
   const handleReset = () => {
     const confirmed = confirm(t('clearCacheConfirm'));
     if (confirmed) {
+      // Only remove ElderGo-prefixed local keys to avoid deleting unrelated
+      // app/site storage in the same browser profile.
       const keysBefore = Object.keys(localStorage).filter((key) => key.startsWith('eldergo_'));
       keysBefore.forEach((key) => localStorage.removeItem(key));
       sessionStorage.clear();
@@ -81,6 +83,7 @@ export default function HelpPage({
 
           <div className="bg-eldergo-warning-bg border-l-4 border-eldergo-warning p-5 rounded-xl mb-10">
             <p className="text-eldergo-navy font-medium" style={{ fontSize: `${16 * baseFontSize}px` }}>
+              {/* Keep this warning highly visible because reset clears onboarding and preferences. */}
               ⚠️ {t('clearCacheWarning')}
             </p>
           </div>

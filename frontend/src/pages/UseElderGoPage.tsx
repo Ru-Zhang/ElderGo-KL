@@ -66,6 +66,8 @@ export default function UseElderGoPage({
           </div>
 
           <div className="space-y-6">
+            {/* Step cards mirror the intended onboarding flow: preference setup,
+                route planning, then support guidance and station details. */}
             <div className="bg-white p-6 rounded-2xl shadow-md">
               <div className="flex items-start gap-4 mb-4">
                 <div className="w-12 h-12 bg-eldergo-green/20 rounded-full flex items-center justify-center flex-shrink-0">
