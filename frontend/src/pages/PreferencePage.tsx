@@ -72,11 +72,11 @@ export default function PreferencePage({
 
           <div className="space-y-4 mb-8">
             <div className="flex items-center justify-between p-6 bg-white rounded-xl border-2 border-eldergo-border shadow-sm">
-              <span className="font-medium text-eldergo-navy" style={{ fontSize: `${18 * baseFontSize}px` }}>
+              <span className="font-medium text-eldergo-navy pr-4 flex-1 leading-tight" style={{ fontSize: `${18 * baseFontSize}px` }}>
                 {t('accessibilityFirst')}
               </span>
               <Switch.Root
-                className="w-16 h-8 bg-gray-300 rounded-full relative data-[state=checked]:bg-eldergo-green transition-colors"
+                className="w-16 h-8 min-w-16 flex-shrink-0 bg-gray-300 rounded-full relative data-[state=checked]:bg-eldergo-green transition-colors"
                 checked={localPreferences.accessibilityFirst}
                 onCheckedChange={(checked) => setLocalPreferences({ ...localPreferences, accessibilityFirst: checked })}
               >
@@ -85,11 +85,11 @@ export default function PreferencePage({
             </div>
 
             <div className="flex items-center justify-between p-6 bg-white rounded-xl border-2 border-eldergo-border shadow-sm">
-              <span className="font-medium text-eldergo-navy" style={{ fontSize: `${18 * baseFontSize}px` }}>
+              <span className="font-medium text-eldergo-navy pr-4 flex-1 leading-tight" style={{ fontSize: `${18 * baseFontSize}px` }}>
                 {t('leastWalk')}
               </span>
               <Switch.Root
-                className="w-16 h-8 bg-gray-300 rounded-full relative data-[state=checked]:bg-eldergo-green transition-colors"
+                className="w-16 h-8 min-w-16 flex-shrink-0 bg-gray-300 rounded-full relative data-[state=checked]:bg-eldergo-green transition-colors"
                 checked={localPreferences.leastWalk}
                 onCheckedChange={(checked) => setLocalPreferences({ ...localPreferences, leastWalk: checked })}
               >
@@ -98,11 +98,11 @@ export default function PreferencePage({
             </div>
 
             <div className="flex items-center justify-between p-6 bg-white rounded-xl border-2 border-eldergo-border shadow-sm">
-              <span className="font-medium text-eldergo-navy" style={{ fontSize: `${18 * baseFontSize}px` }}>
+              <span className="font-medium text-eldergo-navy pr-4 flex-1 leading-tight" style={{ fontSize: `${18 * baseFontSize}px` }}>
                 {t('fewestTransfers')}
               </span>
               <Switch.Root
-                className="w-16 h-8 bg-gray-300 rounded-full relative data-[state=checked]:bg-eldergo-green transition-colors"
+                className="w-16 h-8 min-w-16 flex-shrink-0 bg-gray-300 rounded-full relative data-[state=checked]:bg-eldergo-green transition-colors"
                 checked={localPreferences.fewestTransfers}
                 onCheckedChange={(checked) => setLocalPreferences({ ...localPreferences, fewestTransfers: checked })}
               >
