@@ -1,10 +1,19 @@
 import { useEffect, useState, useRef } from 'react';
-import { Download, Share2, Cloud, CloudLightning, CloudRain, CloudSun, Sun, Train, MapPin, Footprints, ChevronLeft, ChevronRight, ArrowDown } from 'lucide-react';
+import { Download, Share2, Cloud, CloudLightning, CloudRain, CloudSun, Sun, Train, MapPin, Footprints, ChevronLeft, ChevronRight, ArrowDown, Navigation } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import BottomNav from '../components/layout/BottomNav';
+import { StationDetailModal } from '../components/common/StationDetailModal';
+import { ImageWithFallback } from '../components/common/ImageWithFallback';
 import { useAppContext } from '../app/AppProvider';
 import { getTranslation } from '../i18n/translations';
 import { DestinationWeather, getDestinationWeather } from '../services/weatherApi';
+import { getStationStaticImageUrl } from '../services/googlePlaces';
+import { resolveStationDetailByName } from '../services/resolveStationDetail';
+import type { LocationDetail } from '../types/locations';
+import { extractStationNameFromInstruction, cleanStationQuery } from '../utils/stationName';
+import { getElderHighlightFacilities, getFacilityTier } from '../utils/facilityPriority';
+import { pickFacilityIcon } from '../utils/facilityIcons';
+import { translateFacility } from '../utils/dataI18n';
 
 interface RouteResultPageProps {
   onNavigateToPlanning: () => void;
@@ -40,11 +49,13 @@ export default function RouteResultPage({
   const [viewMode, setViewMode] = useState<'text' | 'map'>('text');
   const [currentStep, setCurrentStep] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const { currentRoute, departureTime, destination, fontSize, routeError, language } = useAppContext();
+  const { currentRoute, departureTime, origin, destination, fontSize, routeError, language } = useAppContext();
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [actionHint, setActionHint] = useState<string | null>(null);
   const [weather, setWeather] = useState<DestinationWeather | null>(null);
   const [weatherStatus, setWeatherStatus] = useState<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  const [stationModalName, setStationModalName] = useState<string | null>(null);
+  const [stepStationDetails, setStepStationDetails] = useState<Record<string, LocationDetail | null>>({});
   const t = (key: string) => getTranslation(language, key as any);
 
   const toLocationLabel = (value?: string | null) => {
@@ -135,22 +146,83 @@ export default function RouteResultPage({
     return message;
   };
 
-  const routeSteps = currentRoute?.steps.map((step, index, allSteps) => ({
-    step: step.step_number,
-    title: normalizeStepTitle(
-      step.instruction,
-      step.step_type,
-      step.from_station,
-      step.to_station,
-      index === allSteps.length - 1,
-      currentRoute?.destination_name
-    ),
-    duration: step.duration_minutes ? `${step.duration_minutes} ${t('routeMins')}` : t('routeTimeUnknown'),
-    distance: step.step_type === 'walking' && step.distance_meters ? `${step.distance_meters}m` : '',
-    icon: step.step_type === 'walking' ? Footprints : step.step_type === 'transit' ? Train : MapPin,
-    color: step.step_type === 'walking' ? BRAND_COLORS.blue : step.step_type === 'transit' ? BRAND_COLORS.green : BRAND_COLORS.warning,
-    accessibility: localizeAccessibilityMessage(step.annotation.message)
-  })) || [];
+  const routeSteps = currentRoute?.steps.map((step, index, allSteps) => {
+    // Pick the most relevant station name for the "view station details"
+    // popup. For transit segments we want the station you're heading to;
+    // for walking segments the destination station (if it's a station)
+    // is the natural reference. The last step usually leads to the user's
+    // chosen non-station destination, so we suppress the popup there to
+    // avoid a confusing "station not found" dialog.
+    //
+    // Walking steps coming from Google Directions usually arrive without a
+    // populated `to_station`, so we additionally try to parse the
+    // instruction text ("Walk to KL Sentral") to recover a station name
+    // for the popup trigger.
+    const isLast = index === allSteps.length - 1;
+    const explicitStation = step.to_station || step.from_station || null;
+    const inferredStation = extractStationNameFromInstruction(step.instruction);
+    const stationForPopup = !isLast
+      ? explicitStation || inferredStation
+      : step.step_type === 'transit'
+        ? explicitStation || inferredStation
+        : null;
+    return {
+      step: step.step_number,
+      title: normalizeStepTitle(
+        step.instruction,
+        step.step_type,
+        step.from_station,
+        step.to_station,
+        isLast,
+        currentRoute?.destination_name
+      ),
+      duration: step.duration_minutes ? `${step.duration_minutes} ${t('routeMins')}` : t('routeTimeUnknown'),
+      distance: step.step_type === 'walking' && step.distance_meters ? `${step.distance_meters}m` : '',
+      isWalking: step.step_type === 'walking',
+      icon: step.step_type === 'walking' ? Footprints : step.step_type === 'transit' ? Train : MapPin,
+      color: step.step_type === 'walking' ? BRAND_COLORS.blue : step.step_type === 'transit' ? BRAND_COLORS.green : BRAND_COLORS.warning,
+      accessibility: localizeAccessibilityMessage(step.annotation.message),
+      stationForPopup,
+    };
+  }) || [];
+
+  useEffect(() => {
+    setStepStationDetails({});
+    if (!currentRoute?.steps?.length) {
+      return;
+    }
+    const keys = new Set<string>();
+    currentRoute.steps.forEach((step, index, allSteps) => {
+      const isLast = index === allSteps.length - 1;
+      const explicitStation = step.to_station || step.from_station || null;
+      const inferredStation = extractStationNameFromInstruction(step.instruction);
+      const stationForPopup = !isLast
+        ? explicitStation || inferredStation
+        : step.step_type === 'transit'
+          ? explicitStation || inferredStation
+          : null;
+      if (stationForPopup) keys.add(stationForPopup);
+    });
+
+    let cancelled = false;
+    (async () => {
+      const next: Record<string, LocationDetail | null> = {};
+      await Promise.all(
+        [...keys].map(async (key) => {
+          try {
+            next[key] = await resolveStationDetailByName(key);
+          } catch {
+            next[key] = null;
+          }
+        }),
+      );
+      if (!cancelled) setStepStationDetails(next);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentRoute?.recommended_route_id]);
 
   const scroll = (direction: 'left' | 'right') => {
     if (direction === 'left' && currentStep > 0) {
@@ -348,14 +420,86 @@ export default function RouteResultPage({
       return lines;
     };
 
+    /**
+     * Resolve a station/destination preview image into a canvas-drawable
+     * HTMLImageElement. We swallow load failures so the rest of the card
+     * still draws — image is purely supplemental.
+     */
+    const loadImage = (src: string): Promise<HTMLImageElement | null> =>
+      new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src = src;
+      });
+
     try {
       const width = 1080;
       const padding = 64;
       const cardGap = 30;
       const contentWidth = width - padding * 2;
       const stepTitleWidth = contentWidth - 200;
+      const cardLeftPadding = 58;
+      const cardInnerWidth = contentWidth - cardLeftPadding * 2;
+      const imageHeight = 360;
+      const chipHeight = 48;
+      const chipGap = 12;
 
-      // Pre-measure text to compute a canvas height that fits all wrapped cards.
+      // Build per-step download model that mirrors the render code so the
+      // exported PNG matches what the user sees on screen (highlights, image,
+      // walking-vs-transit detail line).
+      const downloadSteps = currentRoute.steps.map((step, index, allSteps) => {
+        const isLast = index === allSteps.length - 1;
+        const explicitStation = step.to_station || step.from_station || null;
+        const inferredStation = extractStationNameFromInstruction(step.instruction);
+        const stationForPopup = !isLast
+          ? explicitStation || inferredStation
+          : step.step_type === 'transit'
+            ? explicitStation || inferredStation
+            : null;
+        const detail = stationForPopup ? stepStationDetails[stationForPopup] ?? null : null;
+        const highlights = detail?.station_facilities?.length
+          ? getElderHighlightFacilities(detail.station_facilities)
+          : [];
+
+        let imageSrc: string | null = null;
+        const showPlaceImageOnly = step.step_type === 'walking' && isLast && !stationForPopup;
+        if (showPlaceImageOnly) {
+          const label = destination?.displayName || currentRoute.destination_name;
+          if (label) {
+            imageSrc = getStationStaticImageUrl(
+              toLocationLabel(label),
+              destination?.lat ?? null,
+              destination?.lon ?? null,
+            );
+          }
+        } else if (stationForPopup) {
+          if (detail) {
+            imageSrc = getStationStaticImageUrl(detail.name, detail.lat ?? null, detail.lon ?? null);
+          } else {
+            imageSrc = getStationStaticImageUrl(cleanStationQuery(stationForPopup));
+          }
+        }
+
+        const view = routeSteps[index];
+        return {
+          step: view.step,
+          title: view.title,
+          duration: view.duration,
+          distance: view.distance,
+          isWalking: view.isWalking,
+          color: view.color,
+          highlights,
+          imageSrc,
+        };
+      });
+
+      // Prefetch all images in parallel; null entries simply skip drawing.
+      const images = await Promise.all(
+        downloadSteps.map((m) => (m.imageSrc ? loadImage(m.imageSrc) : Promise.resolve(null))),
+      );
+
       const preCanvas = document.createElement('canvas');
       const preCtx = preCanvas.getContext('2d');
       if (!preCtx) {
@@ -363,19 +507,76 @@ export default function RouteResultPage({
         return;
       }
 
+      // Wrap facility chips into rows up-front so we can size each card.
+      // Each chip carries both the canonical English value (used for icon
+      // picking + tier classification) and the localized label that gets
+      // drawn so users see the right language in the export.
+      type LocalizedChip = { english: string; localized: string };
+      type LaidOutChip = LocalizedChip & { x: number; y: number; width: number };
+      const layoutFacilityChips = (chips: LocalizedChip[]): LaidOutChip[][] => {
+        if (!chips.length) return [];
+        preCtx.font = '700 30px Poppins, sans-serif';
+        const rows: LaidOutChip[][] = [];
+        let currentRow: LaidOutChip[] = [];
+        let cursor = 0;
+        let rowY = 0;
+        chips.forEach((chip) => {
+          const measured = preCtx.measureText(chip.localized).width;
+          const w = measured + 36; // 18px horizontal padding each side
+          if (cursor > 0 && cursor + w > cardInnerWidth) {
+            rows.push(currentRow);
+            currentRow = [];
+            cursor = 0;
+            rowY += chipHeight + chipGap;
+          }
+          currentRow.push({ ...chip, x: cursor, y: rowY, width: w });
+          cursor += w + chipGap;
+        });
+        if (currentRow.length) rows.push(currentRow);
+        return rows;
+      };
+
       preCtx.font = 'bold 48px Poppins, sans-serif';
-      const stepHeights = routeSteps.map((step) => {
+      const stepHeights = downloadSteps.map((step, idx) => {
         const titleLines = wrapLines(preCtx, step.title, stepTitleWidth);
-        preCtx.font = '500 34px Poppins, sans-serif';
-        const noteLines = wrapLines(preCtx, step.accessibility, contentWidth - 120);
+        const localizedHighlights: LocalizedChip[] = step.highlights.map((label) => ({
+          english: label,
+          localized: translateFacility(label, language),
+        }));
+        const chipRows = layoutFacilityChips(localizedHighlights);
+        const facilitiesBlockHeight = step.highlights.length
+          ? 50 /* section label */ + chipRows.length * chipHeight + (chipRows.length - 1) * chipGap + 30 /* trailing margin */
+          : 0;
+        const detailLine = step.isWalking
+          ? step.distance ? `${t('routeDistance')}: ${step.distance}` : ''
+          : `${t('routeDuration')}: ${step.duration}`;
+        const detailHeight = detailLine ? 60 : 0;
+        const imgHeight = images[idx] ? imageHeight + 30 : 0;
+        const headerHeight = 110; // step number circle + label
+        const titleSpacing = 54;
+        const titleHeight = titleLines.length * titleSpacing + 30;
+        const cardPaddingV = 80;
         return {
           titleLines,
-          noteLines,
-          height: Math.max(280, 190 + titleLines.length * 52 + noteLines.length * 42)
+          chipRows,
+          detailLine,
+          detailHeight,
+          facilitiesBlockHeight,
+          imgHeight,
+          height:
+            cardPaddingV +
+            headerHeight +
+            titleHeight +
+            detailHeight +
+            facilitiesBlockHeight +
+            imgHeight,
         };
       });
 
-      const totalStepsHeight = stepHeights.reduce((sum, item) => sum + item.height, 0) + cardGap * (routeSteps.length - 1);
+      const totalStepsHeight =
+        stepHeights.reduce((sum, item) => sum + item.height, 0) +
+        cardGap * Math.max(downloadSteps.length - 1, 0);
+
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = 320 + totalStepsHeight + 80;
@@ -417,53 +618,110 @@ export default function RouteResultPage({
       ctx.fillText(t('routeStepByStep'), padding, 300);
 
       let y = 330;
-      routeSteps.forEach((step, index) => {
-        const { titleLines, noteLines, height } = stepHeights[index];
+      downloadSteps.forEach((step, index) => {
+        const { titleLines, chipRows, detailLine, detailHeight, facilitiesBlockHeight, imgHeight, height } = stepHeights[index];
+
+        // Card background + left color stripe
         drawRoundedRect(ctx, padding, y, contentWidth, height, 28);
         ctx.fillStyle = BRAND_COLORS.white;
         ctx.fill();
-
         ctx.fillStyle = step.color;
         ctx.fillRect(padding, y, 10, height);
 
+        // Step number circle + "Step X of Y" label
         ctx.beginPath();
-        ctx.arc(padding + 58, y + 58, 34, 0, Math.PI * 2);
+        ctx.arc(padding + cardLeftPadding, y + 58, 34, 0, Math.PI * 2);
         ctx.fillStyle = step.color;
         ctx.fill();
         ctx.fillStyle = BRAND_COLORS.white;
         ctx.font = '700 34px Poppins, sans-serif';
-        ctx.fillText(String(step.step), padding + 47, y + 71);
+        ctx.fillText(String(step.step), padding + cardLeftPadding - 11, y + 71);
 
         ctx.fillStyle = BRAND_COLORS.muted;
         ctx.font = '600 34px Poppins, sans-serif';
-        ctx.fillText(`${t('routeStep')} ${step.step} ${t('routeOf')} ${routeSteps.length}`, padding + 125, y + 72);
+        ctx.fillText(
+          `${t('routeStep')} ${step.step} ${t('routeOf')} ${downloadSteps.length}`,
+          padding + cardLeftPadding + 67,
+          y + 72,
+        );
 
+        // Title (wrapped)
         ctx.fillStyle = BRAND_COLORS.navy;
         ctx.font = '700 52px Poppins, sans-serif';
         let textY = y + 138;
         titleLines.forEach((line) => {
-          ctx.fillText(line, padding + 58, textY, contentWidth - 110);
+          ctx.fillText(line, padding + cardLeftPadding, textY, cardInnerWidth);
           textY += 54;
         });
+        textY += 16; // small spacing under title
 
-        ctx.fillStyle = BRAND_COLORS.body;
-        ctx.font = '500 40px Poppins, sans-serif';
-        const durationText = step.distance
-          ? `${t('routeDuration')}: ${step.duration} -${step.distance}`
-          : `${t('routeDuration')}: ${step.duration}`;
-        ctx.fillText(durationText, padding + 58, textY + 8, contentWidth - 110);
+        // Detail line: walking shows distance only, others show duration
+        if (detailLine) {
+          ctx.fillStyle = BRAND_COLORS.body;
+          ctx.font = '500 38px Poppins, sans-serif';
+          ctx.fillText(detailLine, padding + cardLeftPadding, textY + 8, cardInnerWidth);
+          textY += detailHeight;
+        }
 
-        const noteY = y + height - (noteLines.length * 42 + 44);
-        drawRoundedRect(ctx, padding + 58, noteY, contentWidth - 116, noteLines.length * 42 + 24, 18);
-        ctx.fillStyle = `${step.color}22`;
-        ctx.fill();
-        ctx.fillStyle = step.color;
-        ctx.font = '600 34px Poppins, sans-serif';
-        let noteTextY = noteY + 42;
-        noteLines.forEach((line) => {
-          ctx.fillText(line, padding + 88, noteTextY, contentWidth - 170);
-          noteTextY += 42;
-        });
+        // Highlighted facilities (Tier 1 = solid blue, Tier 2 = light blue)
+        if (step.highlights.length) {
+          ctx.fillStyle = BRAND_COLORS.muted;
+          ctx.font = '700 24px Poppins, sans-serif';
+          ctx.fillText(t('stationFacilities').toUpperCase(), padding + cardLeftPadding, textY + 18);
+          const chipsBaseX = padding + cardLeftPadding;
+          const chipsBaseY = textY + 36;
+          ctx.font = '700 30px Poppins, sans-serif';
+          chipRows.forEach((row) => {
+            row.forEach((chip) => {
+              const tier = getFacilityTier(chip.english);
+              const cx = chipsBaseX + chip.x;
+              const cy = chipsBaseY + chip.y;
+              drawRoundedRect(ctx, cx, cy, chip.width, chipHeight, 24);
+              if (tier === 1) {
+                ctx.fillStyle = BRAND_COLORS.blue;
+                ctx.fill();
+                ctx.fillStyle = BRAND_COLORS.white;
+              } else {
+                ctx.fillStyle = 'rgba(74, 144, 226, 0.18)';
+                ctx.fill();
+                ctx.fillStyle = BRAND_COLORS.navy;
+              }
+              ctx.fillText(chip.localized, cx + 18, cy + 33);
+            });
+          });
+          textY += facilitiesBlockHeight;
+        }
+
+        // Destination/station image — use cover-style cropping into rounded rect
+        const img = images[index];
+        if (img && imgHeight > 0) {
+          const imgX = padding + cardLeftPadding;
+          const imgW = cardInnerWidth;
+          const imgH = imageHeight;
+          const imgY = y + height - imgH - 24;
+          const aspectImg = img.width / img.height;
+          const aspectRect = imgW / imgH;
+          let sx = 0;
+          let sy = 0;
+          let sw = img.width;
+          let sh = img.height;
+          if (aspectImg > aspectRect) {
+            sw = img.height * aspectRect;
+            sx = (img.width - sw) / 2;
+          } else {
+            sh = img.width / aspectRect;
+            sy = (img.height - sh) / 2;
+          }
+          ctx.save();
+          drawRoundedRect(ctx, imgX, imgY, imgW, imgH, 18);
+          ctx.clip();
+          ctx.drawImage(img, sx, sy, sw, sh, imgX, imgY, imgW, imgH);
+          ctx.restore();
+          ctx.strokeStyle = BRAND_COLORS.border;
+          ctx.lineWidth = 2;
+          drawRoundedRect(ctx, imgX, imgY, imgW, imgH, 18);
+          ctx.stroke();
+        }
 
         y += height + cardGap;
       });
@@ -494,6 +752,27 @@ export default function RouteResultPage({
     const shareText = `${t('routeShareMessage')} ${buildShareableRouteLink()}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank', 'noopener,noreferrer');
     setShareMenuOpen(false);
+  };
+
+  /**
+   * Hand the user off to the Google Maps app (or maps.google.com on desktop)
+   * with the current origin/destination prefilled for transit navigation.
+   * We prefer lat,lon coordinates from the planning step when available
+   * because they remove ambiguity from station/place name matching, and
+   * fall back to display names from the route response otherwise.
+   */
+  const handleStartNavigation = () => {
+    if (!currentRoute) return;
+    const formatPoint = (place: typeof origin, fallbackName: string) => {
+      if (place && typeof place.lat === 'number' && typeof place.lon === 'number') {
+        return `${place.lat},${place.lon}`;
+      }
+      return place?.displayName || fallbackName;
+    };
+    const originParam = formatPoint(origin, currentRoute.origin_name);
+    const destinationParam = formatPoint(destination, currentRoute.destination_name);
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(originParam)}&destination=${encodeURIComponent(destinationParam)}&travelmode=transit&dir_action=navigate`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -596,6 +875,28 @@ export default function RouteResultPage({
             </div>
           </div>
 
+          <button
+            type="button"
+            onClick={handleStartNavigation}
+            disabled={!currentRoute}
+            className="w-full mb-6 inline-flex items-center justify-center gap-3 bg-eldergo-blue hover:bg-eldergo-blue-dark text-white font-bold rounded-2xl shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              fontSize: `${20 * baseFontSize}px`,
+              paddingTop: `${16 * baseFontSize}px`,
+              paddingBottom: `${16 * baseFontSize}px`,
+            }}
+            aria-label={t('routeStartNavigationAria')}
+          >
+            <Navigation
+              size={22 * baseFontSize}
+              strokeWidth={2.6}
+              className="text-white"
+              fill="currentColor"
+              fillOpacity={0.25}
+            />
+            {t('routeStartNavigation')}
+          </button>
+
           {viewMode === 'text' ? (
             <div className="relative mb-8">
               <div className="flex items-center justify-between mb-4">
@@ -665,24 +966,64 @@ export default function RouteResultPage({
                     className="flex transition-transform duration-300 ease-in-out"
                     style={{ transform: `translateX(-${currentStep * 100}%)` }}
                   >
-                    {routeSteps.map((step) => {
+                    {routeSteps.map((step, stepIndex) => {
                       const IconComponent = step.icon;
+                      const isLastStep = stepIndex === routeSteps.length - 1;
+                      const showPlaceImageOnly = Boolean(step.isWalking && isLastStep && !step.stationForPopup);
+                      const detail = step.stationForPopup ? stepStationDetails[step.stationForPopup] : undefined;
+                      const resolvedStation =
+                        Boolean(step.stationForPopup) &&
+                        Object.prototype.hasOwnProperty.call(stepStationDetails, step.stationForPopup);
+                      const highlights =
+                        resolvedStation && detail?.station_facilities?.length
+                          ? getElderHighlightFacilities(detail.station_facilities)
+                          : [];
+                      const showFacilityRow = highlights.length > 0;
+
+                      let imageSrc: string | null = null;
+                      if (showPlaceImageOnly) {
+                        const label = destination?.displayName || currentRoute?.destination_name;
+                        if (label) {
+                          imageSrc = getStationStaticImageUrl(
+                            toLocationLabel(label),
+                            destination?.lat ?? null,
+                            destination?.lon ?? null,
+                          );
+                        }
+                      } else if (step.stationForPopup && resolvedStation) {
+                        if (detail) {
+                          imageSrc = getStationStaticImageUrl(detail.name, detail.lat ?? null, detail.lon ?? null);
+                        } else {
+                          imageSrc = getStationStaticImageUrl(cleanStationQuery(step.stationForPopup));
+                        }
+                      }
+
+                      const showImageBlock = Boolean(imageSrc);
+
                       return (
                         <div
-                          key={step.step}
-                          className="w-full flex-shrink-0 px-6 sm:px-16 h-full"
+                          key={`route-step-${stepIndex}-${step.step}`}
+                          className="w-full flex-shrink-0 px-6 sm:px-16"
                         >
                           <div
-                            className="bg-white/95 backdrop-blur-sm p-5 sm:p-6 rounded-2xl shadow-xl border-l-4 min-h-[360px] sm:min-h-[400px] h-full overflow-hidden"
-                            style={{ borderLeftColor: step.color }}
+                            className="bg-white/95 backdrop-blur-sm p-5 sm:p-6 rounded-2xl shadow-xl border-l-4 flex flex-col overflow-y-auto"
+                            style={{
+                              borderLeftColor: step.color,
+                              // Lock all step cards to the same scrollable
+                              // height so the carousel stays steady when
+                              // facilities/images differ between steps. The
+                              // height scales with the user's font setting.
+                              height: `${620 * baseFontSize}px`,
+                              maxHeight: '82vh',
+                            }}
                           >
-                            <div className="flex flex-col h-full">
+                            <div className="flex flex-col flex-1 min-h-0">
                               <div className="flex items-center gap-3 mb-4">
                                 <div
                                   className="w-10 h-10 text-white rounded-full flex items-center justify-center font-bold flex-shrink-0"
                                   style={{
                                     backgroundColor: step.color,
-                                    fontSize: `${16 * baseFontSize}px`
+                                    fontSize: `${16 * baseFontSize}px`,
                                   }}
                                 >
                                   {step.step}
@@ -700,13 +1041,103 @@ export default function RouteResultPage({
                               </div>
 
                               <div className="text-eldergo-muted mb-4" style={{ fontSize: `${16 * baseFontSize}px` }}>
-                                {t('routeDuration')}: {step.duration}{step.distance ? ` -${step.distance}` : ''}
+                                {step.isWalking
+                                  ? step.distance
+                                    ? `${t('routeDistance')}: ${step.distance}`
+                                    : ''
+                                  : `${t('routeDuration')}: ${step.duration}`}
                               </div>
 
-                              <div className="mt-auto px-4 py-3 rounded-lg" style={{ backgroundColor: `${step.color}20` }}>
-                                <span className="font-medium break-words leading-snug" style={{ color: step.color, fontSize: `${14 * baseFontSize}px` }}>
-                                  {step.accessibility}
-                                </span>
+                              <div className="flex flex-col gap-4 pt-1 flex-1 min-h-0">
+                                {step.stationForPopup && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setStationModalName(step.stationForPopup)}
+                                    aria-label={t('routeViewStationDetails')}
+                                    className="group inline-flex items-center justify-between gap-3 self-stretch bg-eldergo-blue/10 hover:bg-eldergo-blue/15 active:bg-eldergo-blue/20 text-eldergo-blue-dark font-semibold rounded-2xl border border-eldergo-blue/30 transition-colors"
+                                    style={{
+                                      fontSize: `${15 * baseFontSize}px`,
+                                      paddingTop: `${12 * baseFontSize}px`,
+                                      paddingBottom: `${12 * baseFontSize}px`,
+                                      paddingLeft: `${18 * baseFontSize}px`,
+                                      paddingRight: `${18 * baseFontSize}px`,
+                                    }}
+                                  >
+                                    <span className="inline-flex items-center gap-2.5">
+                                      <MapPin
+                                        size={18 * baseFontSize}
+                                        strokeWidth={2.4}
+                                        className="text-eldergo-blue"
+                                      />
+                                      {t('routeViewStationDetails')}
+                                    </span>
+                                    <ChevronRight
+                                      size={20 * baseFontSize}
+                                      strokeWidth={2.4}
+                                      className="text-eldergo-blue opacity-70 transition-transform group-hover:translate-x-0.5 group-hover:opacity-100"
+                                    />
+                                  </button>
+                                )}
+
+                                {showFacilityRow && (
+                                  <div className="border-t border-eldergo-border pt-3">
+                                    <div
+                                      className="text-eldergo-muted font-semibold uppercase tracking-wide mb-2"
+                                      style={{
+                                        fontSize: `${11 * baseFontSize}px`,
+                                        letterSpacing: '0.06em',
+                                      }}
+                                    >
+                                      {t('stationFacilities')}
+                                    </div>
+                                    <div className="flex flex-wrap gap-x-4 gap-y-2 select-none">
+                                      {highlights.map((item) => {
+                                        const FIcon = pickFacilityIcon(item);
+                                        const tier = getFacilityTier(item);
+                                        // Render as inline icon + label badges
+                                        // (no border, no fill button shape) so
+                                        // users don't mistake them for tappable
+                                        // controls. Tier 1 still gets visual
+                                        // prominence via color + weight.
+                                        const textClass =
+                                          tier === 1
+                                            ? 'text-eldergo-blue-dark font-bold'
+                                            : 'text-eldergo-navy font-semibold';
+                                        const iconClass =
+                                          tier === 1 ? 'text-eldergo-blue' : 'text-eldergo-blue/70';
+                                        return (
+                                          <span
+                                            key={item}
+                                            className={`inline-flex items-center gap-1.5 cursor-default ${textClass}`}
+                                            style={{ fontSize: `${14 * baseFontSize}px` }}
+                                          >
+                                            <FIcon
+                                              size={16 * baseFontSize}
+                                              className={`${iconClass} flex-shrink-0`}
+                                              strokeWidth={tier === 1 ? 2.4 : 2.2}
+                                            />
+                                            <span>{translateFacility(item, language)}</span>
+                                          </span>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {showImageBlock && imageSrc && (
+                                  // flex-1 lets the image grow to fill the
+                                  // empty space below the button/chips so the
+                                  // card looks balanced. min-h-[160px] keeps
+                                  // it from collapsing when the card has lots
+                                  // of facility chips.
+                                  <div className="flex-1 min-h-[160px] rounded-xl overflow-hidden border border-eldergo-border shadow-sm">
+                                    <ImageWithFallback
+                                      src={imageSrc}
+                                      alt={detail?.name ?? step.stationForPopup ?? toLocationLabel(destination?.displayName) ?? 'Destination'}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -751,6 +1182,14 @@ export default function RouteResultPage({
           onPreferenceClick={onNavigateToPreference}
         />
       </div>
+
+      <StationDetailModal
+        isOpen={stationModalName !== null}
+        onClose={() => setStationModalName(null)}
+        stationName={stationModalName}
+        baseFontSize={baseFontSize}
+        t={t}
+      />
     </div>
   );
 }

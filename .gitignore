@@ -24,6 +24,7 @@ venv/
 .venv-backend-test/
 .venv-backend/
 .venv-frontend/
+.venv311/
 
 # distribution / packaging
 build/

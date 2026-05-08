@@ -1,11 +1,27 @@
-import { useState } from 'react';
-import { Check, AlertTriangle } from 'lucide-react';
+import * as React from 'react';
+import { useState, type ReactNode } from 'react';
+import {
+  Accessibility,
+  AlertTriangle,
+  Check,
+  Clock,
+  HelpCircle,
+  MapPin,
+  Navigation,
+  TrainFront,
+} from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import BottomNav from '../components/layout/BottomNav';
 import { ImageWithFallback } from '../components/common/ImageWithFallback';
+import { HoursDisplay } from '../components/common/HoursDisplay';
 import { useAppContext } from '../app/AppProvider';
 import { getTranslation } from '../i18n/translations';
 import { getStationGooglePlaceDetail, getStationStaticImageUrl } from '../services/googlePlaces';
+import { pickFacilityIcon } from '../utils/facilityIcons';
+import { LineBadge } from '../utils/lineBadge';
+import { parseHoursSummary } from '../utils/hoursParser';
+import { getFacilityTier, sortFacilitiesForElders } from '../utils/facilityPriority';
+import { translateFacility } from '../utils/dataI18n';
 
 interface StationDetailPageProps {
   onNavigateToPlanning: () => void;
@@ -20,22 +36,50 @@ export default function StationDetailPage({
   onNavigateToStation,
   onNavigateToHelp,
   onNavigateToPreference,
-  onShowChatbot
+  onShowChatbot,
 }: StationDetailPageProps) {
-  const { fontSize, language, selectedStation } = useAppContext();
+  const { fontSize, language, selectedStation, setOrigin } = useAppContext();
   const [placeLoading, setPlaceLoading] = useState(false);
   const [placeError, setPlaceError] = useState<string | null>(null);
-  // Use static map fallback so station header still renders when photo APIs fail.
+  const [showLastTrains, setShowLastTrains] = useState(false);
+
   const stationImageUrl = selectedStation
     ? getStationStaticImageUrl(selectedStation.name, selectedStation.lat, selectedStation.lon)
     : '/background-elder.png';
   const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
   const t = (key: string) => getTranslation(language, key as any);
-  const accessibilityLabel = () => {
-    if (selectedStation?.accessibility_status === 'supported') return 'supported';
-    if (selectedStation?.accessibility_status === 'not_supported') return 'not supported';
-    return 'unknown';
-  };
+
+  const status = selectedStation?.accessibility_status ?? 'unknown';
+  const facilities = sortFacilitiesForElders(selectedStation?.station_facilities ?? []);
+  const address = selectedStation?.station_address ?? null;
+  const hours = selectedStation?.station_hours_summary ?? null;
+  const parsedHours = parseHoursSummary(hours);
+  const facilitySourceUrl = selectedStation?.facility_source_url ?? null;
+
+  // Compact pill style for the accessibility row inside the at-a-glance card.
+  // Keeps the "verdict" visible without a dominating standalone banner.
+  const accessibilityChip =
+    status === 'supported'
+      ? {
+          bg: 'bg-eldergo-green/15',
+          fg: 'text-eldergo-green',
+          Icon: Check,
+          label: t('accessibilityChipSupported'),
+        }
+      : status === 'not_supported'
+        ? {
+            bg: 'bg-red-100',
+            fg: 'text-red-700',
+            Icon: AlertTriangle,
+            label: t('accessibilityChipNotSupported'),
+          }
+        : {
+            bg: 'bg-eldergo-warning-bg',
+            fg: 'text-eldergo-warning',
+            Icon: HelpCircle,
+            label: t('accessibilityChipUnknown'),
+          };
+
   const handleMoreDetails = async () => {
     if (!selectedStation) return;
     setPlaceLoading(true);
@@ -44,9 +88,8 @@ export default function StationDetailPage({
       const detail = await getStationGooglePlaceDetail(
         selectedStation.name,
         selectedStation.lat,
-        selectedStation.lon
+        selectedStation.lon,
       );
-      // Open external Maps page with place_id for precise destination resolution.
       const mapsUrl = new URL('https://www.google.com/maps/search/');
       mapsUrl.searchParams.set('api', '1');
       mapsUrl.searchParams.set('query', detail.name || selectedStation.name);
@@ -59,9 +102,23 @@ export default function StationDetailPage({
     }
   };
 
+  const handlePlanRoute = () => {
+    if (!selectedStation) return;
+    setOrigin({
+      displayName: selectedStation.name,
+      lat: selectedStation.lat ?? null,
+      lon: selectedStation.lon ?? null,
+      googlePlaceId: null,
+    });
+    onNavigateToPlanning();
+  };
+
+  const dataSourcesLine = [
+    ...(selectedStation?.source_list ?? []),
+    facilitySourceUrl ? 'mrt.com.my' : null,
+  ].filter(Boolean) as string[];
+
   if (!selectedStation) {
-    // Guard route-entry edge cases (refresh/direct navigation) where station
-    // context was not restored yet.
     return (
       <div className="min-h-screen relative" style={{ fontFamily: 'Poppins' }}>
         <div
@@ -69,7 +126,7 @@ export default function StationDetailPage({
           style={{
             backgroundImage: 'url(/background-elder.png)',
             backgroundSize: 'cover',
-            backgroundPosition: 'center'
+            backgroundPosition: 'center',
           }}
         >
           <div className="absolute inset-0 bg-white/40" />
@@ -77,22 +134,31 @@ export default function StationDetailPage({
             className="absolute bottom-0 left-0 right-0 h-96 bg-bottom bg-no-repeat bg-contain"
             style={{
               backgroundImage: 'url(/watermark-elder.jpg)',
-              opacity: '0.12'
+              opacity: '0.12',
             }}
           />
         </div>
         <div className="relative z-10">
           <TopBar onLogoClick={onNavigateToStation} />
-
           <main className="pt-20 pb-32 px-6">
             <div className="max-w-2xl mx-auto mt-8">
               <div className="bg-eldergo-warning-bg border-l-4 border-eldergo-warning p-8 rounded-xl flex items-start gap-4">
-                <AlertTriangle size={32 * baseFontSize} strokeWidth={2.5} className="text-eldergo-warning flex-shrink-0" />
+                <AlertTriangle
+                  size={32 * baseFontSize}
+                  strokeWidth={2.5}
+                  className="text-eldergo-warning flex-shrink-0"
+                />
                 <div className="flex-1">
-                  <h3 className="font-semibold text-eldergo-navy mb-3" style={{ fontSize: `${24 * baseFontSize}px` }}>
+                  <h3
+                    className="font-semibold text-eldergo-navy mb-3"
+                    style={{ fontSize: `${24 * baseFontSize}px` }}
+                  >
                     {t('stationNotFound')}
                   </h3>
-                  <p className="text-eldergo-muted mb-6" style={{ fontSize: `${18 * baseFontSize}px` }}>
+                  <p
+                    className="text-eldergo-muted mb-6"
+                    style={{ fontSize: `${18 * baseFontSize}px` }}
+                  >
                     {t('stationNotFoundMessage')}
                   </p>
                   <button
@@ -106,7 +172,6 @@ export default function StationDetailPage({
               </div>
             </div>
           </main>
-
           <BottomNav
             activeTab="station"
             onChatbotClick={onShowChatbot}
@@ -127,7 +192,7 @@ export default function StationDetailPage({
         style={{
           backgroundImage: `url(${stationImageUrl})`,
           backgroundSize: 'cover',
-          backgroundPosition: 'center'
+          backgroundPosition: 'center',
         }}
       >
         <div className="absolute inset-0 bg-white/40" />
@@ -135,95 +200,233 @@ export default function StationDetailPage({
           className="absolute bottom-0 left-0 right-0 h-96 bg-bottom bg-no-repeat bg-contain"
           style={{
             backgroundImage: 'url(/watermark-elder.jpg)',
-            opacity: '0.12'
+            opacity: '0.12',
           }}
         />
       </div>
       <div className="relative z-10">
-      <TopBar onLogoClick={onNavigateToStation} />
+        <TopBar onLogoClick={onNavigateToStation} />
 
-      <main className="pt-[72px] pb-32 bg-white">
-        <div className="relative h-80">
-          <div className="absolute inset-0 bg-black/20" />
-          <ImageWithFallback
-            src={stationImageUrl}
-            alt={`${selectedStation.name} station`}
-            className="w-full h-full object-cover"
-          />
-          <h1 className="absolute bottom-8 left-8 font-bold text-white drop-shadow-lg" style={{ fontSize: `${36 * baseFontSize}px` }}>
-            {selectedStation.name}
-          </h1>
-        </div>
-
-        <div className="max-w-3xl mx-auto px-6 mt-8 space-y-6">
-          <div className="bg-white rounded-2xl shadow-lg p-8 space-y-6">
-            <div className="flex items-center gap-5 min-h-[64px]">
-              <div className="w-12 h-12 bg-eldergo-blue/20 rounded-full flex items-center justify-center flex-shrink-0">
-                <Check size={28 * baseFontSize} strokeWidth={3} className="text-eldergo-blue" />
-              </div>
-              <span className="font-medium text-eldergo-navy" style={{ fontSize: `${22 * baseFontSize}px` }}>
-                {t('routes')}: <span className="font-semibold text-eldergo-blue">
-                  {selectedStation.routes.length ? selectedStation.routes.join(', ') : t('notYetVerified')}
-                </span>
-              </span>
-            </div>
-
-            <div className="h-px bg-gray-200" />
-
-            <div className="flex items-center gap-5 min-h-[64px]">
-              <div className="w-12 h-12 bg-eldergo-green/20 rounded-full flex items-center justify-center flex-shrink-0">
-                <Check size={28 * baseFontSize} strokeWidth={3} className="text-eldergo-green" />
-              </div>
-              <span className="font-medium text-eldergo-navy" style={{ fontSize: `${22 * baseFontSize}px` }}>
-                {t('accessibilityStatus')}: <span className="font-semibold text-eldergo-green">
-                  {accessibilityLabel()}
-                </span>
-              </span>
-            </div>
-
-            <div className="h-px bg-gray-200" />
-
-            <div className="flex items-center gap-5 min-h-[64px]">
-              <div className="w-12 h-12 bg-eldergo-warning/20 rounded-full flex items-center justify-center flex-shrink-0">
-                <Check size={28 * baseFontSize} strokeWidth={3} className="text-eldergo-warning" />
-              </div>
-              <span className="font-medium text-eldergo-navy" style={{ fontSize: `${22 * baseFontSize}px` }}>
-                Details: <span className="font-semibold text-eldergo-warning">
-                  {selectedStation.known_facilities.length ? selectedStation.known_facilities.join(', ') : t('notYetVerified')}
-                </span>
-              </span>
-            </div>
-
-            <div className="h-px bg-gray-200" />
-
-            <div className="flex items-center gap-5 min-h-[64px]">
-              <div className="w-12 h-12 bg-eldergo-warning/20 rounded-full flex items-center justify-center flex-shrink-0">
-                <AlertTriangle size={28 * baseFontSize} strokeWidth={3} className="text-eldergo-warning" />
-              </div>
-              <span className="font-medium text-eldergo-navy" style={{ fontSize: `${22 * baseFontSize}px` }}>
-                {t('dataSource')}: <span className="font-semibold text-eldergo-warning">
-                  {selectedStation.source_list.length ? selectedStation.source_list.join(', ') : t('notYetVerified')}
-                </span>
-              </span>
-            </div>
+        <main className="pt-[72px] pb-32 bg-white">
+          {/* Hero */}
+          <div className="relative h-80">
+            <div className="absolute inset-0 bg-black/20" />
+            <ImageWithFallback
+              src={stationImageUrl}
+              alt={`${selectedStation.name} station`}
+              className="w-full h-full object-cover"
+            />
+            <h1
+              className="absolute bottom-8 left-8 right-8 font-semibold text-white drop-shadow-lg leading-tight"
+              style={{ fontSize: `${36 * baseFontSize}px` }}
+            >
+              {selectedStation.name}
+            </h1>
           </div>
 
-          <button
-            onClick={handleMoreDetails}
-            disabled={placeLoading}
-            className="w-full bg-eldergo-warning hover:bg-eldergo-warning-dark disabled:bg-gray-400 text-white font-semibold py-6 rounded-2xl transition-colors shadow-lg min-h-[80px]"
-            style={{ fontSize: `${24 * baseFontSize}px` }}
-          >
-            {placeLoading ? t('loadingPlaceDetails') : t('moreDetails')}
-          </button>
+          <div className="max-w-3xl mx-auto px-6 mt-8 space-y-6">
+            {/* At-a-glance card: Accessibility / Lines / Address / Hours */}
+            <div className="bg-white rounded-2xl shadow-lg p-7 space-y-5">
+              <InfoRow
+                Icon={Accessibility}
+                label={t('accessibilityStatus')}
+                baseFontSize={baseFontSize}
+              >
+                <span
+                  className={`inline-flex items-center gap-2 rounded-full px-3 py-1 font-semibold ${accessibilityChip.bg} ${accessibilityChip.fg}`}
+                  style={{ fontSize: `${15 * baseFontSize}px` }}
+                >
+                  <accessibilityChip.Icon
+                    size={16 * baseFontSize}
+                    strokeWidth={2.6}
+                    aria-hidden
+                  />
+                  {accessibilityChip.label}
+                </span>
+              </InfoRow>
 
-          {placeError && (
-            <p className="bg-white rounded-2xl shadow-lg p-6 text-eldergo-warning font-medium" style={{ fontSize: `${18 * baseFontSize}px` }}>
-              {placeError}
-            </p>
-          )}
-        </div>
-      </main>
+              <div className="h-px bg-eldergo-border" />
+
+              <InfoRow
+                Icon={TrainFront}
+                label={t('routes')}
+                baseFontSize={baseFontSize}
+              >
+                {selectedStation.routes.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedStation.routes.map((r) => (
+                      <LineBadge key={r} name={r} baseFontSize={baseFontSize} />
+                    ))}
+                  </div>
+                ) : (
+                  <span
+                    className="text-eldergo-muted font-medium"
+                    style={{ fontSize: `${18 * baseFontSize}px` }}
+                  >
+                    {t('notYetVerified')}
+                  </span>
+                )}
+              </InfoRow>
+
+              {address && (
+                <>
+                  <div className="h-px bg-eldergo-border" />
+                  <InfoRow
+                    Icon={MapPin}
+                    label={t('stationAddress')}
+                    baseFontSize={baseFontSize}
+                  >
+                    <span
+                      className="text-eldergo-navy font-medium"
+                      style={{ fontSize: `${18 * baseFontSize}px`, lineHeight: 1.4 }}
+                    >
+                      {address}
+                    </span>
+                  </InfoRow>
+                </>
+              )}
+
+              {parsedHours && (
+                <>
+                  <div className="h-px bg-eldergo-border" />
+                  <InfoRow Icon={Clock} label={t('stationHours')} baseFontSize={baseFontSize}>
+                    <HoursDisplay
+                      parsed={parsedHours}
+                      baseFontSize={baseFontSize}
+                      t={t}
+                      language={language}
+                      isExpanded={showLastTrains}
+                      onToggle={() => setShowLastTrains((v) => !v)}
+                    />
+                  </InfoRow>
+                </>
+              )}
+            </div>
+
+            {/* Section 3: Station facilities + sources footer */}
+            <div className="bg-white rounded-2xl shadow-lg p-7 space-y-5">
+              <h2
+                className="font-semibold text-eldergo-navy"
+                style={{ fontSize: `${22 * baseFontSize}px` }}
+              >
+                {t('stationFacilities')}
+              </h2>
+              {facilities.length > 0 ? (
+                <div className="flex flex-wrap gap-3">
+                  {facilities.map((item) => {
+                    // Pick icon and tier from the canonical English label so
+                    // matching keeps working when the UI is in BM, but show
+                    // the localized label to the user.
+                    const Icon = pickFacilityIcon(item);
+                    const tier = getFacilityTier(item);
+                    const localizedLabel = translateFacility(item, language);
+                    // Tier 1 (mobility): solid filled brand blue chip — unmistakable
+                    // Tier 2 (toilets/help/surau/shelter): clearly tinted with strong border
+                    // Tier 3: neutral default
+                    // Weights stay within the brand's SemiBold/Medium/Regular
+                    // range; tier 1 leans on color + shadow rather than 700.
+                    const chipClass =
+                      tier === 1
+                        ? 'border-eldergo-blue bg-eldergo-blue text-white font-semibold shadow-md'
+                        : tier === 2
+                          ? 'border-eldergo-blue/70 bg-eldergo-blue/15 text-eldergo-navy font-semibold'
+                          : 'border-eldergo-border bg-eldergo-bg text-eldergo-navy font-medium';
+                    const iconColor =
+                      tier === 1
+                        ? 'text-white flex-shrink-0'
+                        : tier === 2
+                          ? 'text-eldergo-blue-dark flex-shrink-0'
+                          : 'text-eldergo-blue flex-shrink-0';
+                    return (
+                      <span
+                        key={item}
+                        className={`inline-flex items-center gap-2 rounded-full border-2 px-4 py-2 ${chipClass}`}
+                        style={{ fontSize: `${15 * baseFontSize}px` }}
+                      >
+                        <Icon
+                          size={18 * baseFontSize}
+                          className={iconColor}
+                          strokeWidth={tier === 3 ? 2.2 : 2.6}
+                        />
+                        <span>{localizedLabel}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p
+                  className="text-eldergo-muted"
+                  style={{ fontSize: `${16 * baseFontSize}px` }}
+                >
+                  {t('facilitiesUnavailable')}
+                </p>
+              )}
+
+              {dataSourcesLine.length > 0 && (
+                <div
+                  className="pt-4 border-t border-eldergo-border text-eldergo-muted flex flex-wrap items-center gap-2"
+                  style={{ fontSize: `${13 * baseFontSize}px` }}
+                >
+                  <span className="font-medium">{t('dataSourcesLabel')}:</span>
+                  {dataSourcesLine.map((source, idx) => {
+                    const isLink = source === 'mrt.com.my' && facilitySourceUrl;
+                    return (
+                      <span key={`${source}-${idx}`} className="inline-flex items-center gap-2">
+                        {idx > 0 && <span className="text-eldergo-muted">·</span>}
+                        {isLink ? (
+                          <a
+                            href={facilitySourceUrl ?? undefined}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-eldergo-blue underline font-medium"
+                          >
+                            {source}
+                          </a>
+                        ) : (
+                          <span>{source}</span>
+                        )}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Section 4: Action buttons.
+                Two-tier hierarchy mirrored from the brand UI preview —
+                primary action filled blue, secondary action white with a
+                blue outline so users can clearly distinguish them. */}
+            <div className="space-y-3">
+              <button
+                onClick={handlePlanRoute}
+                className="w-full bg-eldergo-blue hover:bg-eldergo-blue-dark text-white font-semibold py-6 rounded-2xl transition-colors shadow-lg min-h-[80px] flex items-center justify-center gap-3"
+                style={{ fontSize: `${22 * baseFontSize}px` }}
+              >
+                <Navigation size={26 * baseFontSize} strokeWidth={2.4} />
+                {t('startRouteFromHere')}
+              </button>
+
+              <button
+                onClick={handleMoreDetails}
+                disabled={placeLoading}
+                className="w-full bg-white border-2 border-eldergo-blue text-eldergo-blue-dark hover:bg-eldergo-blue/5 active:bg-eldergo-blue/10 disabled:bg-eldergo-bg disabled:border-eldergo-border disabled:text-eldergo-muted font-semibold py-6 rounded-2xl transition-colors shadow-sm min-h-[80px] flex items-center justify-center gap-3"
+                style={{ fontSize: `${22 * baseFontSize}px` }}
+              >
+                <MapPin size={26 * baseFontSize} strokeWidth={2.4} />
+                {placeLoading ? t('loadingPlaceDetails') : t('moreDetails')}
+              </button>
+
+              {placeError && (
+                <p
+                  className="bg-white rounded-2xl shadow-md p-5 text-eldergo-warning-dark font-medium border border-eldergo-warning-bg"
+                  style={{ fontSize: `${18 * baseFontSize}px` }}
+                >
+                  {placeError}
+                </p>
+              )}
+            </div>
+          </div>
+        </main>
 
         <BottomNav
           activeTab="station"
@@ -233,6 +436,42 @@ export default function StationDetailPage({
           onPlanningClick={onNavigateToPlanning}
           onPreferenceClick={onNavigateToPreference}
         />
+      </div>
+    </div>
+  );
+}
+
+interface InfoRowProps {
+  Icon: typeof Check;
+  label: string;
+  baseFontSize: number;
+  children: ReactNode;
+}
+
+function InfoRow({ Icon, label, baseFontSize, children }: InfoRowProps) {
+  return (
+    <div className="flex gap-4 items-start">
+      <div
+        className="flex-shrink-0 rounded-full bg-eldergo-blue/10 flex items-center justify-center"
+        style={{
+          width: 40 * baseFontSize,
+          height: 40 * baseFontSize,
+        }}
+      >
+        <Icon
+          className="text-eldergo-blue"
+          size={22 * baseFontSize}
+          strokeWidth={2.4}
+        />
+      </div>
+      <div className="flex-1 min-w-0 pt-1">
+        <p
+          className="font-semibold text-eldergo-muted mb-1.5 uppercase tracking-wide"
+          style={{ fontSize: `${12 * baseFontSize}px`, letterSpacing: '0.06em' }}
+        >
+          {label}
+        </p>
+        {children}
       </div>
     </div>
   );
