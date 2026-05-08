@@ -6,9 +6,19 @@ export async function createAIConversation(): Promise<AIConversationResponse> {
   return apiRequest<AIConversationResponse>('/ai/conversations', { method: 'POST' });
 }
 
-export async function sendAIMessage(conversationId: string, message: string): Promise<AIMessageResponse> {
+interface SendAIMessagePayload {
+  message: string;
+  current_route_id?: string | null;
+  selected_location_id?: string | null;
+  anonymous_user_id?: string | null;
+}
+
+export async function sendAIMessage(
+  conversationId: string,
+  payload: SendAIMessagePayload
+): Promise<AIMessageResponse> {
   return apiRequest<AIMessageResponse>(`/ai/conversations/${conversationId}/messages`, {
     method: 'POST',
-    body: JSON.stringify({ message })
+    body: JSON.stringify(payload)
   });
 }
