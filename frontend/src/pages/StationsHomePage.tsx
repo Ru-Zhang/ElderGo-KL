@@ -147,7 +147,7 @@ export default function StationsHomePage({
   const shownLocations = hasSearched ? searchResults : popularStations;
 
   return (
-    <div className="min-h-screen relative" style={{ fontFamily: 'Poppins' }}>
+    <div className="min-h-screen relative w-full max-w-full overflow-x-hidden" style={{ fontFamily: 'Poppins' }}>
       <div
         className="fixed inset-0 z-0 bg-cover bg-center"
         style={{
@@ -168,8 +168,8 @@ export default function StationsHomePage({
       <div className="relative z-10">
       <TopBar />
 
-      <main className="pt-20 pb-32 px-6">
-        <div className="max-w-2xl mx-auto mt-8">
+      <main className="pt-20 pb-32 px-4 sm:px-6 w-full min-w-0 box-border">
+        <div className="max-w-2xl mx-auto mt-8 w-full min-w-0">
           {/* Search bar — pill-shaped to match the brand UI preview */}
           <div className="relative mb-10">
             <Search
@@ -209,7 +209,7 @@ export default function StationsHomePage({
               >
                 {hasSearched ? `${t('searchResults')} (${searchResults.length})` : t('popularStations')}
               </h2>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full min-w-0">
                 {shownLocations.map((location) => {
                   const chip = accessibilityChip(location.accessibility_status);
                   const routes = location.routes ?? [];
@@ -223,12 +223,12 @@ export default function StationsHomePage({
                       // brand `eldergo-border`, soft shadow that deepens on hover
                       // — no heavy outlines so the card reads as a calm tile
                       // rather than a button shape.
-                      className="bg-white border border-eldergo-border rounded-2xl shadow-md hover:shadow-xl hover:border-eldergo-blue/40 hover:-translate-y-0.5 transition-all flex flex-col text-left overflow-hidden min-h-[170px] group"
+                      className="bg-white border border-eldergo-border rounded-2xl shadow-md hover:shadow-xl hover:border-eldergo-blue/40 hover:-translate-y-0.5 transition-all flex flex-col text-left overflow-hidden min-h-[170px] group min-w-0 w-full max-w-full"
                     >
                       <div className="p-5 flex-1 flex flex-col gap-3">
-                        <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start justify-between gap-2 min-w-0">
                           <span
-                            className="font-semibold text-eldergo-navy leading-tight"
+                            className="font-semibold text-eldergo-navy leading-tight min-w-0 break-words"
                             style={{ fontSize: `${20 * baseFontSize}px` }}
                           >
                             {location.name}

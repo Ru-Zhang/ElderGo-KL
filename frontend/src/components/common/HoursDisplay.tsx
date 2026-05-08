@@ -13,23 +13,32 @@ interface HoursDisplayProps {
   onToggle: () => void;
 }
 
+interface Section {
+  key: string;
+  label: string;
+  entries: ConditionalTime[];
+}
+
 /**
- * Three-column grid layout for station opening hours and last train times:
- *   col 1 = field label (OPEN / CLOSE / TO X)
- *   col 2 = time
- *   col 3 = condition (e.g. "(Mon - Sat)")
+ * Section-stacked layout for station opening hours and last train times.
  *
- * All rows live in a single grid so labels with different lengths still
- * keep the time and condition columns vertically aligned. The toggle row
- * uses gridColumn: 1 / -1 to span the full width without breaking the
- * column tracks above and below it.
+ * Each field (OPEN / CLOSE / TO X) renders its label on its own row, then
+ * a two-column row for the time(s) and the conditional weekday tag.
+ * That keeps the time and the "(Mon - Sat)" hint flush-left under the
+ * section header — earlier we used a left label column that wasted ~30%
+ * of the row width on phones and squeezed the condition into a tiny slice.
  */
 export function HoursDisplay({ parsed, baseFontSize, t, language, isExpanded, onToggle }: HoursDisplayProps) {
   const valueSize = `${16 * baseFontSize}px`;
   const conditionSize = `${13 * baseFontSize}px`;
   const labelSize = `${11 * baseFontSize}px`;
 
-  const headSections: Array<{ key: string; label: string; entries: ConditionalTime[] }> = [];
+  /** Cap gaps so they don't blow up at A++ scale on narrow viewports. */
+  const columnGapPx = Math.min(16, 8 + 5 * baseFontSize);
+  const rowGapPx = Math.min(10, 4 + 2 * baseFontSize);
+  const sectionGapPx = Math.min(20, 10 + 6 * baseFontSize);
+
+  const headSections: Section[] = [];
   if (parsed.open.length > 0) {
     headSections.push({ key: 'open', label: t('hoursOpen'), entries: parsed.open });
   }
@@ -44,78 +53,78 @@ export function HoursDisplay({ parsed, baseFontSize, t, language, isExpanded, on
     });
   }
 
-  const renderRows = (section: { key: string; label: string; entries: ConditionalTime[] }) =>
-    section.entries.map((entry, idx) => (
-      <React.Fragment key={`${section.key}-${idx}`}>
-        <span
-          className="text-eldergo-muted font-semibold uppercase tracking-wide whitespace-nowrap self-baseline"
-          style={{
-            fontSize: labelSize,
-            letterSpacing: '0.06em',
-            visibility: idx === 0 ? 'visible' : 'hidden',
-          }}
-        >
-          {section.label}
-        </span>
-        <span
-          className="text-eldergo-navy font-bold whitespace-nowrap self-baseline"
-          style={{ fontSize: valueSize }}
-        >
-          {entry.time}
-        </span>
-        <span
-          className="text-eldergo-muted whitespace-nowrap self-baseline"
-          style={{ fontSize: conditionSize }}
-        >
-          {entry.condition ? `(${translateHourCondition(entry.condition, language)})` : ''}
-        </span>
-      </React.Fragment>
-    ));
+  const renderSection = (section: Section) => (
+    <div key={section.key} className="w-full min-w-0">
+      <div
+        className="text-eldergo-muted font-semibold uppercase tracking-wide"
+        style={{ fontSize: labelSize, letterSpacing: '0.06em', marginBottom: `${rowGapPx}px` }}
+      >
+        {section.label}
+      </div>
+      <div
+        className="grid w-full min-w-0"
+        style={{
+          gridTemplateColumns: 'max-content minmax(0, 1fr)',
+          columnGap: `${columnGapPx}px`,
+          rowGap: `${rowGapPx}px`,
+        }}
+      >
+        {section.entries.map((entry, idx) => (
+          <React.Fragment key={`${section.key}-${idx}`}>
+            <span
+              className="text-eldergo-navy font-bold whitespace-nowrap tabular-nums self-baseline"
+              style={{ fontSize: valueSize }}
+            >
+              {entry.time}
+            </span>
+            <span
+              className="text-eldergo-muted self-baseline break-words min-w-0"
+              style={{ fontSize: conditionSize }}
+            >
+              {entry.condition ? `(${translateHourCondition(entry.condition, language)})` : ''}
+            </span>
+          </React.Fragment>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <div
-      className="grid"
-      style={{
-        gridTemplateColumns: 'max-content max-content 1fr',
-        rowGap: `${8 * baseFontSize}px`,
-        columnGap: `${20 * baseFontSize}px`,
-      }}
+      className="flex w-full min-w-0 max-w-full flex-col"
+      style={{ gap: `${sectionGapPx}px` }}
     >
-      {headSections.map((section) => (
-        <React.Fragment key={section.key}>{renderRows(section)}</React.Fragment>
-      ))}
+      {headSections.map(renderSection)}
 
       {parsed.lastTrains.length > 0 && (
         <button
           type="button"
           onClick={onToggle}
-          className="self-start inline-flex items-center gap-1.5 text-eldergo-blue font-semibold"
+          className="self-start inline-flex items-center gap-1.5 text-eldergo-blue font-semibold text-left min-w-0"
           style={{
             fontSize: `${14 * baseFontSize}px`,
-            gridColumn: '1 / -1',
-            marginTop: `${4 * baseFontSize}px`,
-            marginBottom: `${2 * baseFontSize}px`,
+            marginTop: `-${Math.round(sectionGapPx / 2)}px`,
           }}
         >
           <ChevronDown
             size={16 * baseFontSize}
             strokeWidth={2.4}
-            className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+            className={`flex-shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
           />
-          {isExpanded ? t('hoursHideLastTrains') : t('hoursShowLastTrains')}
+          <span className="min-w-0 break-words">
+            {isExpanded ? t('hoursHideLastTrains') : t('hoursShowLastTrains')}
+          </span>
         </button>
       )}
 
       {isExpanded &&
-        parsed.lastTrains.map((dest, idx) => (
-          <React.Fragment key={`lt-${dest.to}-${idx}`}>
-            {renderRows({
-              key: `lt-${idx}`,
-              label: `${t('hoursLastTrainTo')} ${dest.to}`,
-              entries: dest.values,
-            })}
-          </React.Fragment>
-        ))}
+        parsed.lastTrains.map((dest, idx) =>
+          renderSection({
+            key: `lt-${dest.to}-${idx}`,
+            label: `${t('hoursLastTrainTo')} ${dest.to}`,
+            entries: dest.values,
+          }),
+        )}
     </div>
   );
 }

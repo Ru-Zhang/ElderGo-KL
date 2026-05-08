@@ -44,7 +44,10 @@ function AppContent() {
     fontSize === 'extra_large' ? 'text-[24px]' : fontSize === 'large' ? 'text-[20px]' : 'text-base';
 
   return (
-    <div className={`size-full ${fontSizeClass}`} style={{ fontFamily: 'Poppins' }}>
+    <div
+      className={`size-full min-w-0 max-w-full overflow-x-hidden ${fontSizeClass}`}
+      style={{ fontFamily: 'Poppins' }}
+    >
       {currentPage === 'planning' && (
         <PlanningPage
           {...navHandlers}

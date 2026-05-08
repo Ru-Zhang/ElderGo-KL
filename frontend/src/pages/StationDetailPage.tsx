@@ -120,7 +120,7 @@ export default function StationDetailPage({
 
   if (!selectedStation) {
     return (
-      <div className="min-h-screen relative" style={{ fontFamily: 'Poppins' }}>
+      <div className="min-h-screen relative w-full max-w-full overflow-x-hidden" style={{ fontFamily: 'Poppins' }}>
         <div
           className="fixed inset-0 z-0 bg-cover bg-center"
           style={{
@@ -140,8 +140,8 @@ export default function StationDetailPage({
         </div>
         <div className="relative z-10">
           <TopBar onLogoClick={onNavigateToStation} />
-          <main className="pt-20 pb-32 px-6">
-            <div className="max-w-2xl mx-auto mt-8">
+          <main className="pt-20 pb-32 px-4 sm:px-6">
+            <div className="mx-auto mt-8 max-w-2xl w-full min-w-0">
               <div className="bg-eldergo-warning-bg border-l-4 border-eldergo-warning p-8 rounded-xl flex items-start gap-4">
                 <AlertTriangle
                   size={32 * baseFontSize}
@@ -186,7 +186,7 @@ export default function StationDetailPage({
   }
 
   return (
-    <div className="min-h-screen relative" style={{ fontFamily: 'Poppins' }}>
+    <div className="min-h-screen relative w-full max-w-full overflow-x-hidden" style={{ fontFamily: 'Poppins' }}>
       <div
         className="fixed inset-0 z-0 bg-cover bg-center"
         style={{
@@ -207,9 +207,9 @@ export default function StationDetailPage({
       <div className="relative z-10">
         <TopBar onLogoClick={onNavigateToStation} />
 
-        <main className="pt-[72px] pb-32 bg-white">
+        <main className="bg-white pb-32 pt-[72px] w-full min-w-0 overflow-x-hidden">
           {/* Hero */}
-          <div className="relative h-80">
+          <div className="relative h-80 w-full min-w-0 overflow-hidden">
             <div className="absolute inset-0 bg-black/20" />
             <ImageWithFallback
               src={stationImageUrl}
@@ -217,16 +217,16 @@ export default function StationDetailPage({
               className="w-full h-full object-cover"
             />
             <h1
-              className="absolute bottom-8 left-8 right-8 font-semibold text-white drop-shadow-lg leading-tight"
+              className="absolute bottom-8 left-4 right-4 sm:left-8 sm:right-8 font-semibold text-white drop-shadow-lg leading-tight break-words hyphens-auto"
               style={{ fontSize: `${36 * baseFontSize}px` }}
             >
               {selectedStation.name}
             </h1>
           </div>
 
-          <div className="max-w-3xl mx-auto px-6 mt-8 space-y-6">
+          <div className="mx-auto mt-8 max-w-3xl space-y-6 px-4 sm:px-6 w-full min-w-0 box-border">
             {/* At-a-glance card: Accessibility / Lines / Address / Hours */}
-            <div className="bg-white rounded-2xl shadow-lg p-7 space-y-5">
+            <div className="space-y-5 rounded-2xl bg-white p-5 shadow-lg sm:p-7 overflow-hidden min-w-0">
               <InfoRow
                 Icon={Accessibility}
                 label={t('accessibilityStatus')}
@@ -304,7 +304,7 @@ export default function StationDetailPage({
             </div>
 
             {/* Section 3: Station facilities + sources footer */}
-            <div className="bg-white rounded-2xl shadow-lg p-7 space-y-5">
+            <div className="space-y-5 rounded-2xl bg-white p-5 shadow-lg sm:p-7 overflow-hidden min-w-0">
               <h2
                 className="font-semibold text-eldergo-navy"
                 style={{ fontSize: `${22 * baseFontSize}px` }}
