@@ -85,6 +85,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [selectedStation, setSelectedStation] = useState<LocationDetail | null>(null);
+  // Guard flags prevent late remote restore responses from overwriting user
+  // interactions that happen immediately after app startup.
   const settingsChangedDuringRestoreRef = useRef(false);
   const preferencesChangedDuringRestoreRef = useRef(false);
 
@@ -98,6 +100,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
 
         setAnonymousUserId(restoredAnonymousUserId);
+        // Fetch both payloads together to shorten startup sync time.
         const [remoteSettings, remotePreferences] = await Promise.all([
           getUISettings(restoredAnonymousUserId),
           getTravelPreferences(restoredAnonymousUserId)
@@ -125,6 +128,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const persistSettings = (nextSettings: UISettings) => {
+    // Local cache is updated first so UI feels instant even if network sync fails.
     settingsChangedDuringRestoreRef.current = true;
     setSettings(nextSettings);
     localStorage.setItem(LOCAL_SETTINGS_KEY, JSON.stringify(nextSettings));
@@ -163,6 +167,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const updatePreferencesLocal = (prefs: TravelPreferences) => {
+    // Mirror settings persistence strategy for preferences.
     preferencesChangedDuringRestoreRef.current = true;
     setPreferences(prefs);
     localStorage.setItem(LOCAL_PREFERENCES_KEY, JSON.stringify(prefs));

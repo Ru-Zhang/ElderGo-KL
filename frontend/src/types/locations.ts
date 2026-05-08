@@ -10,15 +10,23 @@ export interface LocationSummary {
   accessibility_status: AccessibilityStatus;
   confidence: ConfidenceLevel;
   note?: string | null;
+  /** Line short codes (KJL, MRL, ...) populated for rail_station rows. */
+  routes?: string[];
 }
 
 export interface LocationDetail extends LocationSummary {
   routes: string[];
   known_facilities: string[];
   source_list: string[];
+  /** Official station amenities from mrt.com.my scrape (subset of hubs). */
+  station_facilities?: string[];
+  station_address?: string | null;
+  station_hours_summary?: string | null;
+  facility_source_url?: string | null;
 }
 
 export interface PlaceSelection {
+  // Lightweight location shape used across planning flow and API requests.
   displayName: string;
   lat?: number | null;
   lon?: number | null;

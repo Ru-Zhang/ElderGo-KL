@@ -1,11 +1,20 @@
+import * as React from 'react';
 import { useEffect, useState } from 'react';
-import { Search, ChevronRight, AlertCircle } from 'lucide-react';
+import {
+  AlertCircle,
+  AlertTriangle,
+  Accessibility,
+  ChevronRight,
+  HelpCircle,
+  Search,
+} from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import BottomNav from '../components/layout/BottomNav';
 import { useAppContext } from '../app/AppProvider';
 import { getLocationDetail, getPopularLocations, searchLocations } from '../services/locationsApi';
-import { LocationSummary } from '../types/locations';
+import { LocationSummary, AccessibilityStatus } from '../types/locations';
 import { getTranslation } from '../i18n/translations';
+import { LineBadge } from '../utils/lineBadge';
 
 interface StationsHomePageProps {
   onNavigateToPlanning: () => void;
@@ -35,6 +44,8 @@ function dedupeLocations(locations: LocationSummary[]): LocationSummary[] {
     }
     seenIds.add(location.id);
 
+    // Keep one card per canonical station name to avoid duplicate entries
+    // coming from multiple source systems.
     if (location.type === 'rail_station') {
       const stationKey = canonicalStationName(location.name);
       if (seenStationNames.has(stationKey)) {
@@ -59,10 +70,31 @@ export default function StationsHomePage({
   const { fontSize, language, setSelectedStation } = useAppContext();
   const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
   const t = (key: string) => getTranslation(language, key as any);
-  const accessibilityLabel = (status: LocationSummary['accessibility_status']) => {
-    if (status === 'supported') return t('supportedAccessibility');
-    if (status === 'not_supported') return t('notSupportedAccessibility');
-    return t('unknownAccessibility');
+
+  // Map status to a small icon badge that replaces verbose status text on cards.
+  const accessibilityChip = (status: AccessibilityStatus) => {
+    if (status === 'supported') {
+      return {
+        Icon: Accessibility,
+        bg: 'bg-eldergo-green/15',
+        fg: 'text-eldergo-green',
+        srLabel: t('supportedAccessibility'),
+      };
+    }
+    if (status === 'not_supported') {
+      return {
+        Icon: AlertTriangle,
+        bg: 'bg-red-100',
+        fg: 'text-red-600',
+        srLabel: t('notSupportedAccessibility'),
+      };
+    }
+    return {
+      Icon: HelpCircle,
+      bg: 'bg-eldergo-warning-bg',
+      fg: 'text-eldergo-warning',
+      srLabel: t('unknownAccessibility'),
+    };
   };
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -72,6 +104,7 @@ export default function StationsHomePage({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Re-fetch on language change so fallback/error messages stay localized.
     getPopularLocations()
       .then((locations) => setPopularStations(dedupeLocations(locations)))
       .catch(() => setError(t('stationDatabaseNotReady')));
@@ -85,6 +118,7 @@ export default function StationsHomePage({
       return;
     }
 
+    // Mark searched state only for non-empty input to control empty-state UI.
     setHasSearched(true);
     try {
       const locations = await searchLocations(query);
@@ -98,6 +132,8 @@ export default function StationsHomePage({
 
   const handleStationClick = async (location: LocationSummary) => {
     try {
+      // Load full detail payload before navigation so destination page can render
+      // immediately without another blocking fetch.
       const detail = await getLocationDetail(location.id);
       if (detail) {
         setSelectedStation(detail);
@@ -134,18 +170,19 @@ export default function StationsHomePage({
 
       <main className="pt-20 pb-32 px-6">
         <div className="max-w-2xl mx-auto mt-8">
+          {/* Search bar — pill-shaped to match the brand UI preview */}
           <div className="relative mb-10">
             <Search
-              className="absolute left-5 top-1/2 -translate-y-1/2 text-eldergo-muted"
-              size={28 * baseFontSize}
-              strokeWidth={2.5}
+              className="absolute left-6 top-1/2 -translate-y-1/2 text-eldergo-muted"
+              size={26 * baseFontSize}
+              strokeWidth={2.4}
             />
             <input
               type="text"
               placeholder={t('searchStationPlaceholder')}
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
-              className="w-full pl-16 pr-6 py-5 bg-white border-2 border-eldergo-border rounded-xl font-medium text-eldergo-navy placeholder:text-eldergo-muted focus:outline-none focus:border-eldergo-blue shadow-md"
+              className="w-full pl-16 pr-6 py-5 bg-white border border-eldergo-border rounded-full font-medium text-eldergo-navy placeholder:text-eldergo-muted focus:outline-none focus:border-eldergo-blue focus:ring-2 focus:ring-eldergo-blue/20 shadow-sm transition-shadow"
               style={{ fontSize: `${20 * baseFontSize}px` }}
             />
           </div>
@@ -166,25 +203,89 @@ export default function StationsHomePage({
 
           {shownLocations.length > 0 && (
             <>
-              <h2 className="font-semibold text-eldergo-navy mb-6" style={{ fontSize: `${24 * baseFontSize}px` }}>
+              <h2
+                className="font-semibold text-eldergo-navy mb-6 leading-tight"
+                style={{ fontSize: `${24 * baseFontSize}px` }}
+              >
                 {hasSearched ? `${t('searchResults')} (${searchResults.length})` : t('popularStations')}
               </h2>
               <div className="grid grid-cols-2 gap-4">
-                {shownLocations.map((location) => (
-                  <button
-                    key={location.id}
-                    onClick={() => handleStationClick(location)}
-                    className="bg-eldergo-bg border-2 border-eldergo-border p-6 rounded-2xl shadow-sm hover:border-eldergo-blue hover:shadow-md transition-all flex flex-col items-start gap-3 min-h-[140px]"
-                  >
-                    <span className="font-semibold text-eldergo-navy text-left" style={{ fontSize: `${20 * baseFontSize}px` }}>
-                      {location.name}
-                    </span>
-                    <span className="text-eldergo-muted text-left" style={{ fontSize: `${14 * baseFontSize}px` }}>
-                      {accessibilityLabel(location.accessibility_status)}
-                    </span>
-                    <ChevronRight size={24 * baseFontSize} strokeWidth={2.5} className="text-eldergo-muted ml-auto" />
-                  </button>
-                ))}
+                {shownLocations.map((location) => {
+                  const chip = accessibilityChip(location.accessibility_status);
+                  const routes = location.routes ?? [];
+                  const visibleRoutes = routes.slice(0, 3);
+                  const overflow = routes.length - visibleRoutes.length;
+                  return (
+                    <button
+                      key={location.id}
+                      onClick={() => handleStationClick(location)}
+                      // Brand-aligned card: white surface, single-pixel border in
+                      // brand `eldergo-border`, soft shadow that deepens on hover
+                      // — no heavy outlines so the card reads as a calm tile
+                      // rather than a button shape.
+                      className="bg-white border border-eldergo-border rounded-2xl shadow-md hover:shadow-xl hover:border-eldergo-blue/40 hover:-translate-y-0.5 transition-all flex flex-col text-left overflow-hidden min-h-[170px] group"
+                    >
+                      <div className="p-5 flex-1 flex flex-col gap-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <span
+                            className="font-semibold text-eldergo-navy leading-tight"
+                            style={{ fontSize: `${20 * baseFontSize}px` }}
+                          >
+                            {location.name}
+                          </span>
+                          <span
+                            className={`flex-shrink-0 rounded-full flex items-center justify-center ${chip.bg}`}
+                            title={chip.srLabel}
+                            aria-label={chip.srLabel}
+                            style={{ width: 36 * baseFontSize, height: 36 * baseFontSize }}
+                          >
+                            <chip.Icon
+                              size={18 * baseFontSize}
+                              strokeWidth={2.4}
+                              className={chip.fg}
+                            />
+                          </span>
+                        </div>
+
+                        {visibleRoutes.length > 0 ? (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {visibleRoutes.map((r) => (
+                              <LineBadge key={r} name={r} baseFontSize={baseFontSize} />
+                            ))}
+                            {overflow > 0 && (
+                              <span
+                                className="text-eldergo-muted font-medium"
+                                style={{ fontSize: `${13 * baseFontSize}px` }}
+                              >
+                                +{overflow}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span
+                            className="text-eldergo-muted"
+                            style={{ fontSize: `${13 * baseFontSize}px` }}
+                          >
+                            {t('notYetVerified')}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="px-5 py-3 border-t border-eldergo-border flex items-center justify-end gap-1 text-eldergo-blue group-hover:text-eldergo-blue-dark transition-colors">
+                        <span
+                          className="font-semibold"
+                          style={{ fontSize: `${14 * baseFontSize}px` }}
+                        >
+                          {t('viewDetails')}
+                        </span>
+                        <ChevronRight
+                          size={18 * baseFontSize}
+                          strokeWidth={2.6}
+                        />
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </>
           )}

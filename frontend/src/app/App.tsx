@@ -31,6 +31,7 @@ function AppContent() {
   const [showChatbot, setShowChatbot] = useState(false);
   const { fontSize } = useAppContext();
 
+  // Shared navigation callbacks keep page switching wiring centralized.
   const navHandlers = {
     onNavigateToPlanning: () => setCurrentPage('planning'),
     onNavigateToStation: () => setCurrentPage('stationsHome'),
@@ -118,6 +119,7 @@ function AppContent() {
 
 export default function App() {
   return (
+    // App-wide state provider wraps all pages and chatbot sheet.
     <AppProvider>
       <AppContent />
     </AppProvider>

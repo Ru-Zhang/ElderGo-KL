@@ -22,6 +22,8 @@ export default function PreferencePage({
   onShowChatbot
 }: PreferencePageProps) {
   const { fontSize, language, preferences, updatePreferences, clearPreferences } = useAppContext();
+  // Keep a local editable copy so users can review/toggle multiple options
+  // before committing changes to shared app state.
   const [localPreferences, setLocalPreferences] = useState(preferences);
   const [showSavedHint, setShowSavedHint] = useState(false);
 
@@ -30,11 +32,13 @@ export default function PreferencePage({
 
   const handleSave = () => {
     updatePreferences(localPreferences);
+    // Lightweight non-blocking confirmation; avoids modal interruption.
     setShowSavedHint(true);
     window.setTimeout(() => setShowSavedHint(false), 2000);
   };
 
   const handleCancel = () => {
+    // Revert unsaved local edits back to persisted preference values.
     setLocalPreferences(preferences);
   };
 

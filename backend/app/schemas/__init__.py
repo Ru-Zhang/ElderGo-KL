@@ -1,1 +1,2 @@
+# Pydantic schema package marker.
 

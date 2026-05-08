@@ -25,6 +25,7 @@ export async function getPlaceSuggestions(query: string): Promise<PlaceSelection
   }>>(
     `/places/autocomplete?q=${encodeURIComponent(query)}`
   );
+  // Prefer `main_text` so dropdown stays concise and readable on mobile.
   return suggestions.map((suggestion) => ({
     displayName: suggestion.main_text?.trim() || suggestion.description,
     googlePlaceId: suggestion.place_id
@@ -62,6 +63,7 @@ export function getStationStaticImageUrl(
   lat?: number | null,
   lon?: number | null
 ): string {
+  // Build backend proxied image URL to avoid exposing third-party photo keys in client.
   const params = new URLSearchParams({ name });
   if (lat !== null && lat !== undefined) params.set('lat', String(lat));
   if (lon !== null && lon !== undefined) params.set('lon', String(lon));

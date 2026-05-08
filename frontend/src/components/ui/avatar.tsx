@@ -41,6 +41,7 @@ function AvatarFallback({
   return (
     <AvatarPrimitive.Fallback
       data-slot="avatar-fallback"
+      // Fallback keeps identity marker visible when image is missing.
       className={cn(
         "bg-muted flex size-full items-center justify-center rounded-full",
         className,

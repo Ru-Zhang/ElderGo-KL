@@ -10,11 +10,14 @@ router = APIRouter()
 
 @router.post("/conversations", response_model=AIConversationResponse)
 def create_conversation() -> AIConversationResponse:
+    # Lightweight stateless conversation id for UI threading in demo mode.
     return AIConversationResponse(conversation_id=f"conv_{uuid4().hex[:16]}")
 
 
 @router.post("/conversations/{conversation_id}/messages", response_model=AIMessageResponse)
 def send_message(conversation_id: str, payload: AIMessageRequest) -> AIMessageResponse:
+    # Guardrail check runs before response generation to keep assistant strictly
+    # within ElderGo KL support scope.
     if not is_in_scope(payload.message):
         return AIMessageResponse(
             conversation_id=conversation_id,

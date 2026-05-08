@@ -5,6 +5,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from app.schemas.locations import LocationDetail, LocationSummary
+from app.services.mrt_facilities_service import get_mrt_facilities
 
 ROOT = Path(__file__).resolve().parents[3]
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -110,6 +111,8 @@ def _accessibility_note(status: str) -> str:
 
 @lru_cache
 def load_csv_locations() -> list[LocationDetail]:
+    # Group stops by canonical station name so cross-system duplicates
+    # (e.g. Rapid Rail / KTMB variants) are merged into one location card.
     station_groups: dict[str, dict] = {}
 
     for source_system, folder in (("ktmb", "ktmb_data"), ("rapid_rail", "rapid_rail_data")):
@@ -123,6 +126,8 @@ def load_csv_locations() -> list[LocationDetail]:
                 name = _clean(row.get("stop_name"))
                 if not stop_id or not name:
                     continue
+                # Current GTFS-derived station rows only expose positive accessibility
+                # flags; missing values are treated as unknown instead of unsupported.
                 status = "supported" if str(row.get("isOKU", "")).lower() == "true" else "unknown"
                 canonical_name = _canonical_station_name(name)
                 group_id = _station_group_id(canonical_name)
@@ -137,6 +142,8 @@ def load_csv_locations() -> list[LocationDetail]:
                         "source_systems": set(),
                     },
                 )
+                # Keep average center point for grouped stations to avoid selecting
+                # a single source as authoritative when multiple feeds disagree slightly.
                 lat = float(row["stop_lat"]) if _clean(row.get("stop_lat")) else None
                 lon = float(row["stop_lon"]) if _clean(row.get("stop_lon")) else None
                 if lat is not None:
@@ -182,6 +189,7 @@ def load_csv_locations() -> list[LocationDetail]:
                     raw = json.loads(row.get("raw_properties") or "{}")
                     raw_properties = [str(raw.get("@id"))] if raw.get("@id") else []
                 except json.JSONDecodeError:
+                    # Invalid raw payload should not block location ingestion.
                     raw_properties = []
                 status = _status_from_wheelchair(row.get("wheelchair"))
                 locations.append(
@@ -234,4 +242,17 @@ def search_csv_locations(query: str) -> list[LocationSummary]:
 
 
 def get_csv_location(location_id: str) -> LocationDetail | None:
-    return next((location for location in load_csv_locations() if location.id == location_id), None)
+    location = next((loc for loc in load_csv_locations() if loc.id == location_id), None)
+    if location is None:
+        return None
+    mrt_extra = get_mrt_facilities(location_id) or {}
+    merged = location.model_dump()
+    merged.update(
+        {
+            "station_facilities": mrt_extra.get("station_facilities") or [],
+            "station_address": mrt_extra.get("station_address"),
+            "station_hours_summary": mrt_extra.get("station_hours_summary"),
+            "facility_source_url": mrt_extra.get("facility_source_url"),
+        }
+    )
+    return LocationDetail(**merged)

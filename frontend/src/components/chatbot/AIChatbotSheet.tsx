@@ -23,6 +23,7 @@ export default function AIChatbotSheet({ isOpen, onClose }: AIChatbotSheetProps)
   ];
 
   const handleQuickQuestion = (question: string) => {
+    // Prototype behavior: replace thread with one quick Q&A pair.
     setMessages([
       { text: question, isUser: true },
       { text: `${t('chatbotReplyPrefix')} "${question}".`, isUser: false }
@@ -31,6 +32,7 @@ export default function AIChatbotSheet({ isOpen, onClose }: AIChatbotSheetProps)
 
   const handleSend = () => {
     if (inputText.trim()) {
+      // Append local echo response until live AI endpoint is fully wired.
       setMessages([
         ...messages,
         { text: inputText, isUser: true },

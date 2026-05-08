@@ -6,6 +6,8 @@ export async function getPopularLocations(): Promise<LocationSummary[]> {
 }
 
 export async function searchLocations(query: string): Promise<LocationSummary[]> {
+  // Mirror backend behavior for blank input to avoid unnecessary network calls
+  // while users are clearing the search box.
   if (!query.trim()) return [];
   return apiRequest<LocationSummary[]>(`/locations/search?q=${encodeURIComponent(query)}`);
 }

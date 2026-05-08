@@ -32,6 +32,7 @@ function AccordionTrigger({
 }: React.ComponentProps<typeof AccordionPrimitive.Trigger>) {
   return (
     <AccordionPrimitive.Header className="flex">
+      {/* Rotate chevron based on Radix open/closed state for clear affordance. */}
       <AccordionPrimitive.Trigger
         data-slot="accordion-trigger"
         className={cn(

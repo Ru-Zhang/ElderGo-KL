@@ -21,6 +21,7 @@ async def autocomplete_places(query: str) -> list[PlaceSuggestion]:
         "key": settings.google_maps_api_key,
         "components": "country:my",
         "language": "en",
+        # Bias autocomplete near KL to reduce irrelevant out-of-region suggestions.
         "location": "3.1390,101.6869",
         "radius": 70000,
     }
@@ -98,6 +99,7 @@ async def _search_station_place_id(name: str, lat: float | None = None, lon: flo
         "region": "my",
     }
     if lat is not None and lon is not None:
+        # Tight radius improves disambiguation for station names with duplicates.
         params["location"] = f"{lat},{lon}"
         params["radius"] = 500
 
@@ -130,6 +132,7 @@ async def get_station_static_map_image(
     if not settings.google_maps_api_key:
         raise HTTPException(status_code=503, detail="Google Maps API key is not configured.")
 
+    # Prefer exact coordinates when available; otherwise use text center fallback.
     center = f"{lat},{lon}" if lat is not None and lon is not None else f"{name} station Kuala Lumpur Malaysia"
     params = {
         "center": center,
@@ -176,6 +179,7 @@ async def get_station_photo_image(
                 status_code=502, detail=f"Google Place Details error: {detail_body.get('status')}"
             )
 
+        # Google details may not include photos for every station/place.
         photos = detail_body.get("result", {}).get("photos", [])
         if photos:
             photo_reference = photos[0].get("photo_reference")

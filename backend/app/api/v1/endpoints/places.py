@@ -13,6 +13,7 @@ router = APIRouter()
 
 @router.get("/autocomplete", response_model=list[PlaceSuggestion])
 async def autocomplete(q: str) -> list[PlaceSuggestion]:
+    # Short-circuit empty query to avoid unnecessary third-party API calls.
     if not q.strip():
         return []
     return await autocomplete_places(q)
@@ -30,5 +31,7 @@ async def station_detail(name: str, lat: float | None = None, lon: float | None 
 
 @router.get("/station-image")
 async def station_image(name: str, lat: float | None = None, lon: float | None = None) -> Response:
+    # Return raw bytes with upstream content type so frontend can render image
+    # directly without additional proxy transformation.
     image_bytes, content_type = await get_station_photo_image(name, lat, lon)
     return Response(content=image_bytes, media_type=content_type)

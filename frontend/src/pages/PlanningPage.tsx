@@ -60,6 +60,8 @@ export default function PlanningPage({
   const shouldPromptPreferences = !onboardingCompleted && !hasAnyPreferenceEnabled;
 
   const toSuggestionLabel = (value: string) => {
+    // Keep labels short and elderly-friendly while retaining the most
+    // identifiable text fragment from Google place strings.
     const parts = value
       .split(',')
       .map((part) => part.trim())
@@ -92,6 +94,8 @@ export default function PlanningPage({
     handleInputClick();
     if (!shouldClearRetainedOrigin) return;
 
+    // First edit after returning to this page clears retained route context,
+    // so users don't accidentally submit stale origin values.
     setStartPoint('');
     setSelectedOrigin(null);
     setStartSuggestions([]);
@@ -104,6 +108,7 @@ export default function PlanningPage({
     handleInputClick();
     if (!shouldClearRetainedDestination) return;
 
+    // Mirror origin behavior for destination to avoid mixed old/new pairs.
     setDestination('');
     setSelectedDestination(null);
     setDestSuggestions([]);
@@ -167,6 +172,8 @@ export default function PlanningPage({
   };
 
   const handleSearch = () => {
+    // Validation order is intentional: show the most actionable missing/invalid
+    // field message first, then block navigation until both selections are valid.
     if (!startPoint && !destination) {
       setFormError(t('missingStartAndDestination'));
       return;

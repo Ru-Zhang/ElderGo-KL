@@ -26,6 +26,8 @@ def _select_forecast_item(items: list[dict[str, Any]], departure_time: Departure
     if departure_time == "now":
         return items[0]
 
+    # Forecast timestamps are UTC; convert using city offset so morning/afternoon/
+    # evening choices align with destination local time.
     local_tz = timezone(timedelta(seconds=timezone_offset))
     now_local = datetime.now(local_tz)
     target_local = now_local.replace(hour=_target_hour(departure_time), minute=0, second=0, microsecond=0)
@@ -53,6 +55,7 @@ async def _geocode_destination(destination_name: str, api_key: str) -> tuple[flo
             ]
         )
 
+    # Try increasingly specific query variants before failing geocoding.
     async with httpx.AsyncClient(timeout=10) as client:
         for query in queries:
             response = await client.get(
@@ -80,6 +83,7 @@ async def _geocode_destination(destination_name: str, api_key: str) -> tuple[flo
 async def _google_places_fallback_coordinates(destination_name: str) -> tuple[float, float] | None:
     try:
         detail = await get_station_place_detail(destination_name)
+    # Google fallback is best-effort and should not mask primary geocoding errors.
     except Exception:
         return None
 
@@ -99,6 +103,7 @@ def _risk_level(item: dict[str, Any], rain_mm: float, wind_kmh: float) -> Weathe
         return "rain"
     if feels_like >= 34:
         return "hot"
+    # Strong wind is treated as storm-level risk for elderly trip planning.
     if wind_kmh >= 35:
         return "storm"
     return "clear"
@@ -133,10 +138,12 @@ async def get_weather_forecast(payload: WeatherForecastRequest) -> WeatherForeca
 
     lat = payload.lat
     lon = payload.lon
+    # Respect provided coordinates first; only geocode when client has no location.
     if lat is None or lon is None:
         try:
             lat, lon = await _geocode_destination(payload.destination_name, settings.openweather_api_key)
         except HTTPException:
+            # If OpenWeather geocoding misses local station names, retry via Places.
             fallback = await _google_places_fallback_coordinates(payload.destination_name)
             if not fallback:
                 raise

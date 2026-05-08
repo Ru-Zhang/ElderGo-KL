@@ -12,6 +12,7 @@ function Label({
   return (
     <LabelPrimitive.Root
       data-slot="label"
+      // Disabled states mirror linked controls via peer/group selectors.
       className={cn(
         "flex items-center gap-2 text-sm leading-none font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50",
         className,

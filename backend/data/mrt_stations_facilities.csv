@@ -1,0 +1,436 @@
+location_id,display_name,lines,source_url,facilities_json,address,hours_summary,scraped_at
+station:16_sierra,16 Sierra,MRT Putrajaya Line,https://mrt.com.my/ssp/16_Sierra_Station.htm,"[""Lift"", ""Escalator"", ""Surau"", ""Island Platform"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office""]",,,2026-05-08T15:50:27Z
+station:abdullah_hukum,Abdullah Hukum,KTM Komuter Port Klang Line; LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/Abdullah_Hukum.htm,"[""Side Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Bus Stop"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""KTM Komuter Interchange"", ""Dinks Vending Machine"", ""LRT Interchange""]","Jalan Bangsar, Kuala Lumpur","Station open: 06:00 am
+Station closed: 12:00 am (Mon - Sat) / 11:20 pm (Sunday & PH)
+Last Train to Gombak: 12:08 am (Mon - Sat) / 11:38 pm (Sunday & PH)
+Last Train to Putra Height: 12:11 am (Mon - Sat) / 11:53 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:alam_megah,Alam Megah,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/alam_megah.htm,"[""Island Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Bus Stop"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Car Park""]","Jalan Beranang 27/14A, Taman Bunga Negara, Alam Megah, Shah Alam, Selangor","Station open: 06:00 am
+Station closed: 11:20 pm (Mon - Sat) / 10:45 pm (Sunday & PH)
+Last Train to Gombak: 11:25 pm (Mon - Sat) / 10:55 pm (Sunday & PH)
+Last Train to Putra Height: 12:55 am (Mon - Sat) / 12:37 am (Sunday & PH)",2026-05-08T15:50:27Z
+station:alam_sutera,Alam Sutera,LRT Sri Petaling Line,https://mrt.com.my/lrt_sri_petaling/Alam_Sutera.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Parking"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform""]","Alam Sutera, Bukit Jalil, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:40 pm (Mon - Sat) / 11:40 pm (Sunday & PH)
+Last Train to Ampang: Change Train in Chan Sow Lin LRT Station
+Last Train to Putra Height: 12:33 am (Mon - Sat) / 12:33 am (Sunday & PH)
+Last Train to Sentul Timur: 11:49 pm (Mon - Sat) / 11:13 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:ampang,Ampang,LRT Ampang Line,https://mrt.com.my/lrt_ampang/Ampang.htm,"[""Lift"", ""Escalator"", ""Surau"", ""Shops"", ""Island Platform"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Park n' Ride""]","Jalan Ampang, Ampang, Selangor","Station open: 06:00 am
+Station closed: 11:30 pm (Mon - Sat) / 11:20 pm (Sunday & PH)
+Last Train to Putra Height: 11:30 pm (Mon - Sat) / 11:30 pm (Sunday & PH)
+Last Train to Sentul Timur: 11:30 pm (Mon - Sat) / 11:30 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:ampang_park,Ampang Park,LRT Kelana Jaya Line; MRT Putrajaya Line,https://mrt.com.my/lrt_kelana/Ampang_Park.htm,"[""Lift"", ""Escalator"", ""Surau"", ""Interchange Station"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform"", ""Escalator & Lift"", ""Shops"", ""Drinks Vending Machine"", ""MRT Interchange""]","Ampang Park, Jalan Ampang, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:50 pm (Mon - Sat) / 11:30 pm (Sunday & PH)
+Last Train to Gombak: 12:25 am (Mon - Sat) / 11:55 pm (Sunday & PH)
+Last Train to Putra Height: 11:54 pm (Mon - Sat) / 11:36 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:angkasapuri,Angkasapuri,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Angkasapuri.htm,"[""Side Platform"", ""Public Toilets"", ""Drinks Vending Machine"", ""Ticket Vending Machine"", ""Customer Service Office""]","Jalan Angkasapuri, Kuala Lumpur",,2026-05-08T15:50:27Z
+station:ara_damansara,Ara Damansara,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/Ara_Damansara.htm,"[""Island Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Bus Stop"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Car Park""]","Ara Damansara, Petaling Jaya, Selangor","Station open: 06:00 am
+Station closed: 11:40 pm (Mon - Sat) / 11:05 pm (Sunday & PH)
+Last Train to Gombak: 11:47 pm (Mon - Sat) / 11:18 pm (Sunday & PH)
+Last Train to Putra Height: 12:32 am (Mon - Sat) / 12:14 am (Sunday & PH)",2026-05-08T15:50:27Z
+station:asia_jaya,Asia Jaya,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/Asia_Jaya.htm,"[""Island Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Bus Stop"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Car Park""]","Off Jalan Utara & Jalan 51A/223, Petaling Jaya, Selangor","Station open: 06:00 am
+Station closed: 11:50 pm (Mon - Sat) / 11:15 pm (Sunday & PH)
+Last Train to Gombak: 11:58 pm (Mon - Sat) / 11:29 pm (Sunday & PH)
+Last Train to Putra Height: 12:21 am (Mon - Sat) / 12:02 am (Sunday & PH)",2026-05-08T15:50:27Z
+station:awan_besar,Awan Besar,LRT Sri Petaling Line,https://mrt.com.my/lrt_sri_petaling/Awan_Besar.htm,"[""Feeder bus"", ""Surau"", ""Parking"", ""Escalator & Lift"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform""]","Awan Besar, Bukit Jalil, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:40 pm (Mon - Sat) / 11:40 pm (Sunday & PH)
+Last Train to Ampang: Change Train in Chan Sow Lin LRT Station
+Last Train to Putra Height: 12:27 am (Mon - Sat) / 12:27 am (Sunday & PH)
+Last Train to Sentul Timur: 11:54 pm (Mon - Sat) / 11:19 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:bandar_malaysia_selatan,Bandar Malaysia Selatan,MRT Putrajaya Line,https://mrt.com.my/ssp/Bandar_Malaysia_South_Station.htm,"[""Lift"", ""Escalator"", ""Surau"", ""Shops"", ""Feeder Bus"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office""]",,,2026-05-08T15:50:27Z
+station:bandar_malaysia_utara,Bandar Malaysia Utara,MRT Putrajaya Line,https://mrt.com.my/ssp/Bandar_Malaysia_North_Station.htm,"[""Lift"", ""Escalator"", ""Surau"", ""Shops"", ""Feeder Bus"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office""]",,,2026-05-08T15:50:27Z
+station:bandar_puteri,Bandar Puteri,LRT Sri Petaling Line,https://mrt.com.my/lrt_sri_petaling/Bandar_Puteri.htm,"[""Lift"", ""Side Platform"", ""Public Toilets"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Bandar Puteri, Puchong, Selangor","Station open: 06:00 am
+Station closed: 11:30 pm (Mon - Sat) / 11:30 pm (Sunday & PH)
+Last Train to Ampang: Change Train in Chan Sow Lin LRT Station
+Last Train to Putra Height: 12:44 am (Mon - Sat) / 12:44 am (Sunday & PH)
+Last Train to Sentul Timur: 11:36 pm (Mon - Sat) / 10:57 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:bandar_tasik_selatan,Bandar Tasik Selatan,KTM Komuter Seremban Line; LRT Sri Petaling Line,https://mrt.com.my/lrt_sri_petaling/Bandar_Tasik_Selatan.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Parking"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform"", ""Escalator & Lift"", ""Bus Hub"", ""Drinks Vending Machine"", ""Interchange Station""]","MRR2, Bandar Tasik Selatan, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:55 pm (Mon - Sat) / 11:55 pm (Sunday & PH)
+Last Train to Ampang: Change Train in Chan Sow Lin LRT Station
+Last Train to Putra Height: 12:13 am (Mon - Sat) / 12:13 am (Sunday & PH)
+Last Train to Sentul Timur: 12:06 am (Mon - Sat) / 11:31 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:bandar_tun_hussein_onn,Bandar Tun Hussein Onn,MRT Kajang Line,https://mrt.com.my/stations/Bandar_Tun_Hussein_Onn_MRT_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform"", ""Park n' Ride""]",,,2026-05-08T15:50:27Z
+station:bandar_tun_razak,Bandar Tun Razak,LRT Sri Petaling Line,https://mrt.com.my/lrt_sri_petaling/Bandar_Tun_Razak.htm,"[""Side Platform"", ""Public Toilets"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Persiaran Ikhlas, Bandar Tun Razak, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:55 pm (Mon - Sat) / 11:55 pm (Sunday & PH)
+Last Train to Ampang: Change Train in Chan Sow Lin LRT Station
+Last Train to Putra Height: 12:10 am (Mon - Sat) / 12:10 am (Sunday & PH)
+Last Train to Sentul Timur: 12:10 am (Mon - Sat) / 11:34 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:bandar_utama,Bandar Utama,MRT Kajang Line,https://mrt.com.my/stations/Bandar_Utama_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform"", ""Park n' Ride""]",,,2026-05-08T15:50:27Z
+station:bandaraya,Bandaraya,LRT Ampang Line; LRT Sri Petaling Line,https://mrt.com.my/lrt_ampang/Bandaraya.htm,"[""Lift"", ""Side Platform"", ""Public Toilets"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""KTM Komuter Interchange""]","Jalan Raja Laut, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:55 pm (Mon - Sat) / 11:55 pm (Sunday & PH)
+Last Train to Ampang: 11:44 pm (Mon - Sat) / 11:44 pm (Sunday & PH)
+Last Train to Putra Height: 11:45 pm (Mon - Sat) / 11:45 pm (Sunday & PH)
+Last Train to Sentul Timur: 12:36 am (Mon - Sat) / 12:04 am (Sunday & PH)",2026-05-08T15:50:27Z
+station:bangi,Bangi,KTM Komuter Seremban Line,https://mrt.com.my/komuter/Bangi.htm,"[""Side & Island Platform"", ""Public Toilets"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Pekan Bangi Lama, Kajang, Selangor",,2026-05-08T15:50:27Z
+station:bangsar,Bangsar,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/Bangsar.htm,"[""Side Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Bus Stop"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Feeder Bus"", ""ATM & TNG Reload Machine""]","Jalan Bangsar, Kuala Lumpur","Station open: 06:00 am
+Station closed: 12:00 am (Mon - Sat) / 11:25 pm (Sunday & PH)
+Last Train to Gombak: 12:10 am (Mon - Sat) / 11:40 pm (Sunday & PH)
+Last Train to Putra Height: 12:09 am (Mon - Sat) / 11:51 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:bank_negara,Bank Negara,KTM Komuter Port Klang Line; KTM Komuter Seremban Line,https://mrt.com.my/komuter/bank_negara.htm,"[""Side Platform"", ""Public Toilets"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Dato' Onn, 50480 Kuala Lumpur",,2026-05-08T15:50:27Z
+station:batang_benar,Batang Benar,KTM Komuter Seremban Line,https://mrt.com.my/komuter/Batang_Benar.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Batang Benar, Negeri Sembilan",,2026-05-08T15:50:27Z
+station:batang_kali,Batang Kali,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Batang_Kali.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Batang Kali, Selangor",,2026-05-08T15:50:27Z
+station:batu_11_cheras,Batu 11 Cheras,MRT Kajang Line,https://mrt.com.my/stations/Batu_11_Cheras_MRT_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform""]",,,2026-05-08T15:50:27Z
+station:batu_caves,Batu Caves,KTM Komuter Seremban Line,https://mrt.com.my/komuter/Batu_Caves.htm,"[""Island & Side Platform"", ""Public Toilets"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Batu Caves, Batu Caves, Selangor",,2026-05-08T15:50:27Z
+station:batu_kentomen,Batu Kentomen,KTM Komuter Seremban Line,https://mrt.com.my/komuter/Batu_Kentonmen.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Batu Kentonmen, Kuala Lumpur",,2026-05-08T15:50:27Z
+station:batu_tiga,Batu Tiga,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Batu_Tiga.htm,"[""Side Platform"", ""Public Toilets"", ""Bus Stop"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Batu 3, Shah Alam, Selangor",,2026-05-08T15:50:27Z
+station:bukit_badak,Bukit Badak,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Bukit_Badak.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","CBPS Jalan Kampung Jawa, Klang, Selangor",,2026-05-08T15:50:27Z
+station:bukit_bintang,Bukit Bintang,KL Monorail Line; MRT Kajang Line,https://mrt.com.my/stations/Bukit_Bintang_Station.htm,"[""Lift"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Split Platform"", ""Side Platform"", ""Escalator & Lift"", ""Drinks Vending Machine""]","Jalan Sultan Ismail, Kuala Lumpur",Last Train: 11.50 pm (Titiwangsa towards KL Sentral),2026-05-08T15:50:27Z
+station:bukit_chagar,Bukit Chagar,RTS Link,https://mrt.com.my/rts/bukit_chagar.htm,"[""Lift"", ""Escalator"", ""Co-located CIQ Facilities"", ""Covered Link Bridge to JB Sentral"", ""Ticket Vending Machine"", ""Public Toilets"", ""Surau"", ""Customer Service Office"", ""Disabled Friendly""]",,,2026-05-08T15:50:27Z
+station:bukit_dukung,Bukit Dukung,MRT Kajang Line,https://mrt.com.my/stations/Bukit_Dukung_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform"", ""Park n' Ride""]",,,2026-05-08T15:50:27Z
+station:bukit_jalil,Bukit Jalil,LRT Sri Petaling Line,https://mrt.com.my/lrt_sri_petaling/Bukit_Jalil.htm,"[""Side Platform"", ""Public Toilets"", ""Shops"", ""Parking"", ""Escalator & Lift"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Feeder Bus""]","Bukit Jalil, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:50 pm (Mon - Sat) / 11:50 pm (Sunday & PH)
+Last Train to Ampang: Change Train in Chan Sow Lin LRT Station
+Last Train to Putra Height: 12:21 am (Mon - Sat) / 12:21 am (Sunday & PH)
+Last Train to Sentul Timur: 12:00 am (Mon - Sat) / 11:25 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:bukit_nanas,Bukit Nanas,KL Monorail Line,https://mrt.com.my/kl_monorail/Bukit_Nanas.htm,"[""Side Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Sultan Ismail, Kuala Lumpur",Last Train: 11.50 pm (Titiwangsa towards KL Sentral),2026-05-08T15:50:27Z
+station:cahaya,Cahaya,LRT Ampang Line,https://mrt.com.my/lrt_ampang/Cahaya.htm,"[""Lift"", ""Side Platform"", ""Public Toilets"", ""Parking"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]",Off Jalan Cahaya 7 & Jalan Pandan Cahaya 1/2,"Station open: 06:00 am
+Station closed: 11:30 pm (Mon - Sat) / 11:25 pm (Sunday & PH)
+Last Train to Ampang: 12:06 am (Mon - Sat) / 12:33 am (Sunday & PH)
+Last Train to Putra Height: 11:32 pm (Mon - Sat) / 11:32 pm (Sunday & PH)
+Last Train to Sentul Timur: 11:32 pm (Mon - Sat) / 11:32 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:cempaka,Cempaka,LRT Ampang Line,https://mrt.com.my/lrt_ampang/Cempaka.htm,"[""Lift"", ""Escalator"", ""Side Platform"", ""Public Toilets"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Feeder Bus"", ""Parking""]",Off Jalan Cempaka & Jalan Pandan Indah 6/1,"Station open: 06:00 am
+Station closed: 11:30 pm (Mon - Sat) / 11:25 pm (Sunday & PH)
+Last Train to Ampang: 12:04 am (Mon - Sat) / 12:30 am (Sunday & PH)
+Last Train to Putra Height: 11:34 pm (Mon - Sat) / 11:34 pm (Sunday & PH)
+Last Train to Sentul Timur: 11:34 pm (Mon - Sat) / 11:34 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:chan_sow_lin,Chan Sow Lin,LRT Ampang Line; LRT Sri Petaling Line; MRT Putrajaya Line,https://mrt.com.my/lrt_ampang/Chan_Sow_Lin.htm,"[""Lift"", ""Escalator"", ""Surau"", ""Shops"", ""Interchange Station"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Feeder Bus"", ""Island Platform"", ""Drinks Vending Machine""]","Jalan Chan Sow Lin, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:40 pm (Mon - Sat) / 12:00 am (Sunday & PH)
+Last Train to Ampang: 11:54 pm (Mon - Sat) / 12:15 am (Sunday & PH)
+Last Train to Putra Height: 12:00 am (Mon - Sat) / 12:00 am (Sunday & PH)
+Last Train to Sentul Timur: 12:21 am (Mon - Sat) / 11:46 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:cheras,Cheras,LRT Sri Petaling Line,https://mrt.com.my/lrt_sri_petaling/Cheras.htm,"[""Side Platform"", ""Public Toilets"", ""Shops"", ""Parking"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Jelawat Satu & Jalan 3/12, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:55 pm (Mon - Sat) / 11:55 pm (Sunday & PH)
+Last Train to Ampang: Change Train in Chan Sow Lin LRT Station
+Last Train to Putra Height: 12:03 am (Mon - Sat) / 12:03 am (Sunday & PH)
+Last Train to Sentul Timur: 12:17 am (Mon - Sat) / 11:40 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:chow_kit,Chow Kit,KL Monorail Line,https://mrt.com.my/kl_monorail/Chow_Kit.htm,"[""Side Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Pahang & Jalan Ipoh Junction, Kuala Lumpur",Last Train: 11.50 pm (Titiwangsa towards KL Sentral),2026-05-08T15:50:27Z
+station:cochrane,Cochrane,MRT Kajang Line,https://mrt.com.my/stations/Jalan_Cochrane_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform""]",,,2026-05-08T15:50:27Z
+station:conlay,Conlay,MRT Putrajaya Line,https://mrt.com.my/ssp/Conlay_Station.htm,"[""Lift"", ""Escalator"", ""Surau"", ""Public Toilets"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Concession Card Counter""]",,,2026-05-08T15:50:27Z
+station:cyberjaya_city_centre,Cyberjaya City Centre,MRT Putrajaya Line,https://mrt.com.my/ssp/Cyberjaya_City_Centre_Station.htm,"[""Lift"", ""Escalator"", ""Surau"", ""Island Platform"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Feeder Bus""]",,,2026-05-08T15:50:27Z
+station:cyberjaya_utara,Cyberjaya Utara,MRT Putrajaya Line,https://mrt.com.my/ssp/Cyberjaya_North_Station.htm,"[""Lift"", ""Escalator"", ""Surau"", ""Island Platform"", ""Park n' Ride"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Feeder Bus""]",,,2026-05-08T15:50:27Z
+station:damai,Damai,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/Damai.htm,"[""Island Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Bus Stop"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Car Park""]","Jalan Datok Keramat, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:40 pm (Mon - Sat) / 11:25 pm (Sunday & PH)
+Last Train to Gombak: 12:27 am (Mon - Sat) / 11:57 pm (Sunday & PH)
+Last Train to Putra Height: 11:52 pm (Mon - Sat) / 11:34 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:damansara_damai,Damansara Damai,MRT Putrajaya Line,https://mrt.com.my/ssp/Damansara_Damai_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform""]",,,2026-05-08T15:50:27Z
+station:dang_wangi,Dang Wangi,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/Dang_Wangi.htm,"[""Island Platform"", ""Escalator & Lift"", ""Public Toilets"", ""KL Monorail Interchange"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Shops""]","Jalan Ampang, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:55 pm (Mon - Sat) / 11:30 pm (Sunday & PH)
+Last Train to Gombak: 12:19 am (Mon - Sat) / 11:50 pm (Sunday & PH)
+Last Train to Putra Height: 12:00 am (Mon - Sat) / 11:42 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:dato_keramat,Dato' Keramat,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/dato_keramat.htm,"[""Side Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Bus Stop"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Datok Keramat, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:40 pm (Mon - Sat) / 11:25 pm (Sunday & PH)
+Last Train to Gombak: 12:29 am (Mon - Sat) / 11:59 pm (Sunday & PH)
+Last Train to Putra Height: 11:50 pm (Mon - Sat) / 11:32 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:glenmarie,Glenmarie,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/Glenmarie.htm,"[""Island Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Bus Stop"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Car Park"", ""Shah Alam Line Interchange (2025)""]","Glenmarie, Subang, Selangor","Station open: 06:00 am
+Station closed: 11:35 pm (Mon - Sat) / 11:05 pm (Sunday & PH)
+Last Train to Gombak: 11:45 pm (Mon - Sat) / 11:16 pm (Sunday & PH)
+Last Train to Putra Height: 12:35 am (Mon - Sat) / 12:16 am (Sunday & PH)",2026-05-08T15:50:27Z
+station:gombak,Gombak,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/gombak.htm,"[""Island Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Bus Stop"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Park & Ride""]","Gombak, Selangor","Station open: 06:00 am
+Station closed: 11:30 pm (Mon - Sat) / 11:15 pm (Sunday & PH)
+Last Train to Putra Height: 11:35 pm (Mon - Sat) / 11:17 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:hang_tuah,Hang Tuah,KL Monorail Line; LRT Ampang Line; LRT Sri Petaling Line,https://mrt.com.my/lrt_ampang/Hang_Tuah.htm,"[""Lift"", ""Escalator"", ""Surau"", ""Shops"", ""Side Platform"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Monorail Interchange"", ""Escalator & Lift"", ""LRT Interchange""]","Jalan Hang Tuah, Kuala Lumpur","Station open: 06:00 am
+Station closed: 12:00 am (Mon - Sat) / 11:45 am (Sunday & PH)
+Last Train to Ampang: 11:50 pm (Mon - Sat) / 12:08 am (Sunday & PH)
+Last Train to Putra Height: 11:54 pm (Mon - Sat) / 11:54 pm (Sunday & PH)
+Last Train to Sentul Timur: 12:27 am (Mon - Sat) / 11:51 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:hospital_kuala_lumpur,Hospital Kuala Lumpur,MRT Putrajaya Line,https://mrt.com.my/ssp/Hospital_Kuala_Lumpur_Station.htm,"[""Lift"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office""]",,,2026-05-08T15:50:27Z
+station:imbi,Imbi,KL Monorail Line,https://mrt.com.my/kl_monorail/Imbi.htm,"[""Side Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Imbi, Kuala Lumpur",Last Train: 11.50 pm (Titiwangsa towards KL Sentral),2026-05-08T15:50:27Z
+station:ioi_puchong_jaya,IOI Puchong Jaya,LRT Sri Petaling Line,https://mrt.com.my/lrt_sri_petaling/IOI_Puchong_Jaya.htm,"[""Side Platform"", ""Public Toilets"", ""Shops"", ""Parking"", ""Escalator & Lift"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Feeder Bus""]","IOI Puchong Jaya, Puchong, Selangor","Station open: 06:00 am
+Station closed: 11:38 pm (Mon - Sat) / 11:38 pm (Sunday & PH)
+Last Train to Ampang: Change Train in Chan Sow Lin LRT Station
+Last Train to Putra Height: 12:38 am (Mon - Sat) / 12:38 am (Sunday & PH)
+Last Train to Sentul Timur: 11:42 pm (Mon - Sat) / 11:06 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:jalan_ipoh,Jalan Ipoh,MRT Putrajaya Line,https://mrt.com.my/ssp/Jalan_Ipoh_Station.htm,"[""Lift"", ""Escalator"", ""Surau"", ""Shops"", ""Island Platform"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Feeder Bus""]",,,2026-05-08T15:50:27Z
+station:jalan_kastam,Jalan Kastam,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Jalan_Kastam.htm,"[""Side Platform"", ""Public Toilets"", ""Drinks Vending Machine"", ""Ticket Vending Machine"", ""Customer Service Office""]","Jalan Kastam, Pelabuhan Klang, Selangor",,2026-05-08T15:50:27Z
+station:jalan_templer,Jalan Templer,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Jalan_Templer.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan 18/7 Seksyen 18, Petaling Jaya, Selangor",,2026-05-08T15:50:27Z
+station:jelatek,Jelatek,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/Jelatek.htm,"[""Side Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Bus Stop"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Car Park""]","Jalan Jelatek, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:40 pm (Mon - Sat) / 11:25 pm (Sunday & PH)
+Last Train to Gombak: 12:30 am (Mon - Sat) / 12:01 am (Sunday & PH)
+Last Train to Putra Height: 11:49 pm (Mon - Sat) / 11:31 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:jinjang,Jinjang,MRT Putrajaya Line,https://mrt.com.my/ssp/Jinjang_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform"", ""Park n' Ride""]",,,2026-05-08T15:50:27Z
+station:kajang,Kajang,KTM Komuter Seremban Line; MRT Kajang Line,https://mrt.com.my/stations/Kajang_MRT_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Park n' Ride"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform"", ""KTM Komuter Integration"", ""Side & Island Platform"", ""Car Park"", ""MRT Interchange"", ""Drinks Vending Machine""]","Jalan Bukit, Kajang, Selangor",,2026-05-08T15:50:27Z
+station:kampung_baru,Kampung Baru,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/Kampung_Baru.htm,"[""Island Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Haji Hassan Salleh, Kampung Baru, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:55 pm (Mon - Sat) / 11:30 pm (Sunday & PH)
+Last Train to Gombak: 12:21 am (Mon - Sat) / 11:51 pm (Sunday & PH)
+Last Train to Putra Height: 11:58 pm (Mon - Sat) / 11:40 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:kampung_batu,Kampung Batu,KTM Komuter Seremban Line; MRT Putrajaya Line,https://mrt.com.my/ssp/Kampung_Batu_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Park & Ride"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform"", ""KTM Interchange"", ""Side Platform"", ""Car Park"", ""MRT Interchange"", ""Drinks Vending Machine""]","Jalan 1/18B Kampung Batu, Off Jalan Ipoh, Kuala Lumpur",,2026-05-08T15:50:27Z
+station:kampung_dato_harun,Kampung Dato Harun,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Kg_Dato_Harun.htm,"[""Side Platform"", ""Public Toilets"", ""Ticket Vending Machine"", ""Customer Service Office""]","Kg Dato Harun, Petaling Jaya, Selangor",,2026-05-08T15:50:27Z
+station:kampung_raja_uda,Kampung Raja Uda,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Kg_Raja_Uda.htm,"[""Side Platform"", ""Public Toilets"", ""Ticket Vending Machine"", ""Customer Service Office""]","Kampung Raja Uda, Pelabuhan Klang, Selangor",,2026-05-08T15:50:27Z
+station:kampung_selamat,Kampung Selamat,MRT Putrajaya Line,https://mrt.com.my/stations/Kampung_Selamat.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform""]",,,2026-05-08T15:50:27Z
+station:kelana_jaya,Kelana Jaya,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/Kelana_Jaya.htm,"[""Island Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Bus Hub"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Car Park""]","LDP exit 1108 & 1109, Petaling Jaya, Selangor","Station open: 06:00 am
+Station closed: 11:45 pm (Mon - Sat) / 11:10 pm (Sunday & PH)
+Last Train to Gombak: 11:52 pm (Mon - Sat) / 11:23 pm (Sunday & PH)
+Last Train to Putra Height: 12:27 am (Mon - Sat) / 12:10 am (Sunday & PH)",2026-05-08T15:50:27Z
+station:kentonmen,Kentonmen,MRT Putrajaya Line,https://mrt.com.my/ssp/Kentonmen_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Side Platform"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Park and Ride""]",,,2026-05-08T15:50:27Z
+station:kepong,Kepong,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Kepong.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Kuang Bulan 1 (Jalan 32), Taman Kepong, Kepong, Kuala Lumpur",,2026-05-08T15:50:27Z
+station:kepong_baru,Kepong Baru,MRT Putrajaya Line,https://mrt.com.my/ssp/Kepong_Baru_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform""]",,,2026-05-08T15:50:27Z
+station:kepong_sentral,Kepong Sentral,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Kepong_Sentral.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""MRT Interchange"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Kuang Bulan 1 (Jalan 32), Taman Kepong, Kepong, Kuala Lumpur",,2026-05-08T15:50:27Z
+station:kerinchi,Kerinchi,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/Kerinchi.htm,"[""Island Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Bus Stop"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Car Park"", ""ATM & TnG Reload Machine""]","Jalan 4/83A, Bangsar, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:55 pm (Mon - Sat) / 11:20 pm (Sunday & PH)
+Last Train to Gombak: 12:06 am (Mon - Sat) / 11:36 pm (Sunday & PH)
+Last Train to Putra Height: 12:13 am (Mon - Sat) / 11:55 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:kinrara_bk5,Kinrara BK5,LRT Sri Petaling Line,https://mrt.com.my/lrt_sri_petaling/Kinrara_BK5.htm,"[""Side Platform"", ""Public Toilets"", ""Shops"", ""Parking"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Escalator & Lift""]","Kinrara BK5, Puchong, Selangor","Station open: 06:00 am
+Station closed: 11:40 pm (Mon - Sat) / 11:40 pm (Sunday & PH)
+Last Train to Ampang: Change Train in Chan Sow Lin LRT Station
+Last Train to Putra Height: 12:36 am (Mon - Sat) / 12:36 am (Sunday & PH)
+Last Train to Sentul Timur: 11:45 pm (Mon - Sat) / 11:10 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:kl_sentral,KL Sentral,KL Monorail Line; KTM Komuter Port Klang Line; KTM Komuter Seremban Line; LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/KL_Sentral.htm,"[""Side Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops & Mall"", ""Bus Hub"", ""Rail Transportation"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Car Park"", ""ATMs & TnG Reload Machine"", ""Surau"", ""Shops"", ""Rail and Bus Hub""]","Brickfields, Kuala Lumpur","Station open: 06:00 am
+Station closed: 12:00 am (Mon - Sat) / 11:25 pm (Sunday & PH)
+Last Train to Gombak: 12:12 am (Mon - Sat) / 11:42 pm (Sunday & PH)
+Last Train to Putra Height: 12:07 am (Mon - Sat) / 11:49 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:klang,Klang,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Klang.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Kampung Raja Uda, Pelabuhan Klang, Selangor",,2026-05-08T15:50:27Z
+station:klcc,KLCC,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/KLCC.htm,"[""Island Platform"", ""Escalator & Lift"", ""Public Toilets"", ""TnG Reload Machine"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Bus Hub""]","Jalan Ampang, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:50 pm (Mon - Sat) / 11:30 pm (Sunday & PH)
+Last Train to Gombak: 12:23 am (Mon - Sat) / 11:53 pm (Sunday & PH)
+Last Train to Putra Height: 11:56 pm (Mon - Sat) / 11:38 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:kota_damansara,Kota Damansara,MRT Kajang Line,https://mrt.com.my/stations/Kota_Damansara_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform""]",,,2026-05-08T15:50:27Z
+station:kuala_kubu_bharu,Kuala Kubu Bharu,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Kuala_Kubu_Bharu.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Kuala Kubu, Kuala Kubu Bharu, Selangor",,2026-05-08T15:50:27Z
+station:kuala_lumpur,Kuala Lumpur,KTM Komuter Port Klang Line; KTM Komuter Seremban Line,https://mrt.com.my/komuter/Kuala_Lumpur.htm,"[""Side & Island Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""LRT & MRT Interchanges""]","Jalan Sultan Hishamuddin, Kuala Lumpur",,2026-05-08T15:50:27Z
+station:kuang,Kuang,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Kuang.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Sungai Buloh, Selangor",,2026-05-08T15:50:27Z
+station:kuchai,Kuchai,MRT Putrajaya Line,https://mrt.com.my/ssp/Kuchai_Lama_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Park n' Ride"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform""]",,,2026-05-08T15:50:27Z
+station:kwasa_damansara,Kwasa Damansara,MRT Kajang Line; MRT Putrajaya Line,https://mrt.com.my/stations/Kwasa_Damansara_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform""]",,,2026-05-08T15:50:27Z
+station:kwasa_sentral,Kwasa Sentral,MRT Kajang Line,https://mrt.com.my/stations/Kwasa_Sentral_MRT_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform"", ""Park & Ride""]",,,2026-05-08T15:50:27Z
+station:labu,Labu,KTM Komuter Seremban Line,https://mrt.com.my/komuter/Labu.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office""]","Batu 10, Labu, Negeri Sembilan",,2026-05-08T15:50:27Z
+station:lembah_subang,Lembah Subang,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/Lembah_Subang.htm,"[""Side Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Feeder Bus""]","Ara Damansara, Petaling Jaya, Selangor","Station open: 06:00 am
+Station closed: 11:45 pm (Mon - Sat) / 11:05 pm (Sunday & PH)
+Last Train to Gombak: 11:49 pm (Mon - Sat) / 11:20 pm (Sunday & PH)
+Last Train to Putra Height: 12:30 am (Mon - Sat) / 12:12 am (Sunday & PH)",2026-05-08T15:50:27Z
+station:maharajalela,Maharajalela,KL Monorail Line,https://mrt.com.my/kl_monorail/Maharajalela.htm,"[""Side Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Maharajalela, Kuala Lumpur",Last Train: 11.50 pm (Titiwangsa towards KL Sentral),2026-05-08T15:50:27Z
+station:maluri,Maluri,LRT Ampang Line; MRT Kajang Line,https://mrt.com.my/lrt_ampang/Maluri.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform"", ""Park n' Ride"", ""Side Platform"", ""Drinks Vending Machine"", ""MRT Interchange""]","Jalan Cheras, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:35 pm (Mon - Sat) / 11:35 pm (Sunday & PH)
+Last Train to Ampang: 11:58 pm (Mon - Sat) / 12:21 am (Sunday & PH)
+Last Train to Putra Height: 11:41 pm (Mon - Sat) / 11:41 pm (Sunday & PH)
+Last Train to Sentul Timur: 11:41 pm (Mon - Sat) / 11:41 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:masjid_jamek,Masjid Jamek,LRT Ampang Line; LRT Kelana Jaya Line; LRT Sri Petaling Line,https://mrt.com.my/lrt_ampang/Masjid_Jamek.htm,"[""Lift"", ""Escalators"", ""Side Platform"", ""Island Platform"", ""Public Toilets"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""LRT Interchange""]","Jalan Tun Perak, Kuala Lumpur","Station open: 06:00 am
+Last Train to Ampang: 11:46 pm (Mon - Sat) / 12:02 am (Sunday & PH)
+Last Train to Gombak: 12:17 am (Mon - Sat) / 11:47 pm (Sunday & PH)
+Last Train to Putra Height (KJ Line): 12:02 am (Mon - Sat) / 11:44 pm (Sunday & PH)
+Last Train to Putra Height (SP Line): 11:48 pm (Mon - Sat) / 11:48 pm (Sunday & PH)
+Last Train to Sentul Timur: 12:33 am (Mon - Sat) / 12:02 am (Sunday & PH)",2026-05-08T15:50:27Z
+station:medan_tuanku,Medan Tuanku,KL Monorail Line,https://mrt.com.my/kl_monorail/Medan_Tuanku.htm,"[""Side Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Sultan Ismail, Kuala Lumpur",Last Train: 11.50 pm (Titiwangsa towards KL Sentral),2026-05-08T15:50:27Z
+station:merdeka,Merdeka,MRT Kajang Line,https://mrt.com.my/stations/Merdeka_Station.htm,"[""Lift"", ""Escalator"", ""Surau"", ""Shops"", ""Public Toilets"", ""Ticket Vending Machine"", ""LRT Line Integration"", ""Customer Service Office"", ""Island Platform""]",,,2026-05-08T15:50:27Z
+station:metro_prima,Metro Prima,MRT Putrajaya Line,https://mrt.com.my/ssp/Metro_Prima_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform"", ""Park n' Ride""]",,,2026-05-08T15:50:27Z
+station:mid_valley,Mid Valley,KTM Komuter Seremban Line,https://mrt.com.my/komuter/Mid_Valley.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Midvalley, Lingkaran Syed Putra, Kuala Lumpur",,2026-05-08T15:50:27Z
+station:miharja,Miharja,LRT Ampang Line,https://mrt.com.my/lrt_ampang/Miharja.htm,"[""Escalator"", ""Side Platform"", ""Public Toilets"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Parking""]","Jalan 1/93, Taman Miharja, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:35 pm (Mon - Sat) / 11:35 pm (Sunday & PH)
+Last Train to Ampang: 11:56 pm (Mon - Sat) / 12:18 am (Sunday & PH)
+Last Train to Putra Height: 11:43 pm (Mon - Sat) / 11:43 pm (Sunday & PH)
+Last Train to Sentul Timur: 11:43 pm (Mon - Sat) / 11:43 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:muhibbah,Muhibbah,LRT Sri Petaling Line,https://mrt.com.my/lrt_sri_petaling/Muhibbah.htm,"[""Side Platform"", ""Public Toilets"", ""Shops"", ""Parking"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Escalator & Lift""]","Muhibbah, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:40 pm (Mon - Sat) / 11:40 pm (Sunday & PH)
+Last Train to Ampang: Change Train in Chan Sow Lin LRT Station
+Last Train to Putra Height: 12:30 am (Mon - Sat) / 12:30 am (Sunday & PH)
+Last Train to Sentul Timur: 11:51 pm (Mon - Sat) / 11:16 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:mutiara_damansara,Mutiara Damansara,MRT Kajang Line,https://mrt.com.my/stations/Mutiara_Damansara_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform""]",,,2026-05-08T15:50:27Z
+station:muzium_negara,Muzium Negara,MRT Kajang Line,https://mrt.com.my/stations/Muzium_Negara_Station.htm,"[""Lift"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform""]",,,2026-05-08T15:50:27Z
+station:nilai,Nilai,KTM Komuter Seremban Line,https://mrt.com.my/komuter/Nilai.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Stesen, Nilai, Negeri Sembilan",,2026-05-08T15:50:27Z
+station:padang_jawa,Padang Jawa,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Padang_Jawa.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Padang Jawa, Shah Alam, Selangor",,2026-05-08T15:50:27Z
+station:pandan_indah,Pandan Indah,LRT Ampang Line,https://mrt.com.my/lrt_ampang/Pandan_Indah.htm,"[""Lift"", ""Escalator"", ""Shops"", ""Side Platform"", ""Park n' Ride"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Drinks Vending Machine""]",Off Jalan Cempaka & Jalan Pandan Indah 22,"Station open: 06:00 am
+Station closed: 11:35 pm (Mon - Sat) / 11:30 pm (Sunday & PH)
+Last Train to Ampang: 12:02 am (Mon - Sat) / 12:27 am (Sunday & PH)
+Last Train to Putra Height: 11:36 pm (Mon - Sat) / 11:36 pm (Sunday & PH)
+Last Train to Sentul Timur: 11:36 pm (Mon - Sat) / 11:36 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:pandan_jaya,Pandan Jaya,LRT Ampang Line,https://mrt.com.my/lrt_ampang/Pandan_Jaya.htm,"[""Lift"", ""Escalator"", ""Side Platform"", ""Public Toilets"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Car Park""]",Jalan Pandan 3/8 & Jalan Pandan Indah,"Station open: 06:00 am
+Station closed: 11:35 pm (Mon - Sat) / 11:30 pm (Sunday & PH)
+Last Train to Ampang: 12:00 am (Mon - Sat) / 12:24 am (Sunday & PH)
+Last Train to Putra Height: 11:38 pm (Mon - Sat) / 11:38 pm (Sunday & PH)
+Last Train to Sentul Timur: 11:38 pm (Mon - Sat) / 11:38 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:pantai_dalam,Pantai Dalam,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Pantai_Dalam.htm,"[""Side Platform"", ""Public Toilets"", ""Bus Stop"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Kg. Pantai Dalam, Pantai Dalam, Kuala Lumpur",,2026-05-08T15:50:27Z
+station:pasar_seni,Pasar Seni,LRT Kelana Jaya Line; MRT Kajang Line,https://mrt.com.my/lrt_kelana/pasar_seni.htm,"[""Lift"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform"", ""Escalator & Lift"", ""Bus Hub"", ""Drinks Vending Machine"", ""KTM Komuter & MRT Interchange""]","Jalan Sultan Mohamad, Kuala Lumpur","Station open: 06:00 am
+Station closed: 12:00 am (Mon - Sat) / 11:30 pm (Sunday & PH)
+Last Train to Gombak: 12:15 am (Mon - Sat) / 11:45 pm (Sunday & PH)
+Last Train to Putra Height: 12:04 am (Mon - Sat) / 11:46 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:persiaran_klcc,Persiaran KLCC,MRT Putrajaya Line,https://mrt.com.my/ssp/KLCC_East_Station.htm,"[""Lift"", ""Escalator"", ""Surau"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office""]",,,2026-05-08T15:50:27Z
+station:petaling,Petaling,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Petaling.htm,"[""Side & Island Platform"", ""Public Toilets"", ""Bus Stop"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Kampung Pasir, Petaling, Kuala Lumpur",,2026-05-08T15:50:27Z
+station:phileo_damansara,Phileo Damansara,MRT Kajang Line,https://mrt.com.my/stations/Phileo_Damansara_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform"", ""Park n' Ride.""]",,,2026-05-08T15:50:27Z
+station:plaza_rakyat,Plaza Rakyat,LRT Ampang Line; LRT Sri Petaling Line,https://mrt.com.my/lrt_ampang/Plaza_Rakyat.htm,"[""Lift"", ""Escalators"", ""Side Platform"", ""Public Toilets"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""MRT Interchange""]","Jalan Pudu, Kuala Lumpur","Station open: 06:00 am
+Station closed: 12:00 am (Mon - Sat) / 11:50 pm (Sunday & PH)
+Last Train to Ampang: 11:48 pm (Mon - Sat) / 12:05 am (Sunday & PH)
+Last Train to Putra Height: 11:51 pm (Mon - Sat) / 11:51 pm (Sunday & PH)
+Last Train to Sentul Timur: 12:30 am (Mon - Sat) / 11:54 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:port_klang,Port Klang,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Port_Klang.htm,"[""Side & Island Platform"", ""Public Toilets"", ""Bus Stop"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Limbongan, Pelabuhan Klang, Selangor",,2026-05-08T15:50:27Z
+station:puchong_perdana,Puchong Perdana,LRT Sri Petaling Line,https://mrt.com.my/lrt_sri_petaling/Puchong_Perdana.htm,"[""Side Platform"", ""Public Toilets"", ""Shops"", ""Feeder Bus"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Escalator & Lift""]","Puchong Perdana, Puchong, Selangor","Station open: 06:00 am
+Station closed: 11:25 pm (Mon - Sat) / 11:25 pm (Sunday & PH)
+Last Train to Ampang: Change Train in Chan Sow Lin LRT Station
+Last Train to Putra Height: 12:46 am (Mon - Sat) / 12:46 am (Sunday & PH)
+Last Train to Sentul Timur: 11:34 pm (Mon - Sat) / 10:54 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:puchong_prima,Puchong Prima,LRT Sri Petaling Line,https://mrt.com.my/lrt_sri_petaling/Puchong_Prima.htm,"[""Side Platform"", ""Public Toilets"", ""Shops"", ""Feeder Bus"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Escalator & Lift""]","Puchong Prima, Puchong, Selangor","Station open: 06:00 am
+Station closed: 11:20 pm (Mon - Sat) / 11:20 pm (Sunday & PH)
+Last Train to Ampang: Change Train in Chan Sow Lin LRT Station
+Last Train to Putra Height: 12:48 am (Mon - Sat) / 12:48 am (Sunday & PH)
+Last Train to Sentul Timur: 11:32 pm (Mon - Sat) / 10:52 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:pudu,Pudu,LRT Ampang Line; LRT Sri Petaling Line,https://mrt.com.my/lrt_ampang/Pudu.htm,"[""Lift"", ""Escalator"", ""Side Platform"", ""Public Toilets"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Shops""]","Jalan Sarawak, Pudu, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:45 pm (Mon - Sat) / 12:00 am (Sunday & PH)
+Last Train to Ampang: 11:52 pm (Mon - Sat) / 12:12 am (Sunday & PH)
+Last Train to Putra Height: 11:57 pm (Mon - Sat) / 11:57 pm (Sunday & PH)
+Last Train to Sentul Timur: 12:24 am (Mon - Sat) / 11:49 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:pulau_sebang_tampin,Pulau Sebang / Tampin,KTM Komuter Seremban Line,https://mrt.com.my/komuter/Pulau_Sebang_Tampin.htm,"[""Island Platform"", ""Public Toilets"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Pulau Sebang, Melaka",,2026-05-08T15:50:27Z
+station:pusat_bandar_damansara,Pusat Bandar Damansara,MRT Kajang Line,https://mrt.com.my/stations/Pusat_Bandar_Damansara.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform"", ""Park n' Ride.""]",,,2026-05-08T15:50:27Z
+station:pusat_bandar_puchong,Pusat Bandar Puchong,LRT Sri Petaling Line,https://mrt.com.my/lrt_sri_petaling/Pusat_Bandar_Puchong.htm,"[""Side Platform"", ""Public Toilets"", ""Shops"", ""Parking"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Escalator & Lift""]","Pusat Bandar Puchong, Puchong, Selangor","Station open: 06:00 am
+Station closed: 11:35 pm (Mon - Sat) / 11:35 pm (Sunday & PH)
+Last Train to Ampang: Change Train in Chan Sow Lin LRT Station
+Last Train to Putra Height: 12:40 am (Mon - Sat) / 12:40 am (Sunday & PH)
+Last Train to Sentul Timur: 11:40 pm (Mon - Sat) / 11:03 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:putra,Putra,KTM Komuter Port Klang Line; KTM Komuter Seremban Line,https://mrt.com.my/komuter/Putra.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Tun Ismail, Kuala Lumpur",,2026-05-08T15:50:27Z
+station:putra_heights,Putra Heights,LRT Kelana Jaya Line; LRT Sri Petaling Line,https://mrt.com.my/lrt_sri_petaling/Putra_Heights.htm,"[""Side Platform"", ""Island Platform"", ""Public Toilets"", ""Shops"", ""Feeder Bus"", ""Airport Shuttle"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Car Park"", ""Escalator & Lift""]","Putra Heights, Subang, Selangor","Station open: 06:00 am
+Last Train to Ampang (KJ Line): Change Train in Masjid Jamek LRT Station
+Last Train to Ampang (SP Line): Change Train in Chan Sow Lin LRT Station
+Last Train to Gombak: 11:20 pm (Mon - Sat) / 11:50 pm (Sunday & PH)
+Last Train to Sentul Timur: 11:30 pm (Mon - Sat) / 10:50 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:putra_permai,Putra Permai,MRT Putrajaya Line,https://mrt.com.my/ssp/Taman_Putra_Permai_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform""]",,,2026-05-08T15:50:27Z
+station:putrajaya_sentral,Putrajaya Sentral,MRT Putrajaya Line,https://mrt.com.my/ssp/Putrajaya_Sentral_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Island Platform"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Transportation Hub"", ""KLIA Transit Interchange"", ""Park n' Ride""]",,,2026-05-08T15:50:27Z
+station:pwtc,PWTC,LRT Ampang Line; LRT Sri Petaling Line,https://mrt.com.my/lrt_ampang/PWTC.htm,"[""Lift"", ""Side Platform"", ""Public Toilets"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""KTM Komuter Interchange""]","PWTC, Jalan Putra, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:50 pm (Mon - Sat) / 11:50 pm (Sunday & PH)
+Last Train to Ampang: 11:40 pm (Mon - Sat) / 11:40 pm (Sunday & PH)
+Last Train to Putra Height: 11:39 pm (Mon - Sat) / 11:39 pm (Sunday & PH)
+Last Train to Sentul Timur: 12:42 am (Mon - Sat) / 12:10 am (Sunday & PH)",2026-05-08T15:50:27Z
+station:raja_chulan,Raja Chulan,KL Monorail Line,https://mrt.com.my/kl_monorail/Raja_Chulan.htm,"[""Side Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Sultan Ismail, Kuala Lumpur",Last Train: 11.50 pm (Titiwangsa towards KL Sentral),2026-05-08T15:50:27Z
+station:raja_uda,Raja Uda,MRT Putrajaya Line,https://mrt.com.my/ssp/Raja_Uda_Station.htm,"[""Lift"", ""Escalator"", ""Surau"", ""Island Platform"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office""]",,,2026-05-08T15:50:27Z
+station:rasa,Rasa,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Rasa.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Rasa, Hulu Selangor, Selangor",,2026-05-08T15:50:27Z
+station:rawang,Rawang,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Rawang.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Off Jalan Weellem, Rawang, Selangor",,2026-05-08T15:50:27Z
+station:rembau,Rembau,KTM Komuter Seremban Line,https://mrt.com.my/komuter/Rembau.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Rembau, Negeri Sembilan",,2026-05-08T15:50:27Z
+station:salak_selatan,Salak Selatan,KTM Komuter Seremban Line; LRT Sri Petaling Line,https://mrt.com.my/lrt_sri_petaling/Salak_Selatan.htm,"[""Side Platform"", ""Public Toilets"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Car Park""]","Jalan Sg Besi, Salak Selatan, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:55 pm (Mon - Sat) / 11:55 pm (Sunday & PH)
+Last Train to Ampang: Change Train in Chan Sow Lin LRT Station
+Last Train to Putra Height: 12:07 am (Mon - Sat) / 12:07 am (Sunday & PH)
+Last Train to Sentul Timur: 12:13 am (Mon - Sat) / 11:37 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:segambut,Segambut,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Segambut.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Segambut Luar, Kuala Lumpur",,2026-05-08T15:50:27Z
+station:semantan,Semantan,MRT Kajang Line,https://mrt.com.my/stations/Semantan_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform""]",,,2026-05-08T15:50:27Z
+station:senawang,Senawang,KTM Komuter Seremban Line,https://mrt.com.my/komuter/Senawang.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Senawang, Negeri Sembilan",,2026-05-08T15:50:27Z
+station:sentul,Sentul,KTM Komuter Seremban Line; LRT Ampang Line; LRT Sri Petaling Line,https://mrt.com.my/lrt_ampang/Sentul.htm,"[""Lift"", ""Side Platform"", ""Public Toilets"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Side & Island Platform"", ""Bus Stop""]","Jalan 2/48A, Sentul, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:45 pm (Mon - Sat) / 11:45 pm (Sunday & PH)
+Last Train to Ampang: 11:32 pm (Mon - Sat) / 11:32 pm (Sunday & PH)
+Last Train to Putra Height: 11:33 pm (Mon - Sat) / 11:33 pm (Sunday & PH)
+Last Train to Sentul Timur: 12:48 am (Mon - Sat) / 12:16 am (Sunday & PH)",2026-05-08T15:50:27Z
+station:sentul_barat,Sentul Barat,MRT Putrajaya Line,https://mrt.com.my/ssp/Sentul_West_Station.htm,"[""Lift"", ""Escalator"", ""Surau"", ""Island Platform"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Feeder Bus""]",,,2026-05-08T15:50:27Z
+station:sentul_timur,Sentul Timur,LRT Ampang Line; LRT Sri Petaling Line,https://mrt.com.my/lrt_ampang/Sentul_Timur.htm,"[""Lift"", ""Side Platform"", ""Public Toilets"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan 2/48A, Sentul Timur, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:40 pm (Mon - Sat) / 11:40 pm (Sunday & PH)
+Last Train to Ampang: 11:30 pm (Mon - Sat) / 11:30 pm (Sunday & PH)
+Last Train to Putra Height: 11:30 pm (Mon - Sat) / 11:30 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:seputeh,Seputeh,KTM Komuter Seremban Line,https://mrt.com.my/komuter/Seputeh.htm,"[""Side Platform"", ""Public Toilets"", ""Ticket Vending Machine"", ""Customer Service Office""]","Taman Seputeh, Kuala Lumpur",,2026-05-08T15:50:27Z
+station:serdang,Serdang,KTM Komuter Seremban Line,https://mrt.com.my/komuter/Serdang.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""Bus Stop"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Shops""]","Serdang, Selangor",,2026-05-08T15:50:27Z
+station:serdang_jaya,Serdang Jaya,MRT Putrajaya Line,https://mrt.com.my/ssp/Serdang_Jaya_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform""]",,,2026-05-08T15:50:27Z
+station:serdang_raya_selatan,Serdang Raya Selatan,MRT Putrajaya Line,https://mrt.com.my/ssp/Serdang_Raya_South_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Park n' Ride"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform""]",,,2026-05-08T15:50:27Z
+station:serdang_raya_utara,Serdang Raya Utara,MRT Putrajaya Line,https://mrt.com.my/ssp/Serdang_Raya_North_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Park n' Ride"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform""]",,,2026-05-08T15:50:27Z
+station:seremban,Seremban,KTM Komuter Seremban Line,https://mrt.com.my/komuter/Seremban.htm,"[""Side & Island Platform"", ""Public Toilets"", ""Car Park"", ""Bus Stop"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Shops""]","Jalan Tuanku Antah, Seremban, Negeri Sembilan",,2026-05-08T15:50:27Z
+station:serendah,Serendah,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Serendah.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Serendah, Selangor",,2026-05-08T15:50:27Z
+station:seri_setia,Seri Setia,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Seri_Setia.htm,"[""Side Platform"", ""Public Toilets"", ""Bus Stop"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Batu 10 Lebuhraya Persekutuan, Petaling Jaya, Selangor",,2026-05-08T15:50:27Z
+station:setia_jaya,Setia Jaya,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Setia_Jaya.htm,"[""Side Platform"", ""Public Toilets"", ""BRT Interchange"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","KM 10 Lebuhraya Persekutuan, Petaling Jaya, Selangor",,2026-05-08T15:50:27Z
+station:setiawangsa,Setiawangsa,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/Setiawangsa.htm,"[""Side Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Feeder Bus"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Car Park""]","Jalan Jelatek, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:35 pm (Mon - Sat) / 11:20 pm (Sunday & PH)
+Last Train to Gombak: 12:32 am (Mon - Sat) / 12:03 am (Sunday & PH)
+Last Train to Putra Height: 11:47 pm (Mon - Sat) / 11:29 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:shah_alam,Shah Alam,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Shah_Alam.htm,"[""Side Platform"", ""Public Toilets"", ""Bus Hub"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Dinks Vending Machine""]","Jalan Parang 19/8 Seksyen 19, Shah Alam, Selangor",,2026-05-08T15:50:27Z
+station:sri_damansara_barat,Sri Damansara Barat,MRT Putrajaya Line,https://mrt.com.my/ssp/Sri_Damansara_West_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform"", ""Park n' Ride""]",,,2026-05-08T15:50:27Z
+station:sri_damansara_sentral,Sri Damansara Sentral,MRT Putrajaya Line,https://mrt.com.my/ssp/Sri_Damansara_Sentral_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform"", ""Park n' Ride""]",,,2026-05-08T15:50:27Z
+station:sri_damansara_timur,Sri Damansara Timur,MRT Putrajaya Line,https://mrt.com.my/ssp/Sri_Damansara_East_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Park n' Ride"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform"", ""KTM Komuter Interchange""]",,,2026-05-08T15:50:27Z
+station:sri_delima,Sri Delima,MRT Putrajaya Line,https://mrt.com.my/ssp/Sri_Delima_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform""]",,,2026-05-08T15:50:27Z
+station:sri_petaling,Sri Petaling,LRT Sri Petaling Line,https://mrt.com.my/lrt_sri_petaling/Sri_Petaling.htm,"[""Side Platform"", ""Public Toilets"", ""Escalator & Lift"", ""Car Parking"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Bus & Taxi Stop""]","Sri Petaling, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:50 pm (Mon - Sat) / 11:50 pm (Sunday & PH)
+Last Train to Ampang: Change Train in Chan Sow Lin LRT Station
+Last Train to Putra Height: 12:24 am (Mon - Sat) / 12:24 am (Sunday & PH)
+Last Train to Sentul Timur: 11:57 pm (Mon - Sat) / 11:22 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:sri_rampai,Sri Rampai,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/Sri_Rampai.htm,"[""Side Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Feeder Bus"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Surau""]","Sri Rampai, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:35 pm (Mon - Sat) / 11:20 pm (Sunday & PH)
+Last Train to Gombak: 12:36 am (Mon - Sat) / 12:06 am (Sunday & PH)
+Last Train to Putra Height: 11:43 pm (Mon - Sat) / 11:22 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:sri_raya,Sri Raya,MRT Kajang Line,https://mrt.com.my/stations/Sri_Raya_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform"", ""Park n' Ride.""]",,,2026-05-08T15:50:27Z
+station:ss15,SS15,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/ss15.htm,"[""Island Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Bus Stop"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Car Park""]","Jalan Jengka, Subang Jaya, Selangor","Station open: 06:00 am
+Station closed: 11:35 pm (Mon - Sat) / 11:00 pm (Sunday & PH)
+Last Train to Gombak: 11:40 pm (Mon - Sat) / 11:10 pm (Sunday & PH)
+Last Train to Putra Height: 12:40 am (Mon - Sat) / 12:22 am (Sunday & PH)",2026-05-08T15:50:27Z
+station:ss18,SS18,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/ss18.htm,"[""Island Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Bus Stop""]","Jalan Jengka, Subang Jaya, Selangor","Station open: 06:00 am
+Station closed: 11:30 pm (Mon - Sat) / 10:55 pm (Sunday & PH)
+Last Train to Gombak: 11:38 pm (Mon - Sat) / 11:08 pm (Sunday & PH)
+Last Train to Putra Height: 12:42 am (Mon - Sat) / 12:24 am (Sunday & PH)",2026-05-08T15:50:27Z
+station:stadium_kajang,Stadium Kajang,MRT Kajang Line,https://mrt.com.my/stations/Bandar_Kajang_MRT_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform""]",,,2026-05-08T15:50:27Z
+station:subang_alam,Subang Alam,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/subang_alam.htm,"[""Island Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Section 28, Shah Alam, Selangor","Station open: 06:00 am
+Station closed: 11:15 pm (Mon - Sat) / 10:45 pm (Sunday & PH)
+Last Train to Gombak: 11:23 pm (Mon - Sat) / 10:53 pm (Sunday & PH)
+Last Train to Putra Height: 12:57 am (Mon - Sat) / 12:39 am (Sunday & PH)",2026-05-08T15:50:27Z
+station:subang_jaya,Subang Jaya,KTM Komuter Port Klang Line; LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/subang_jaya.htm,"[""Island Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Bus Stop"", ""Side Platform"", ""Bus Hub"", ""Car Park"", ""Dinks Vending Machine"", ""LRT Interchange""]","SS16, Subang Jaya, Selangor","Station open: 06:00 am
+Station closed: 11:35 pm (Mon - Sat) / 11:00 pm (Sunday & PH)
+Last Train to Gombak: 11:42 pm (Mon - Sat) / 11:13 pm (Sunday & PH)
+Last Train to Putra Height: 12:38 am (Mon - Sat) / 12:19 am (Sunday & PH)",2026-05-08T15:50:27Z
+station:sultan_ismail,Sultan Ismail,LRT Ampang Line; LRT Sri Petaling Line,https://mrt.com.my/lrt_ampang/Sultan_Ismail.htm,"[""Lift"", ""Side Platform"", ""Public Toilets"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""KL Monorail Interchange""]","Jalan Sultan Ismail, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:55 pm (Mon - Sat) / 11:55 pm (Sunday & PH)
+Last Train to Ampang: 11:42 pm (Mon - Sat) / 11:42 pm (Sunday & PH)
+Last Train to Putra Height: 11:42 pm (Mon - Sat) / 11:42 pm (Sunday & PH)
+Last Train to Sentul Timur: 12:39 am (Mon - Sat) / 12:07 am (Sunday & PH)",2026-05-08T15:50:27Z
+station:sungai_besi,Sungai Besi,LRT Sri Petaling Line; MRT Putrajaya Line,https://mrt.com.my/ssp/Sungai_Besi_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Interchange"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform"", ""Park n' Ride"", ""Drinks Vending Machine""]","Sungai Besi Expressway, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:50 pm (Mon - Sat) / 11:50 pm (Sunday & PH)
+Last Train to Ampang: Change Train in Chan Sow Lin LRT Station
+Last Train to Putra Height: 12:17 am (Mon - Sat) / 12:17 am (Sunday & PH)
+Last Train to Sentul Timur: 12:03 am (Mon - Sat) / 11:28 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:sungai_buloh,Sungai Buloh,KTM Komuter Port Klang Line; MRT Putrajaya Line,https://mrt.com.my/stations/Sungai_Buloh_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform"", ""Park n' Ride."", ""Side Platform"", ""Car Park"", ""Drinks Vending Machine"", ""MRT Interchange""]","Jalan Stesen, Sungai Buloh, Selangor",,2026-05-08T15:50:27Z
+station:sungai_gadut,Sungai Gadut,KTM Komuter Seremban Line,https://mrt.com.my/komuter/Sungai_Gadut.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Sungai Gadut, Negeri Sembilan",,2026-05-08T15:50:27Z
+station:sungai_jernih,Sungai Jernih,MRT Kajang Line,https://mrt.com.my/stations/Sungai_Jernih_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform"", ""Park n' Ride.""]",,,2026-05-08T15:50:27Z
+station:surian,Surian,MRT Kajang Line,https://mrt.com.my/stations/Surian_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform""]",,,2026-05-08T15:50:27Z
+station:taipan,Taipan,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/taipan.htm,"[""Side Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Bus Stop""]","Taipan (USJ6), UEP Subang Jaya, Selangor","Station open: 06:00 am
+Station closed: 11:25 pm (Mon - Sat) / 10:50 pm (Sunday & PH)
+Last Train to Gombak: 11:32 pm (Mon - Sat) / 11:03 pm (Sunday & PH)
+Last Train to Putra Height: 12:48 am (Mon - Sat) / 12:29 am (Sunday & PH)",2026-05-08T15:50:27Z
+station:taman_bahagia,Taman Bahagia,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/Taman_Bahagia.htm,"[""Side Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Bus Stop"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Car Park""]","Jalan SS 3/59E & Jalan SS 2/3, Petaling Jaya, Selangor","Station open: 06:00 am
+Station closed: 11:50 pm (Mon - Sat) / 11:10 pm (Sunday & PH)
+Last Train to Gombak: 11:54 pm (Mon - Sat) / 11:25 pm (Sunday & PH)
+Last Train to Putra Height: 12:25 am (Mon - Sat) / 12:07 am (Sunday & PH)",2026-05-08T15:50:27Z
+station:taman_connaught,Taman Connaught,MRT Kajang Line,https://mrt.com.my/stations/Taman_Connaught_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform""]",,,2026-05-08T15:50:27Z
+station:taman_equine,Taman Equine,MRT Putrajaya Line,https://mrt.com.my/ssp/Equine_Park_Station.htm,"[""Lift"", ""Escalator"", ""Surau"", ""Island Platform"", ""Feeder Bus"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Park n' Ride""]",,,2026-05-08T15:50:27Z
+station:taman_jaya,Taman Jaya,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/Taman_Jaya.htm,"[""Side Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Bus Stop"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Car Park""]","Persiaran Barat, Section 52, Petaling Jaya, Selangor","Station open: 06:00 am
+Station closed: 11:55 pm (Mon - Sat) / 11:15 pm (Sunday & PH)
+Last Train to Gombak: 12:00 am (Mon - Sat) / 11:31 pm (Sunday & PH)
+Last Train to Putra Height: 12:18 am (Mon - Sat) / 12:00 am (Sunday & PH)",2026-05-08T15:50:27Z
+station:taman_melati,Taman Melati,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/taman_melati.htm,"[""Side Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Feeder Bus""]","Taman Melati, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:30 pm (Mon - Sat) / 11:15 pm (Sunday & PH)
+Last Train to Gombak: 12:41 am (Mon - Sat) / 12:11 am (Sunday & PH)
+Last Train to Putra Height: 11:38 pm (Mon - Sat) / 11:20 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:taman_midah,Taman Midah,MRT Kajang Line,https://mrt.com.my/stations/Taman_Midah_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform"", ""Park n' Ride""]",,,2026-05-08T15:50:27Z
+station:taman_mutiara,Taman Mutiara,MRT Kajang Line,https://mrt.com.my/stations/Taman_Mutiara_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform""]",,,2026-05-08T15:50:27Z
+station:taman_naga_emas,Taman Naga Emas,MRT Putrajaya Line,https://mrt.com.my/ssp/Taman_Naga_Emas_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Park n' Ride"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform""]",,,2026-05-08T15:50:27Z
+station:taman_paramount,Taman Paramount,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/Taman_Paramount.htm,"[""Side Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Feeder Bus"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Car Park""]","Jalan 21/1, Taman Paramount, Petaling Jaya, Selangor","Station open: 06:00 am
+Station closed: 11:50 pm (Mon - Sat) / 11:10 pm (Sunday & PH)
+Last Train to Gombak: 11:56 pm (Mon - Sat) / 11:27 pm (Sunday & PH)
+Last Train to Putra Height: 12:23 am (Mon - Sat) / 12:04 am (Sunday & PH)",2026-05-08T15:50:27Z
+station:taman_perindustrian_puchong,Taman Perindustrian Puchong,LRT Sri Petaling Line,https://mrt.com.my/lrt_sri_petaling/Taman_Perindustrian_Puchong.htm,"[""Side Platform"", ""Public Toilets"", ""Shops"", ""Parking"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Escalator & Lift""]","Taman Perindustrian Puchong, Puchong, Selangor","Station open: 06:00 am
+Station closed: 11:30 pm (Mon - Sat) / 11:30 pm (Sunday & PH)
+Last Train to Ampang: Change Train in Chan Sow Lin LRT Station
+Last Train to Putra Height: 12:42 am (Mon - Sat) / 12:42 am (Sunday & PH)
+Last Train to Sentul Timur: 11:38 pm (Mon - Sat) / 11:00 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:taman_pertama,Taman Pertama,MRT Kajang Line,https://mrt.com.my/stations/Taman_Pertama_Station.htm,"[""Lift"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform""]",,,2026-05-08T15:50:27Z
+station:taman_suntex,Taman Suntex,MRT Kajang Line,https://mrt.com.my/stations/Taman_Suntex_MRT_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform"", ""Park n' Ride""]",,,2026-05-08T15:50:27Z
+station:taman_tun_dr_ismail,Taman Tun Dr Ismail,MRT Kajang Line,https://mrt.com.my/stations/Taman_Tun_Dr_Ismail_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform""]",,,2026-05-08T15:50:27Z
+station:taman_wahyu,Taman Wahyu,KTM Komuter Seremban Line,https://mrt.com.my/komuter/Taman_Wahyu.htm,"[""Side Platform"", ""Public Toilets"", ""Bus Hub"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan 1/18A Taman Mastiara, Kuala Lumpur",,2026-05-08T15:50:27Z
+station:tanjung_malim,Tanjung Malim,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Tanjung_Malim.htm,"[""Side & Island Platform"", ""Public Toilets"", ""Car Park"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Tanjung Malim, Perak",,2026-05-08T15:50:27Z
+station:teluk_gadong,Teluk Gadong,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Teluk_Gadong.htm,"[""Side Platform"", ""Public Toilets"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Zamrud, Taman Gembira, Klang, Selangor",,2026-05-08T15:50:27Z
+station:teluk_pulai,Teluk Pulai,KTM Komuter Port Klang Line,https://mrt.com.my/komuter/Teluk_Pulai.htm,"[""Side Platform"", ""Public Toilets"", ""Drinks Vending Machine"", ""Ticket Vending Machine"", ""Customer Service Office""]","Jalan Sungai Udang, Klang, Selangor",,2026-05-08T15:50:27Z
+station:tiroi,Tiroi,KTM Komuter Seremban Line,https://mrt.com.my/komuter/Tiroi.htm,"[""Side Platform"", ""Public Toilets"", ""Ticket Vending Machine"", ""Customer Service Office""]","7th KM, Jalan Labu, Negeri Sembilan",,2026-05-08T15:50:27Z
+station:titiwangsa,Titiwangsa,KL Monorail Line; LRT Ampang Line; LRT Sri Petaling Line; MRT Putrajaya Line,https://mrt.com.my/lrt_ampang/Titiwangsa.htm,"[""Lift"", ""Escalator"", ""Surau"", ""Interchange"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Platform"", ""Shops"", ""Drinks Vending Machine"", ""KL Monorail Interchange"", ""Escalator & Lift"", ""LRT Interchange""]","Titiwangsa, Jalan Tun Razak, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:48 pm (Mon - Sat) / 11:48 pm (Sunday & PH)
+Last Train to Ampang: 11:36 pm (Mon - Sat) / 11:36 pm (Sunday & PH)
+Last Train to Putra Height: 11:36 pm (Mon - Sat) / 11:36 pm (Sunday & PH)
+Last Train to Sentul Timur: 12:45 am (Mon - Sat) / 12:13 am (Sunday & PH)",2026-05-08T15:50:27Z
+station:tun_razak_exchange,Tun Razak Exchange,MRT Kajang Line,https://mrt.com.my/stations/Tun_Razak_Exchange_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Stacked Platform"", ""Interchange Station""]",,,2026-05-08T15:50:27Z
+station:tun_razak_exchange_trx,"Tun Razak Exchange 
+	(TRX)",MRT Putrajaya Line,https://mrt.com.my/stations/Tun_Razak_Exchange_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Shops"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Side Stacked Platform"", ""Interchange Station""]",,,2026-05-08T15:50:27Z
+station:tun_sambanthan,Tun Sambanthan,KL Monorail Line,https://mrt.com.my/kl_monorail/Tun_Sambanthan.htm,"[""Side Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Tun Sambanthan, Brickfields, Kuala Lumpur",Last Train: 11.50 pm (Titiwangsa towards KL Sentral),2026-05-08T15:50:27Z
+station:ukm,UKM,KTM Komuter Seremban Line,https://mrt.com.my/komuter/UKM.htm,"[""Side Platform"", ""Public Toilets"", ""Bus Stop"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine""]","Jalan Sg Tangkas, Kajang, Selangor",,2026-05-08T15:50:27Z
+station:universiti,Universiti,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/Universiti.htm,"[""Island Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Feeder Bus""]","Kampung Kerinchi, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:55 pm (Mon - Sat) / 11:20 pm (Sunday & PH)
+Last Train to Gombak: 12:03 am (Mon - Sat) / 11:34 pm (Sunday & PH)
+Last Train to Putra Height: 12:15 am (Mon - Sat) / 11:57 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:upm,UPM,MRT Putrajaya Line,https://mrt.com.my/ssp/Universiti_Putra_Malaysia_Station.htm,"[""Lift"", ""Feeder bus"", ""Escalator"", ""Surau"", ""Park n' Ride"", ""Ticket Vending Machine"", ""Public Toilets"", ""Customer Service Office"", ""Island Platform""]",,,2026-05-08T15:50:27Z
+station:usj21,USJ21,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/usj21.htm,"[""Side Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Car Park"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Feeder Bus""]","USJ21, UEP Subang Jaya, Selangor","Station open: 06:00 am
+Station closed: 11:20 pm (Mon - Sat) / 10:50 pm (Sunday & PH)
+Last Train to Gombak: 11:28 pm (Mon - Sat) / 10:59 pm (Sunday & PH)
+Last Train to Putra Height: 12:50 am (Mon - Sat) / 12:32 am (Sunday & PH)",2026-05-08T15:50:27Z
+station:usj7,USJ7,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/usj7.htm,"[""Island & Side Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Feeder Bus""]","USJ7, UEP Subang Jaya, Selangor","Station open: 06:00 am
+Station closed: 11:30 pm (Mon - Sat) / 10:55 pm (Sunday & PH)
+Last Train to Gombak: 11:34 pm (Mon - Sat) / 11:05 pm (Sunday & PH)
+Last Train to Putra Height: 12:46 am (Mon - Sat) / 12:28 am (Sunday & PH)",2026-05-08T15:50:27Z
+station:wangsa_maju,Wangsa Maju,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/Wangsa_Maju.htm,"[""Island Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Feeder Bus"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Car Park""]","Wangsa Maju, Kuala Lumpur","Station open: 06:00 am
+Station closed: 11:35 pm (Mon - Sat) / 11:20 pm (Sunday & PH)
+Last Train to Gombak: 12:38 am (Mon - Sat) / 12:08 am (Sunday & PH)
+Last Train to Putra Height: 11:41 pm (Mon - Sat) / 11:23 pm (Sunday & PH)",2026-05-08T15:50:27Z
+station:wawasan,Wawasan,LRT Kelana Jaya Line,https://mrt.com.my/lrt_kelana/wawasan.htm,"[""Side Platform"", ""Escalator & Lift"", ""Public Toilets"", ""Shops"", ""Ticket Vending Machine"", ""Customer Service Office"", ""Drinks Vending Machine"", ""Feeder Bus""]","USJ14, UEP Subang Jaya, Selangor","Station open: 06:00 am
+Station closed: 11:25 pm (Mon - Sat) / 10:50 pm (Sunday & PH)
+Last Train to Gombak: 11:30 pm (Mon - Sat) / 11:01 pm (Sunday & PH)
+Last Train to Putra Height: 12:50 am (Mon - Sat) / 12:32 am (Sunday & PH)",2026-05-08T15:50:27Z
+station:woodlands_north,Woodlands North,RTS Link,https://mrt.com.my/rts/woodlands_north.htm,"[""Lift"", ""Escalator"", ""Co-located CIQ Facilities"", ""Ticket Vending Machine"", ""Public Toilets"", ""Nursing Room"", ""Customer Service Office"", ""Bicycle Parking Facilities"", ""Disabled Friendly""]",,,2026-05-08T15:50:27Z

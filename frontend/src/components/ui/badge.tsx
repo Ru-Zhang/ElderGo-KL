@@ -32,6 +32,7 @@ function Badge({
   ...props
 }: React.ComponentProps<"span"> &
   VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
+  // `asChild` allows badge styling on links/buttons without extra wrappers.
   const Comp = asChild ? Slot : "span";
 
   return (
