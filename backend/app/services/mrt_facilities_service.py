@@ -7,9 +7,13 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-BACKEND_DIR = Path(__file__).resolve().parents[2]
-CSV_PATH = BACKEND_DIR / "data" / "mrt_stations_facilities.csv"
+# BACKEND_DIR = Path(__file__).resolve().parents[2]
+# CSV_PATH = BACKEND_DIR / "data" / "mrt_stations_facilities.csv"
 
+CSV_PATH = Path.cwd() / "data" / "mrt_stations_facilities.csv"
+
+if not CSV_PATH.exists():
+    raise FileNotFoundError(f"CSV not found: {CSV_PATH}")
 
 @lru_cache
 def _load_rows() -> dict[str, dict]:
