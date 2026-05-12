@@ -27,22 +27,6 @@ class Settings(BaseSettings):
     gemini_api_key_primary: str = Field(default="", alias="ELDERGO_GEMINI_API_KEY_PRIMARY")
     gemini_api_key_secondary: str = Field(default="", alias="ELDERGO_GEMINI_API_KEY_SECONDARY")
     gemini_api_keys: str = Field(default="", alias="ELDERGO_GEMINI_API_KEYS")
-    gemini_maps_grounding_enabled: bool = Field(
-        default=False,
-        alias="ELDERGO_GEMINI_MAPS_GROUNDING_ENABLED",
-    )
-    gemini_maps_grounding_enable_widget: bool = Field(
-        default=False,
-        alias="ELDERGO_GEMINI_MAPS_GROUNDING_ENABLE_WIDGET",
-    )
-    gemini_maps_grounding_default_latitude: float = Field(
-        default=3.1390,
-        alias="ELDERGO_GEMINI_MAPS_GROUNDING_DEFAULT_LATITUDE",
-    )
-    gemini_maps_grounding_default_longitude: float = Field(
-        default=101.6869,
-        alias="ELDERGO_GEMINI_MAPS_GROUNDING_DEFAULT_LONGITUDE",
-    )
     ai_guardrail_enabled: bool = Field(default=True, alias="ELDERGO_AI_GUARDRAIL_ENABLED")
     ai_guardrail_mode: str = Field(default="hybrid", alias="ELDERGO_AI_GUARDRAIL_MODE")
     ai_guardrail_strict: bool = Field(default=False, alias="ELDERGO_AI_GUARDRAIL_STRICT")

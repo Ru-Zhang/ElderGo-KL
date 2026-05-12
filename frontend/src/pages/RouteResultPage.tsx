@@ -37,6 +37,7 @@ const BRAND_COLORS = {
 };
 
 const GOOGLE_MAPS_EMBED_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || import.meta.env.VITE_GOOGLE_MAPS_BROWSER_KEY;
+const GOOGLE_MAPS_APP_DETECTION_DELAY_MS = 1600;
 
 export default function RouteResultPage({
   onNavigateToPlanning,
@@ -359,9 +360,43 @@ export default function RouteResultPage({
     </div>
   );
 
+  const formatNavigationPoint = (place: typeof origin, fallbackName: string) => {
+    if (place && typeof place.lat === 'number' && typeof place.lon === 'number') {
+      return `${place.lat},${place.lon}`;
+    }
+    return place?.displayName || fallbackName;
+  };
+
+  const buildGoogleMapsDirectionsUrl = () => {
+    if (!currentRoute) return window.location.href;
+    const originParam = formatNavigationPoint(origin, currentRoute.origin_name);
+    const destinationParam = formatNavigationPoint(destination, currentRoute.destination_name);
+    return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(originParam)}&destination=${encodeURIComponent(destinationParam)}&travelmode=transit&dir_action=navigate`;
+  };
+
   const buildShareableRouteLink = () => {
     if (!currentRoute) return window.location.href;
-    return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(currentRoute.origin_name)}&destination=${encodeURIComponent(currentRoute.destination_name)}&travelmode=transit`;
+    return buildGoogleMapsDirectionsUrl();
+  };
+
+  const buildGoogleMapsAppUrl = () => {
+    if (!currentRoute) return null;
+    const originParam = formatNavigationPoint(origin, currentRoute.origin_name);
+    const destinationParam = formatNavigationPoint(destination, currentRoute.destination_name);
+    const encodedOrigin = encodeURIComponent(originParam);
+    const encodedDestination = encodeURIComponent(destinationParam);
+    if (/Android/i.test(navigator.userAgent)) {
+      return `intent://www.google.com/maps/dir/?api=1&origin=${encodedOrigin}&destination=${encodedDestination}&travelmode=transit&dir_action=navigate#Intent;scheme=https;package=com.google.android.apps.maps;end`;
+    }
+    return `comgooglemaps://?saddr=${encodedOrigin}&daddr=${encodedDestination}&directionsmode=transit`;
+  };
+
+  const isMobileBrowser = () =>
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 1 && /Macintosh/i.test(navigator.userAgent));
+
+  const promptGoogleMapsInstall = () => {
+    window.alert(t('routeGoogleMapsInstallPrompt'));
   };
 
   const mapEmbedSrc = currentRoute
@@ -763,16 +798,41 @@ export default function RouteResultPage({
    */
   const handleStartNavigation = () => {
     if (!currentRoute) return;
-    const formatPoint = (place: typeof origin, fallbackName: string) => {
-      if (place && typeof place.lat === 'number' && typeof place.lon === 'number') {
-        return `${place.lat},${place.lon}`;
-      }
-      return place?.displayName || fallbackName;
+    const webUrl = buildGoogleMapsDirectionsUrl();
+    const appUrl = buildGoogleMapsAppUrl();
+
+    if (!isMobileBrowser() || !appUrl) {
+      window.open(webUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    let openedGoogleMaps = false;
+    const markOpened = () => {
+      openedGoogleMaps = true;
     };
-    const originParam = formatPoint(origin, currentRoute.origin_name);
-    const destinationParam = formatPoint(destination, currentRoute.destination_name);
-    const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(originParam)}&destination=${encodeURIComponent(destinationParam)}&travelmode=transit&dir_action=navigate`;
-    window.open(url, '_blank', 'noopener,noreferrer');
+    const cleanup = () => {
+      window.removeEventListener('pagehide', markOpened);
+      window.removeEventListener('blur', markOpened);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        markOpened();
+      }
+    };
+
+    window.addEventListener('pagehide', markOpened, { once: true });
+    window.addEventListener('blur', markOpened, { once: true });
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    window.location.href = appUrl;
+
+    window.setTimeout(() => {
+      cleanup();
+      if (!openedGoogleMaps && !document.hidden) {
+        promptGoogleMapsInstall();
+      }
+    }, GOOGLE_MAPS_APP_DETECTION_DELAY_MS);
   };
 
   return (

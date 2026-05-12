@@ -101,7 +101,7 @@ function parseMessageBlocks(raw: string): MessageBlock[] {
 }
 
 export default function AIChatbotSheet({ isOpen, onClose }: AIChatbotSheetProps) {
-  const { language, anonymousUserId, currentRoute, selectedStation } = useAppContext();
+  const { language } = useAppContext();
   const t = (key: string) => getTranslation(language, key as any);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -168,10 +168,7 @@ export default function AIChatbotSheet({ isOpen, onClose }: AIChatbotSheetProps)
       }
 
       const response = await sendAIMessage(activeConversationId, {
-        message: trimmed,
-        current_route_id: currentRoute?.recommended_route_id ?? null,
-        selected_location_id: selectedStation?.id ?? null,
-        anonymous_user_id: anonymousUserId
+        message: trimmed
       });
       setMessages((prev) => [...prev, { text: response.answer, isUser: false }]);
     } catch (_error) {

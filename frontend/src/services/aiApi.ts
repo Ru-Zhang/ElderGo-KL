@@ -8,9 +8,6 @@ export async function createAIConversation(): Promise<AIConversationResponse> {
 
 interface SendAIMessagePayload {
   message: string;
-  current_route_id?: string | null;
-  selected_location_id?: string | null;
-  anonymous_user_id?: string | null;
 }
 
 export async function sendAIMessage(
