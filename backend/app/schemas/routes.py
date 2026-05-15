@@ -41,6 +41,12 @@ class RouteAccessibilityPoint(BaseModel):
     distance_meters: int | None = None
 
 
+class NavigationWaypoint(BaseModel):
+    lat: float
+    lon: float
+    name: str | None = None
+
+
 class RouteStep(BaseModel):
     step_number: int
     step_type: Literal["walking", "transit", "arrival"]
@@ -53,6 +59,9 @@ class RouteStep(BaseModel):
     transit_vehicle_type: str | None = None
     from_station: str | None = None
     to_station: str | None = None
+    transit_headsign: str | None = None
+    transit_direction_from: str | None = None
+    transit_direction_to: str | None = None
     annotation: RouteAccessibilityAnnotation
 
 
@@ -66,5 +75,6 @@ class RecommendedRoute(BaseModel):
     recommendation_reason: str
     map_polyline: str | None = None
     steps: list[RouteStep]
+    navigation_waypoints: list[NavigationWaypoint] = Field(default_factory=list)
     # Accessibility points are optional enrichments extracted from walking segments.
     accessibility_points: list[RouteAccessibilityPoint] = Field(default_factory=list)

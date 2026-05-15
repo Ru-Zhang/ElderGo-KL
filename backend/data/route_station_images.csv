@@ -1,0 +1,12 @@
+﻿route_key,step_number,station_key,image_order,image_path,image_caption
+klcc|monash university malaysia,1,step:1,1,/route-images/klcc-monash/step-01-01-entrance-exterior.jpg,You are at the KLCC station entrance (Suria mall). Go inside when you are ready.
+klcc|monash university malaysia,1,step:1,2,/route-images/klcc-monash/step-01-02-tap-in.jpg,Tap your travel card on the reader to enter the station.
+klcc|monash university malaysia,2,step:2,1,/route-images/klcc-monash/step-02-01-lift-down.jpg,Take the lift or escalator down to the train level.
+klcc|monash university malaysia,2,step:2,2,/route-images/klcc-monash/step-02-02-klcc-platform-board.jpg,Wait on this platform and board the train towards USJ 7.
+klcc|monash university malaysia,3,step:3,1,/route-images/klcc-monash/step-03-01-usj7-alight.jpg,Leave the train when you arrive at USJ 7 station.
+klcc|monash university malaysia,3,step:3,2,/route-images/klcc-monash/step-03-02-lift-down.jpg,Take the lift or escalator down to change to the bus.
+klcc|monash university malaysia,4,step:4,1,/route-images/klcc-monash/step-04-01-usj7-platform-board.jpg,This is the bus platform at USJ 7. Wait here for the BRT.
+klcc|monash university malaysia,4,step:4,2,/route-images/klcc-monash/step-04-02-brt-platform-board.jpg,Board the BRT bus on this platform (heading to Monash).
+klcc|monash university malaysia,5,step:5,1,/route-images/klcc-monash/step-05-01-tap-out.jpg,Tap your travel card on the reader to leave the station.
+klcc|monash university malaysia,5,step:5,2,/route-images/klcc-monash/step-05-02-lift-exit.jpeg,Take the lift or escalator down to street level.
+klcc|monash university malaysia,5,step:5,3,/route-images/klcc-monash/step-05-03-monash-campus.jpg,You have arrived at Monash University campus.

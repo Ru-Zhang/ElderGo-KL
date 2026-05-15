@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { AppProvider, useAppContext } from './AppProvider';
 import PlanningPage from '../pages/PlanningPage';
 import PlanYourTimePage from '../pages/PlanYourTimePage';
@@ -12,6 +12,7 @@ import ConcessionGuidePage from '../pages/ConcessionGuidePage';
 import PrivacyInfoPage from '../pages/PrivacyInfoPage';
 import PreferencePage from '../pages/PreferencePage';
 import AIChatbotSheet from '../components/chatbot/AIChatbotSheet';
+import { resetPageScroll } from '../utils/resetPageScroll';
 
 type PageType =
   | 'planning'
@@ -31,13 +32,25 @@ function AppContent() {
   const [showChatbot, setShowChatbot] = useState(false);
   const { fontSize } = useAppContext();
 
-  // Shared navigation callbacks keep page switching wiring centralized.
+  const navigateToPage = (nextPage: PageType) => {
+    setCurrentPage(nextPage);
+  };
+
+  useLayoutEffect(() => {
+    resetPageScroll();
+  }, [currentPage]);
+
+  useEffect(() => {
+    resetPageScroll();
+    requestAnimationFrame(() => resetPageScroll());
+  }, [currentPage]);
+
   const navHandlers = {
-    onNavigateToPlanning: () => setCurrentPage('planning'),
-    onNavigateToStation: () => setCurrentPage('stationsHome'),
-    onNavigateToHelp: () => setCurrentPage('help'),
-    onNavigateToPreference: () => setCurrentPage('preference'),
-    onShowChatbot: () => setShowChatbot(true)
+    onNavigateToPlanning: () => navigateToPage('planning'),
+    onNavigateToStation: () => navigateToPage('stationsHome'),
+    onNavigateToHelp: () => navigateToPage('help'),
+    onNavigateToPreference: () => navigateToPage('preference'),
+    onShowChatbot: () => setShowChatbot(true),
   };
 
   const fontSizeClass =
@@ -51,26 +64,26 @@ function AppContent() {
       {currentPage === 'planning' && (
         <PlanningPage
           {...navHandlers}
-          onNavigateToPlanTime={() => setCurrentPage('planTime')}
-          onNavigateToUseElderGo={() => setCurrentPage('useElderGo')}
+          onNavigateToPlanTime={() => navigateToPage('planTime')}
+          onNavigateToUseElderGo={() => navigateToPage('useElderGo')}
         />
       )}
       {currentPage === 'planTime' && (
         <PlanYourTimePage
           {...navHandlers}
-          onNavigateToRouteResult={() => setCurrentPage('routeResult')}
+          onNavigateToRouteResult={() => navigateToPage('routeResult')}
         />
       )}
       {currentPage === 'routeResult' && (
         <RouteResultPage
           {...navHandlers}
-          onNavigateToPlanTime={() => setCurrentPage('planTime')}
+          onNavigateToPlanTime={() => navigateToPage('planTime')}
         />
       )}
       {currentPage === 'stationsHome' && (
         <StationsHomePage
           {...navHandlers}
-          onNavigateToStationDetail={() => setCurrentPage('stationDetail')}
+          onNavigateToStationDetail={() => navigateToPage('stationDetail')}
         />
       )}
       {currentPage === 'stationDetail' && (
@@ -81,10 +94,10 @@ function AppContent() {
       {currentPage === 'help' && (
         <HelpPage
           {...navHandlers}
-          onNavigateToUseElderGo={() => setCurrentPage('useElderGo')}
-          onNavigateToTicketGuide={() => setCurrentPage('ticketGuide')}
-          onNavigateToConcessionGuide={() => setCurrentPage('concessionGuide')}
-          onNavigateToPrivacyInfo={() => setCurrentPage('privacyInfo')}
+          onNavigateToUseElderGo={() => navigateToPage('useElderGo')}
+          onNavigateToTicketGuide={() => navigateToPage('ticketGuide')}
+          onNavigateToConcessionGuide={() => navigateToPage('concessionGuide')}
+          onNavigateToPrivacyInfo={() => navigateToPage('privacyInfo')}
         />
       )}
       {currentPage === 'useElderGo' && (
@@ -93,19 +106,19 @@ function AppContent() {
       {currentPage === 'ticketGuide' && (
         <TicketGuidePage
           {...navHandlers}
-          onNavigateToHelp={() => setCurrentPage('help')}
+          onNavigateToHelp={() => navigateToPage('help')}
         />
       )}
       {currentPage === 'concessionGuide' && (
         <ConcessionGuidePage
           {...navHandlers}
-          onNavigateToHelp={() => setCurrentPage('help')}
+          onNavigateToHelp={() => navigateToPage('help')}
         />
       )}
       {currentPage === 'privacyInfo' && (
         <PrivacyInfoPage
           {...navHandlers}
-          onNavigateToHelp={() => setCurrentPage('help')}
+          onNavigateToHelp={() => navigateToPage('help')}
         />
       )}
       {currentPage === 'preference' && (
@@ -122,7 +135,6 @@ function AppContent() {
 
 export default function App() {
   return (
-    // App-wide state provider wraps all pages and chatbot sheet.
     <AppProvider>
       <AppContent />
     </AppProvider>

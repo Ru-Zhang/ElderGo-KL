@@ -7,7 +7,8 @@
     "build": "vite build",
     "dev": "vite",
     "dev:stable": "CHOKIDAR_USEPOLLING=true CHOKIDAR_INTERVAL=250 vite --host 127.0.0.1 --port 5173 --strictPort --force",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "generate:seat-probability": "python ../backend/scripts/generate_seat_probability_json.py"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
