@@ -20,6 +20,20 @@ services:
         sync: false
       - key: OPENWEATHER_API_KEY
         sync: false
+      - key: ELDERGO_GEMINI_MODEL
+        sync: false
+      - key: ELDERGO_GEMINI_API_KEY_PRIMARY
+        sync: false
+      - key: ELDERGO_GEMINI_API_KEY_SECONDARY
+        sync: false
+      - key: ELDERGO_GEMINI_API_KEYS
+        sync: false
+      - key: ELDERGO_AI_GUARDRAIL_ENABLED
+        value: "true"
+      - key: ELDERGO_AI_GUARDRAIL_MODE
+        value: hybrid
+      - key: ELDERGO_AI_GUARDRAIL_STRICT
+        value: "false"
 
   - type: web
     name: eldergo-kl-frontend

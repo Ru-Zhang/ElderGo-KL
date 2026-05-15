@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MapPin, Navigation, Lightbulb } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import BottomNav from '../components/layout/BottomNav';
@@ -58,6 +58,22 @@ export default function PlanningPage({
   const hasAnyPreferenceEnabled =
     preferences.accessibilityFirst || preferences.leastWalk || preferences.fewestTransfers;
   const shouldPromptPreferences = !onboardingCompleted && !hasAnyPreferenceEnabled;
+  const chatPrefillNeedsConfirm =
+    Boolean(origin?.displayName && !origin.googlePlaceId) ||
+    Boolean(routeDestination?.displayName && !routeDestination.googlePlaceId);
+
+  useEffect(() => {
+    if (origin?.displayName) {
+      setStartPoint(origin.displayName);
+      setSelectedOrigin(origin);
+      setShouldClearRetainedOrigin(false);
+    }
+    if (routeDestination?.displayName) {
+      setDestination(routeDestination.displayName);
+      setSelectedDestination(routeDestination);
+      setShouldClearRetainedDestination(false);
+    }
+  }, [origin?.displayName, routeDestination?.displayName]);
 
   const toSuggestionLabel = (value: string) => {
     // Keep labels short and elderly-friendly while retaining the most
@@ -242,6 +258,11 @@ export default function PlanningPage({
             </button>
 
             <div className="space-y-4">
+              {chatPrefillNeedsConfirm && (
+                <div className="bg-eldergo-blue/10 border-l-4 border-eldergo-blue p-4 rounded-xl text-eldergo-navy font-medium">
+                  {t('chatConfirmPlaceFromList')}
+                </div>
+              )}
               {placesError && (
                 <div className="bg-eldergo-warning-bg border-l-4 border-eldergo-warning p-4 rounded-xl text-eldergo-navy font-medium">
                   {placesError}

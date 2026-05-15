@@ -1,26 +1,88 @@
 import re
-from datetime import datetime, timedelta, timezone
-from threading import Lock
 from uuid import uuid4
 
-import httpx
 from fastapi import APIRouter
 
 from app.core.config import get_settings
-from app.schemas.ai import AIConversationResponse, AIMessageRequest, AIMessageResponse
-from app.services.ai_guardrail_service import is_in_scope
+from app.schemas.ai import (
+    AIConversationResponse,
+    AIMessageRequest,
+    AIMessageResponse,
+    ChatAction,
+    ChatBlock,
+    ResponseSourceType,
+)
+from app.services.ai_exploratory_poi_service import (
+    extract_poi_category_term,
+    is_enroute_rest_exploratory,
+    is_exploratory_poi_message,
+    is_senior_common_poi_message,
+    resolve_exploratory_poi,
+    should_prefer_gemini_recommendation,
+)
+from app.services.ai_route_parse_service import message_has_plan_route_endpoints
+from app.services.ai_grounding_service import build_grounded_context
+from app.services.chat_blocks_service import (
+    blocks_from_plain_text,
+    blocks_in_scope_help,
+    blocks_maps_grounding_places,
+    blocks_out_of_scope,
+    blocks_to_plain_text,
+    parse_gemini_blocks_json,
+)
+from app.services.ai_guardrail_service import is_travel_related
+from app.services.ai_flow_service import resolve_chat_flow
+from app.services.ai_language import resolve_response_language
+from app.services.ai_intent_service import (
+    IN_SCOPE_HELP,
+    build_planning_prefill_action,
+    classify_intent,
+    extract_route_endpoints,
+    resolve_intent,
+    should_use_gemini_supplement,
+)
+from app.services.gemini_client import (
+    GEMINI_KEY_POOL,
+    MAPS_GROUNDING_LANGUAGE,
+    GeminiKeyPool,
+    call_with_key_pool,
+    extract_grounding_places,
+    extract_text_from_response,
+)
 
 router = APIRouter()
 settings = get_settings()
 
-GEMINI_API_URL_TEMPLATE = (
-    "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-)
+GUIDE_INTENTS = frozenset({"ticket_guide", "concession_guide", "privacy", "preference"})
+
+
+def _guide_actions_for_message(message: str, request: AIMessageRequest) -> list[ChatAction]:
+    intent = classify_intent(message, request)
+    action_map = {
+        "ticket_guide": ChatAction(type="open_ticket_guide"),
+        "concession_guide": ChatAction(type="open_concession_guide"),
+        "privacy": ChatAction(type="open_privacy"),
+        "preference": ChatAction(type="open_preference"),
+    }
+    action = action_map.get(intent)
+    return [action] if action else []
+
 OUT_OF_SCOPE_MARKER = "[OUT_OF_SCOPE]"
+MAPS_GROUNDING_SUPPLEMENT = (
+    "Use Google Maps data for the Klang Valley (Kuala Lumpur area) only. "
+    "Keep the answer short (at most 4 sentences) and practical for older adults."
+)
+SENIOR_POI_GEMINI_SUPPLEMENT = (
+    "The user is asking for a real place recommendation (for example hospital, clinic, pharmacy, mall, or market). "
+    "Name 2-3 specific venues near the anchor they mentioned, with area names seniors recognise. "
+    "Prefer hospitals/clinics for medical questions — do not suggest cafes, student lounges, or unrelated shops. "
+    "Mention which is nearest or easiest by public transport when you can. "
+    "If you are unsure, say so briefly instead of guessing."
+)
 SUPPORTED_GUARDRAIL_MODES = {"hybrid", "rules_only", "prompt_only"}
 
 GUARDRAIL_PROMPT = (
-    "You are ElderGo KL assistant. Only answer ElderGo KL transport support topics: routes, stations, "
+    "You are ElderGo KL assistant for the Klang Valley only. Only answer ElderGo KL transport support topics: routes, stations, "
     "accessibility, tickets/fares/concessions, privacy, and app usage. "
     f"If the user request is outside this scope, start the response with {OUT_OF_SCOPE_MARKER} and provide no "
     "extra content beyond a short refusal. "
@@ -31,6 +93,19 @@ GUARDRAIL_PROMPT = (
     "End with one gentle practical suggestion, but do not force labels like Summary, Steps, or Next step. "
     "Keep total response around 4-8 lines and avoid long paragraphs. "
     "If a technical term is required, explain it in simple words in the same line."
+)
+GEMINI_JSON_PROMPT = (
+    "Return ONLY valid JSON (no markdown fences) in this shape:\n"
+    '{"blocks":[{"type":"heading","text":"..."},{"type":"paragraph","text":"..."},'
+    '{"type":"bullets","items":["..."]},{"type":"callout","tone":"info","text":"..."},'
+    '{"type":"sources","links":[{"title":"...","url":"...","org":"..."}]}]}\n'
+    "Use at most 1 heading, 1 short paragraph, 2-4 bullet items, optional 1 callout "
+    "(tone: info, warning, or success), and optional sources.\n"
+    "Sources URLs must be ONLY from this allowlist:\n"
+    "- https://myrapid.com.my/\n"
+    "- https://www.mrt.com.my/\n"
+    "- https://openweathermap.org/\n"
+    "Explain acronyms simply (LRT, MRT, BRT, Touch 'n Go). Keep total content short."
 )
 PROJECT_CAPABILITY_PROMPT = (
     "Project capability boundary for ElderGo KL:\n"
@@ -50,15 +125,15 @@ PROJECT_CAPABILITY_PROMPT = (
 )
 OUT_OF_SCOPE_TEMPLATES = {
     "zh": (
-        "我目前只能协助 ElderGo KL 的路线、站点、无障碍、票务优惠、隐私与 App 使用问题。\n"
-        "你可以把问题改成以上主题，我会一步一步协助你。"
+        "我目前只能协助巴生谷出行相关的问题，例如路线、站点、天气、票务指南、优惠信息与 App 使用。\n"
+        "请把问题改成以上主题，我会一步一步协助你。"
     ),
     "ms": (
-        "Saya hanya boleh bantu topik ElderGo KL: laluan, stesen, kebolehcapaian, tiket/konsesi, privasi, dan penggunaan aplikasi.\n"
+        "Saya hanya boleh bantu perjalanan di Klang Valley: laluan, stesen, cuaca, panduan tiket, konsesi, dan penggunaan app.\n"
         "Tanya tentang salah satu topik ini, dan saya akan bantu langkah demi langkah."
     ),
     "en": (
-        "I can only help with ElderGo KL routes, stations, accessibility, tickets, concession information, privacy, and app usage.\n"
+        "I can only help with travel in Klang Valley: routes, stations, weather, ticket guides, concessions, and how to use ElderGo KL.\n"
         "Ask about one of these topics, and I will guide you step by step."
     ),
 }
@@ -107,9 +182,16 @@ ACTION_SUGGESTION_DEFAULT = {
 
 SENTENCE_SPLIT_PATTERN = re.compile(r"(?<=[。！？.!?])\s+")
 UNSUPPORTED_TICKET_PATTERNS = (
-    re.compile(r"\b(?:buy|purchase|get)\s+(?:a\s+)?tickets?\s+(?:in|inside|through|from|using|with)\s+(?:the\s+)?(?:app|eldergo)", re.I),
+    re.compile(
+        r"\b(?:buy|purchase|get)\s+(?:a\s+)?tickets?\s+(?:in|inside|through|from|using|with)\s+(?:the\s+|this\s+)?(?:app|eldergo)",
+        re.I,
+    ),
+    re.compile(r"\b(?:you\s+can\s+)?buy\s+tickets?\s+in\s+this\s+app\b", re.I),
     re.compile(r"\b(?:the\s+)?(?:app|eldergo)\s+(?:can|lets you|allows you to)\s+(?:buy|purchase|get)\s+(?:a\s+)?tickets?", re.I),
-    re.compile(r"\b(?:pay|top up|reload|buy tokens?)\s+(?:in|inside|through|from|using|with)\s+(?:the\s+)?(?:app|eldergo)", re.I),
+    re.compile(
+        r"\b(?:pay|top up|reload|buy tokens?)\s+(?:in|inside|through|from|using|with)\s+(?:the\s+|this\s+)?(?:app|eldergo)",
+        re.I,
+    ),
     re.compile(r"(?:在|通过|使用).*(?:app|ElderGo|eldergo).*买票", re.I),
     re.compile(r"(?:app|ElderGo|eldergo).*可以买票", re.I),
     re.compile(r"(?:在|通过|使用).*(?:app|ElderGo|eldergo).*(?:充值|付款|购买代币)", re.I),
@@ -196,96 +278,78 @@ UNSUPPORTED_TEMPLATES = {
 }
 
 
-class GeminiKeyPool:
-    def __init__(self) -> None:
-        self._lock = Lock()
-        self._exhausted_until: dict[str, datetime] = {}
-        self._cursor = 0
-
-    @staticmethod
-    def _local_day_end_utc() -> datetime:
-        # Align reset with Malaysia local day (UTC+8) for daily free-tier quotas.
-        tz = timezone(timedelta(hours=8))
-        now_local = datetime.now(tz=tz)
-        next_day_start = datetime.combine(
-            (now_local + timedelta(days=1)).date(),
-            datetime.min.time(),
-            tzinfo=tz,
-        )
-        return next_day_start.astimezone(timezone.utc)
-
-    @staticmethod
-    def _is_rate_limit_error(exc: Exception) -> bool:
-        return isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 429
-
-    @staticmethod
-    def _collect_unique_keys() -> list[str]:
-        keys: list[str] = []
-        seen: set[str] = set()
-
-        for key in [settings.gemini_api_key_primary, settings.gemini_api_key_secondary]:
-            cleaned = (key or "").strip()
-            if cleaned and cleaned not in seen:
-                seen.add(cleaned)
-                keys.append(cleaned)
-
-        for key in (settings.gemini_api_keys or "").split(","):
-            cleaned = key.strip()
-            if cleaned and cleaned not in seen:
-                seen.add(cleaned)
-                keys.append(cleaned)
-
-        return keys
-
-    def has_configured_keys(self) -> bool:
-        return bool(self._collect_unique_keys())
-
-    def get_available_keys(self) -> list[str]:
-        now_utc = datetime.now(timezone.utc)
-        with self._lock:
-            self._exhausted_until = {
-                key: until for key, until in self._exhausted_until.items() if until > now_utc
-            }
-            keys = self._collect_unique_keys()
-            available = [key for key in keys if key not in self._exhausted_until]
-            if not available:
-                return []
-
-            start = self._cursor % len(available)
-            rotated = available[start:] + available[:start]
-            self._cursor = (self._cursor + 1) % len(available)
-            return rotated
-
-    def mark_exhausted_today(self, key: str) -> None:
-        with self._lock:
-            self._exhausted_until[key] = self._local_day_end_utc()
+def _response_language(payload: AIMessageRequest) -> str:
+    return resolve_response_language(payload, payload.message)
 
 
-GEMINI_KEY_POOL = GeminiKeyPool()
+def _out_of_scope_answer_for(payload: AIMessageRequest) -> str:
+    return OUT_OF_SCOPE_TEMPLATES[_response_language(payload)]
 
 
-def _detect_language(message: str) -> str:
-    if any("\u4e00" <= ch <= "\u9fff" for ch in message):
-        return "zh"
-
-    lowered = message.lower()
-    malay_hints = (" saya ", " dan ", " bagaimana ", " stesen ", " laluan ", " tiket ", " boleh ")
-    padded = f" {lowered} "
-    if any(hint in padded for hint in malay_hints):
-        return "ms"
-    return "en"
+def _out_of_scope_blocks_for(language: str) -> list[ChatBlock]:
+    return blocks_out_of_scope(language)
 
 
-def _out_of_scope_answer_for(message: str) -> str:
-    return OUT_OF_SCOPE_TEMPLATES[_detect_language(message)]
+def _message_response(
+    conversation_id: str,
+    *,
+    answer: str | None = None,
+    blocks: list[ChatBlock] | None = None,
+    in_scope: bool = True,
+    actions: list[ChatAction] | None = None,
+    chat_flow=None,
+    flow_slots: dict[str, str] | None = None,
+    response_source: ResponseSourceType | None = None,
+) -> AIMessageResponse:
+    if blocks:
+        resolved_blocks = list(blocks)
+        resolved_answer = (answer or "").strip() or blocks_to_plain_text(resolved_blocks)
+    elif answer:
+        resolved_answer = answer.strip()
+        resolved_blocks = blocks_from_plain_text(resolved_answer)
+    else:
+        resolved_answer = ""
+        resolved_blocks = []
+    return AIMessageResponse(
+        conversation_id=conversation_id,
+        answer=resolved_answer,
+        answer_blocks=resolved_blocks,
+        in_scope=in_scope,
+        actions=actions or [],
+        chat_flow=chat_flow,
+        flow_slots=flow_slots or {},
+        response_source=response_source,
+    )
 
 
-def _fallback_answer_for(message: str) -> str:
-    return FALLBACK_TEMPLATES[_detect_language(message)]
+def _from_intent_result(
+    conversation_id: str,
+    result,
+    *,
+    fallback_answer: str,
+) -> AIMessageResponse:
+    blocks = list(result.answer_blocks or [])
+    if not blocks and result.answer:
+        blocks = blocks_from_plain_text(result.answer)
+    answer = (result.answer or "").strip() or blocks_to_plain_text(blocks) or fallback_answer
+    return _message_response(
+        conversation_id,
+        answer=answer,
+        blocks=blocks,
+        in_scope=result.in_scope,
+        actions=result.actions or [],
+        chat_flow=result.chat_flow,
+        flow_slots=result.flow_slots or {},
+        response_source=result.response_source,
+    )
 
 
-def _quota_exhausted_answer_for(message: str) -> str:
-    return QUOTA_EXHAUSTED_TEMPLATES[_detect_language(message)]
+def _fallback_answer_for(payload: AIMessageRequest) -> str:
+    return FALLBACK_TEMPLATES[_response_language(payload)]
+
+
+def _quota_exhausted_answer_for(payload: AIMessageRequest) -> str:
+    return QUOTA_EXHAUSTED_TEMPLATES[_response_language(payload)]
 
 
 def _guardrail_mode() -> str:
@@ -299,9 +363,8 @@ def _matches_any(text: str, patterns: tuple[re.Pattern[str], ...]) -> bool:
     return any(pattern.search(text) for pattern in patterns)
 
 
-def _unsupported_feature_answer_for(message: str, answer: str) -> str | None:
+def _unsupported_feature_answer_for(message: str, answer: str, language: str) -> str | None:
     combined = f"{message}\n{answer}"
-    language = _detect_language(message)
 
     if _matches_any(combined, UNSUPPORTED_TICKET_PATTERNS):
         return UNSUPPORTED_TEMPLATES["ticket"][language]
@@ -312,41 +375,52 @@ def _unsupported_feature_answer_for(message: str, answer: str) -> str | None:
     return None
 
 
-def _call_gemini(
+def _build_gemini_user_prompt(
     message: str,
-    api_key: str,
+    *,
     prompt_guardrail: bool,
+    use_maps_grounding: bool,
+    grounded_facts: list[str],
+    senior_poi_recommendation: bool = False,
 ) -> str:
-    if not api_key:
-        raise ValueError("Gemini API key is missing.")
-
-    url = GEMINI_API_URL_TEMPLATE.format(model=settings.gemini_model, api_key=api_key)
-    user_prompt = message
+    parts: list[str] = []
     if prompt_guardrail:
-        user_prompt = f"{GUARDRAIL_PROMPT}\n\n{PROJECT_CAPABILITY_PROMPT}\n\nUser message:\n{message}"
+        parts.extend([GUARDRAIL_PROMPT, PROJECT_CAPABILITY_PROMPT])
+    if grounded_facts:
+        facts_block = "\n".join(f"- {fact}" for fact in grounded_facts[:8])
+        parts.append(f"Verified ElderGo data (prefer when relevant):\n{facts_block}")
+    if senior_poi_recommendation:
+        category = extract_poi_category_term(message)
+        if category:
+            parts.append(f"Place type requested: {category}.")
+        parts.append(SENIOR_POI_GEMINI_SUPPLEMENT)
+    if use_maps_grounding:
+        parts.append(MAPS_GROUNDING_SUPPLEMENT)
+        parts.append(f"User message:\n{message}")
+    elif prompt_guardrail:
+        parts.append(GEMINI_JSON_PROMPT)
+        parts.append(f"User message:\n{message}")
+    else:
+        parts.append(message)
+    return "\n\n".join(parts)
 
-    payload = {
-        "contents": [
-            {
-                "role": "user",
-                "parts": [{"text": user_prompt}],
-            }
-        ]
-    }
-    response = httpx.post(url, json=payload, timeout=20.0)
-    response.raise_for_status()
-    data = response.json()
 
-    candidates = data.get("candidates") or []
-    if not candidates:
-        raise ValueError("Gemini response has no candidates.")
+def _should_use_maps_grounding(message: str, *, exploratory_places_failed: bool) -> bool:
+    if should_prefer_gemini_recommendation(message) and should_use_gemini_supplement(message):
+        return True
+    return (
+        exploratory_places_failed
+        and is_exploratory_poi_message(message)
+        and should_use_gemini_supplement(message)
+    )
 
-    parts = (((candidates[0] or {}).get("content") or {}).get("parts")) or []
-    text_parts = [part.get("text", "") for part in parts if part.get("text")]
-    answer = "\n".join(text_parts).strip()
-    if not answer:
-        raise ValueError("Gemini response text is empty.")
-    return answer
+
+def _needs_gemini_poi_recommendation(message: str, *, poi_result) -> bool:
+    return poi_result is None and (
+        should_prefer_gemini_recommendation(message)
+        or is_exploratory_poi_message(message)
+        or is_enroute_rest_exploratory(message)
+    )
 
 
 def _normalize_elder_friendly_answer(answer: str, language: str) -> str:
@@ -379,44 +453,74 @@ def _normalize_elder_friendly_answer(answer: str, language: str) -> str:
     return "\n".join(normalized_lines[:8])
 
 
-def _generate_answer_with_fallback(
+async def _generate_answer_with_fallback(
     message: str,
     prompt_guardrail: bool,
-) -> tuple[str, bool]:
-    keys = GEMINI_KEY_POOL.get_available_keys()
-    last_error: Exception | None = None
-    rate_limit_errors = 0
+    language: str,
+    *,
+    request: AIMessageRequest | None = None,
+    use_maps_grounding: bool = False,
+    senior_poi_recommendation: bool = False,
+) -> tuple[str, bool, list[ChatBlock], ResponseSourceType]:
+    grounded = build_grounded_context(
+        message=message,
+        current_route_id=None,
+        selected_location_id=request.selected_station_id if request else None,
+        anonymous_user_id=None,
+    )
+    grounded_facts = grounded.facts if grounded.grounded else []
 
-    if not keys:
-        if GEMINI_KEY_POOL.has_configured_keys():
-            return _quota_exhausted_answer_for(message), False
-        return _fallback_answer_for(message), False
+    user_prompt = _build_gemini_user_prompt(
+        message,
+        prompt_guardrail=prompt_guardrail and not use_maps_grounding,
+        use_maps_grounding=use_maps_grounding,
+        grounded_facts=grounded_facts,
+        senior_poi_recommendation=senior_poi_recommendation,
+    )
+    maps_lang = MAPS_GROUNDING_LANGUAGE.get(language, "en_US")
+    data, error_kind = await call_with_key_pool(
+        user_prompt,
+        use_maps_grounding=use_maps_grounding,
+        language_code=maps_lang,
+        timeout=20.0 if not use_maps_grounding else 25.0,
+    )
 
-    for key in keys:
-        try:
-            answer = _call_gemini(
-                message=message,
-                api_key=key,
-                prompt_guardrail=prompt_guardrail,
-            )
-            if answer.startswith(OUT_OF_SCOPE_MARKER):
-                return _out_of_scope_answer_for(message), True
-            unsupported_answer = _unsupported_feature_answer_for(message, answer)
-            if unsupported_answer is not None:
-                return _normalize_elder_friendly_answer(unsupported_answer, _detect_language(message)), False
-            return _normalize_elder_friendly_answer(answer, _detect_language(message)), False
-        except Exception as exc:  # Keep endpoint resilient for UI demo flow.
-            last_error = exc
-            if GeminiKeyPool._is_rate_limit_error(exc):
-                rate_limit_errors += 1
-                GEMINI_KEY_POOL.mark_exhausted_today(key)
-            continue
+    if error_kind == "quota_exhausted":
+        text = QUOTA_EXHAUSTED_TEMPLATES[language]
+        return text, False, blocks_from_plain_text(text), "gemini"
+    if error_kind or not data:
+        text = FALLBACK_TEMPLATES[language]
+        return text, False, blocks_from_plain_text(text), "gemini"
 
-    if rate_limit_errors == len(keys):
-        return _quota_exhausted_answer_for(message), False
-    if last_error is not None:
-        return _fallback_answer_for(message), False
-    return _fallback_answer_for(message), False
+    try:
+        answer = extract_text_from_response(data)
+    except ValueError:
+        text = FALLBACK_TEMPLATES[language]
+        return text, False, blocks_from_plain_text(text), "gemini"
+
+    source: ResponseSourceType = "gemini_maps" if use_maps_grounding else "gemini"
+
+    if answer.startswith(OUT_OF_SCOPE_MARKER):
+        text = OUT_OF_SCOPE_TEMPLATES[language]
+        return text, True, blocks_out_of_scope(language), source
+
+    if use_maps_grounding:
+        places = extract_grounding_places(data, limit=3)
+        summary = _normalize_elder_friendly_answer(answer, language) if answer else None
+        blocks = blocks_maps_grounding_places(places, language, summary=summary)
+        plain = blocks_to_plain_text(blocks)
+        return plain, False, blocks, "gemini_maps"
+
+    unsupported_answer = _unsupported_feature_answer_for(message, answer, language)
+    if unsupported_answer is not None:
+        normalized = _normalize_elder_friendly_answer(unsupported_answer, language)
+        return normalized, False, blocks_from_plain_text(normalized), "gemini"
+
+    parsed_blocks = parse_gemini_blocks_json(answer, language) if prompt_guardrail else None
+    if parsed_blocks:
+        return blocks_to_plain_text(parsed_blocks), False, parsed_blocks, "gemini"
+    normalized = _normalize_elder_friendly_answer(answer, language)
+    return normalized, False, blocks_from_plain_text(normalized), "gemini"
 
 
 @router.post("/conversations", response_model=AIConversationResponse)
@@ -426,31 +530,122 @@ def create_conversation() -> AIConversationResponse:
 
 
 @router.post("/conversations/{conversation_id}/messages", response_model=AIMessageResponse)
-def send_message(conversation_id: str, payload: AIMessageRequest) -> AIMessageResponse:
+async def send_message(conversation_id: str, payload: AIMessageRequest) -> AIMessageResponse:
     mode = _guardrail_mode()
-    rules_in_scope = is_in_scope(payload.message)
+    travel_related = is_travel_related(payload.message)
+    language = _response_language(payload)
 
-    if settings.ai_guardrail_enabled and (mode == "rules_only" or settings.ai_guardrail_strict) and (not rules_in_scope):
-        return AIMessageResponse(
-            conversation_id=conversation_id,
-            in_scope=False,
-            answer=_out_of_scope_answer_for(payload.message),
+    if settings.ai_guardrail_enabled and not travel_related and not payload.chat_flow:
+        if mode in {"hybrid", "rules_only"} or settings.ai_guardrail_strict:
+            return _message_response(
+                conversation_id,
+                answer=_out_of_scope_answer_for(payload),
+                blocks=_out_of_scope_blocks_for(language),
+                in_scope=False,
+                actions=[],
+                response_source="db",
+            )
+
+    classified = classify_intent(payload.message, payload)
+    if classified in GUIDE_INTENTS:
+        guide_result = await resolve_intent(payload.message, payload)
+        if guide_result is not None:
+            return _from_intent_result(
+                conversation_id,
+                guide_result,
+                fallback_answer=_fallback_answer_for(payload),
+            )
+
+    # Route planning first — avoids Google Places round-trips on "from A to B" messages.
+    if message_has_plan_route_endpoints(payload.message) or payload.chat_flow == "plan_route":
+        flow_result = await resolve_chat_flow(payload.message, payload)
+        if flow_result is not None:
+            return _from_intent_result(
+                conversation_id,
+                flow_result,
+                fallback_answer=_fallback_answer_for(payload),
+            )
+
+    poi_result = await resolve_exploratory_poi(payload.message, language)
+    if poi_result is not None:
+        return _from_intent_result(
+            conversation_id,
+            poi_result,
+            fallback_answer=_fallback_answer_for(payload),
+        )
+
+    flow_result = await resolve_chat_flow(payload.message, payload)
+    if flow_result is not None:
+        return _from_intent_result(
+            conversation_id,
+            flow_result,
+            fallback_answer=_fallback_answer_for(payload),
+        )
+
+    intent_result = await resolve_intent(payload.message, payload)
+    if intent_result is not None and not is_enroute_rest_exploratory(payload.message):
+        return _from_intent_result(
+            conversation_id,
+            intent_result,
+            fallback_answer=_fallback_answer_for(payload),
+        )
+
+    exploratory_failed = _needs_gemini_poi_recommendation(payload.message, poi_result=poi_result)
+    senior_poi = should_prefer_gemini_recommendation(payload.message)
+
+    if not should_use_gemini_supplement(payload.message) and not exploratory_failed:
+        help_blocks = blocks_in_scope_help(language)
+        return _message_response(
+            conversation_id,
+            answer=IN_SCOPE_HELP[language],
+            blocks=help_blocks,
+            in_scope=True,
+            actions=[ChatAction(type="open_help")],
+            response_source="db",
         )
 
     prompt_guardrail = settings.ai_guardrail_enabled and mode in {"hybrid", "prompt_only"}
-    answer, model_out_of_scope = _generate_answer_with_fallback(
+    use_maps = _should_use_maps_grounding(
+        payload.message,
+        exploratory_places_failed=exploratory_failed,
+    )
+    answer, model_out_of_scope, answer_blocks, gemini_source = await _generate_answer_with_fallback(
         payload.message,
         prompt_guardrail=prompt_guardrail,
+        language=language,
+        request=payload,
+        use_maps_grounding=use_maps,
+        senior_poi_recommendation=senior_poi,
     )
     if settings.ai_guardrail_enabled and model_out_of_scope:
-        return AIMessageResponse(
-            conversation_id=conversation_id,
-            in_scope=False,
+        return _message_response(
+            conversation_id,
             answer=answer,
+            blocks=answer_blocks,
+            in_scope=False,
+            actions=[],
+            response_source=gemini_source,
         )
 
-    return AIMessageResponse(
-        conversation_id=conversation_id,
-        in_scope=rules_in_scope if settings.ai_guardrail_enabled and mode == "rules_only" else True,
+    gemini_actions: list[ChatAction] = []
+    origin, destination = extract_route_endpoints(payload.message)
+    if origin and destination:
+        gemini_actions = [build_planning_prefill_action(origin, destination)]
+    elif payload.has_current_route:
+        gemini_actions.extend(
+            [
+                ChatAction(type="open_route_text"),
+                ChatAction(type="open_route_map"),
+            ]
+        )
+    if not gemini_actions:
+        gemini_actions = _guide_actions_for_message(payload.message, payload)
+
+    return _message_response(
+        conversation_id,
         answer=answer,
+        blocks=answer_blocks,
+        in_scope=travel_related if settings.ai_guardrail_enabled and mode == "rules_only" else True,
+        actions=gemini_actions,
+        response_source=gemini_source,
     )

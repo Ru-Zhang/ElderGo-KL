@@ -1,8 +1,22 @@
+import time
+
 import httpx
 from fastapi import HTTPException
 
 from app.core.config import get_settings
 from app.schemas.places import PlaceDetail, PlaceSuggestion
+
+_PLACES_HTTP_TIMEOUT = 5.0
+_PLACES_SEARCH_CACHE_TTL_SEC = 300.0
+_places_client: httpx.AsyncClient | None = None
+_search_cache: dict[str, tuple[float, list[PlaceDetail]]] = {}
+
+
+def _places_http_client() -> httpx.AsyncClient:
+    global _places_client
+    if _places_client is None or _places_client.is_closed:
+        _places_client = httpx.AsyncClient(timeout=_PLACES_HTTP_TIMEOUT)
+    return _places_client
 
 PLACES_AUTOCOMPLETE_URL = "https://maps.googleapis.com/maps/api/place/autocomplete/json"
 PLACE_DETAILS_URL = "https://maps.googleapis.com/maps/api/place/details/json"
@@ -26,10 +40,10 @@ async def autocomplete_places(query: str) -> list[PlaceSuggestion]:
         "radius": 70000,
     }
 
-    async with httpx.AsyncClient(timeout=10) as client:
-        response = await client.get(PLACES_AUTOCOMPLETE_URL, params=params)
-        response.raise_for_status()
-        body = response.json()
+    client = _places_http_client()
+    response = await client.get(PLACES_AUTOCOMPLETE_URL, params=params)
+    response.raise_for_status()
+    body = response.json()
 
     status = body.get("status")
     if status not in {"OK", "ZERO_RESULTS"}:
@@ -61,10 +75,10 @@ async def get_place_detail(place_id: str) -> PlaceDetail:
         "language": "en",
     }
 
-    async with httpx.AsyncClient(timeout=10) as client:
-        response = await client.get(PLACE_DETAILS_URL, params=params)
-        response.raise_for_status()
-        body = response.json()
+    client = _places_http_client()
+    response = await client.get(PLACE_DETAILS_URL, params=params)
+    response.raise_for_status()
+    body = response.json()
 
     if body.get("status") != "OK":
         raise HTTPException(status_code=502, detail=f"Google Place Details error: {body.get('status')}")
@@ -85,6 +99,58 @@ async def get_place_detail(place_id: str) -> PlaceDetail:
         phone_number=result.get("formatted_phone_number"),
         opening_hours=opening_hours,
     )
+
+
+async def search_places_kv(query: str, limit: int = 5) -> list[PlaceDetail]:
+    """Text-search places biased to Klang Valley; returns up to limit candidates."""
+    settings = get_settings()
+    if not settings.google_maps_api_key:
+        raise HTTPException(status_code=503, detail="Google Maps API key is not configured.")
+
+    cache_key = query.strip().lower()
+    now = time.monotonic()
+    cached = _search_cache.get(cache_key)
+    if cached and now - cached[0] < _PLACES_SEARCH_CACHE_TTL_SEC:
+        return cached[1][:limit]
+
+    params = {
+        "query": f"{query.strip()}, Malaysia",
+        "key": settings.google_maps_api_key,
+        "language": "en",
+        "region": "my",
+        "location": "3.1390,101.6869",
+        "radius": 70000,
+    }
+
+    client = _places_http_client()
+    response = await client.get(PLACE_TEXT_SEARCH_URL, params=params)
+    response.raise_for_status()
+    body = response.json()
+
+    status = body.get("status")
+    if status not in {"OK", "ZERO_RESULTS"}:
+        raise HTTPException(status_code=502, detail=f"Google Place Search error: {status}")
+    if status == "ZERO_RESULTS" or not body.get("results"):
+        return []
+
+    places: list[PlaceDetail] = []
+    for item in body.get("results", [])[:limit]:
+        place_id = item.get("place_id")
+        if not place_id:
+            continue
+        location = item.get("geometry", {}).get("location", {})
+        places.append(
+            PlaceDetail(
+                display_name=item.get("formatted_address") or item.get("name") or query,
+                google_place_id=place_id,
+                lat=location.get("lat"),
+                lon=location.get("lng"),
+                name=item.get("name"),
+                formatted_address=item.get("formatted_address"),
+            )
+        )
+    _search_cache[cache_key] = (now, places)
+    return places
 
 
 async def _search_station_place_id(name: str, lat: float | None = None, lon: float | None = None) -> str:

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Download, Share2, Cloud, CloudLightning, CloudRain, CloudSun, Sun, Train, MapPin, Footprints, ChevronLeft, ChevronRight, ArrowDown, Navigation } from 'lucide-react';
+import { Download, Share2, Cloud, CloudLightning, CloudRain, CloudSun, Sun, Train, MapPin, Footprints, ChevronLeft, ChevronRight, ArrowDown, Navigation, Loader2 } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import BottomNav from '../components/layout/BottomNav';
 import { StationDetailModal } from '../components/common/StationDetailModal';
@@ -22,6 +22,7 @@ interface RouteResultPageProps {
   onNavigateToHelp: () => void;
   onNavigateToPreference: () => void;
   onShowChatbot: () => void;
+  initialViewMode?: 'text' | 'map';
 }
 
 const BRAND_COLORS = {
@@ -45,12 +46,14 @@ export default function RouteResultPage({
   onNavigateToStation,
   onNavigateToHelp,
   onNavigateToPreference,
-  onShowChatbot
+  onShowChatbot,
+  initialViewMode = 'text'
 }: RouteResultPageProps) {
-  const [viewMode, setViewMode] = useState<'text' | 'map'>('text');
+  const [viewMode, setViewMode] = useState<'text' | 'map'>(initialViewMode);
   const [currentStep, setCurrentStep] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const { currentRoute, departureTime, origin, destination, fontSize, routeError, language } = useAppContext();
+  const { currentRoute, departureTime, origin, destination, fontSize, routeError, routeLoading, language } =
+    useAppContext();
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [actionHint, setActionHint] = useState<string | null>(null);
   const [weather, setWeather] = useState<DestinationWeather | null>(null);
@@ -58,6 +61,10 @@ export default function RouteResultPage({
   const [stationModalName, setStationModalName] = useState<string | null>(null);
   const [stepStationDetails, setStepStationDetails] = useState<Record<string, LocationDetail | null>>({});
   const t = (key: string) => getTranslation(language, key as any);
+
+  useEffect(() => {
+    setViewMode(initialViewMode);
+  }, [initialViewMode]);
 
   const toLocationLabel = (value?: string | null) => {
     if (!value) return '';
@@ -859,7 +866,18 @@ export default function RouteResultPage({
 
       <main className="pt-20 pb-44 px-6">
         <div className="max-w-2xl mx-auto mt-6">
-          {!currentRoute && (
+          {routeLoading && (
+            <div
+              className="bg-white/95 p-8 rounded-2xl shadow-md mb-6 flex flex-col items-center gap-4 text-center"
+              role="status"
+              aria-live="polite"
+            >
+              <Loader2 className="animate-spin text-eldergo-blue" size={44} aria-hidden />
+              <p className="text-[20px] font-semibold text-eldergo-navy">{t('routeComputing')}</p>
+            </div>
+          )}
+
+          {!routeLoading && !currentRoute && (
             <div className="bg-white/95 p-6 rounded-2xl shadow-md mb-6">
               <h3 className="text-[24px] font-semibold text-eldergo-navy mb-3">
                 {t('routeNoSelectionTitle')}

@@ -22,6 +22,7 @@ interface StationsHomePageProps {
   onNavigateToHelp: () => void;
   onNavigateToPreference: () => void;
   onShowChatbot: () => void;
+  initialSearchQuery?: string;
 }
 
 function canonicalStationName(name: string): string {
@@ -65,7 +66,8 @@ export default function StationsHomePage({
   onNavigateToStationDetail,
   onNavigateToHelp,
   onNavigateToPreference,
-  onShowChatbot
+  onShowChatbot,
+  initialSearchQuery = ''
 }: StationsHomePageProps) {
   const { fontSize, language, setSelectedStation } = useAppContext();
   const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
@@ -129,6 +131,14 @@ export default function StationsHomePage({
       setError(t('stationDatabaseNotReady'));
     }
   };
+
+  useEffect(() => {
+    const query = initialSearchQuery.trim();
+    if (!query) {
+      return;
+    }
+    void handleSearch(query);
+  }, [initialSearchQuery]);
 
   const handleStationClick = async (location: LocationSummary) => {
     try {
