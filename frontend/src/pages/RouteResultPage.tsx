@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Download, Share2, Cloud, CloudLightning, CloudRain, CloudSun, Sun, Train, MapPin, Footprints, ChevronLeft, ChevronRight, ArrowDown, Navigation, Loader2 } from 'lucide-react';
+import { Download, Share2, Cloud, CloudLightning, CloudRain, CloudSun, Sun, Train, MapPin, Footprints, ChevronLeft, ChevronRight, ArrowDown, Navigation, Loader2, ArrowRightLeft, Armchair, Users, AlertCircle } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import BottomNav from '../components/layout/BottomNav';
 import { StationDetailModal } from '../components/common/StationDetailModal';
@@ -8,12 +8,34 @@ import { useAppContext } from '../app/AppProvider';
 import { getTranslation } from '../i18n/translations';
 import { DestinationWeather, getDestinationWeather } from '../services/weatherApi';
 import { getStationStaticImageUrl } from '../services/googlePlaces';
+import {
+  fetchRouteStationImageMap,
+  invalidateRouteStationImageMapCache,
+  type RouteStationImage,
+} from '../services/routeStationImages';
 import { resolveStationDetailByName } from '../services/resolveStationDetail';
+import {
+  buildRouteKey,
+  getCustomRouteStepImages,
+  getCustomStationImages,
+  resolveRouteImageUrl,
+} from '../utils/routeStationImages';
 import type { LocationDetail } from '../types/locations';
 import { extractStationNameFromInstruction, cleanStationQuery } from '../utils/stationName';
+import {
+  getSeatAvailabilityLevel,
+  getSeatProbabilityForRouteStep,
+  getTravelDateForSeatLookup,
+  type SeatAvailabilityLevel,
+} from '../utils/seatProbability';
 import { getElderHighlightFacilities, getFacilityTier } from '../utils/facilityPriority';
 import { pickFacilityIcon } from '../utils/facilityIcons';
 import { translateFacility } from '../utils/dataI18n';
+import {
+  buildAndroidMapsIntentUrl,
+  buildMapsDirectionsUrl,
+  isMobileBrowser as detectMobileBrowser,
+} from '../utils/googleMapsNavigation';
 
 interface RouteResultPageProps {
   onNavigateToPlanning: () => void;
@@ -60,7 +82,10 @@ export default function RouteResultPage({
   const [weatherStatus, setWeatherStatus] = useState<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
   const [stationModalName, setStationModalName] = useState<string | null>(null);
   const [stepStationDetails, setStepStationDetails] = useState<Record<string, LocationDetail | null>>({});
+  const [routeImageMap, setRouteImageMap] = useState<Record<string, RouteStationImage[]>>({});
+  const [stepImageIndex, setStepImageIndex] = useState(0);
   const t = (key: string) => getTranslation(language, key as any);
+  const travelDateForSeatLookup = getTravelDateForSeatLookup();
 
   useEffect(() => {
     setViewMode(initialViewMode);
@@ -101,7 +126,8 @@ export default function RouteResultPage({
     fromStation?: string | null,
     toStation?: string | null,
     isLastStep?: boolean,
-    destinationName?: string | null
+    destinationName?: string | null,
+    appendStationSuffix?: boolean,
   ) => {
     const shortFrom = removeBracketContent(toLocationLabel(fromStation));
     const shortTo = removeBracketContent(toLocationLabel(toStation));
@@ -111,6 +137,7 @@ export default function RouteResultPage({
     const actionArriveAt = t('routeActionArriveAt');
     const actionFrom = t('routeActionFrom');
     const actionTo = t('routeActionTo');
+    const stationSuffix = appendStationSuffix ? ` ${t('routeStationSuffix')}` : '';
 
     // Keep the last step consistent with the selected destination label.
     if (isLastStep && shortDestination) {
@@ -123,13 +150,14 @@ export default function RouteResultPage({
     }
 
     if (stepType === 'transit' && shortFrom && shortTo) {
-      const head = cleanedInstruction.split(/ from /i)[0];
-      return `${head} ${actionFrom} ${shortFrom} ${actionTo} ${shortTo}`;
+      const vehicleMatch = cleanedInstruction.match(/^(Bus|Subway|Train|Light rail|Tram|Metro|Ferry)/i);
+      const vehicle = vehicleMatch ? vehicleMatch[1] : 'Transit';
+      return `${vehicle} ${actionFrom} ${shortFrom} ${actionTo} ${shortTo}`;
     }
 
     const walkToMatch = cleanedInstruction.match(/^(Walk to )(.+)$/i);
     if (walkToMatch) {
-      return `${actionWalkTo} ${removeBracketContent(toLocationLabel(walkToMatch[2]))}`;
+      return `${actionWalkTo} ${removeBracketContent(toLocationLabel(walkToMatch[2]))}${stationSuffix}`;
     }
 
     const arriveAtMatch = cleanedInstruction.match(/^(Arrive at )(.+?)(\.)?$/i);
@@ -167,6 +195,8 @@ export default function RouteResultPage({
     // instruction text ("Walk to KL Sentral") to recover a station name
     // for the popup trigger.
     const isLast = index === allSteps.length - 1;
+    const prevStep = index > 0 ? allSteps[index - 1] : null;
+    const nextStep = index < allSteps.length - 1 ? allSteps[index + 1] : null;
     const explicitStation = step.to_station || step.from_station || null;
     const inferredStation = extractStationNameFromInstruction(step.instruction);
     const stationForPopup = !isLast
@@ -174,6 +204,12 @@ export default function RouteResultPage({
       : step.step_type === 'transit'
         ? explicitStation || inferredStation
         : null;
+    const isTransferWalk =
+      step.step_type === 'walking' &&
+      prevStep?.step_type === 'transit' &&
+      nextStep?.step_type === 'transit';
+    const appendStationSuffix =
+      step.step_type === 'walking' && !isLast && Boolean(stationForPopup);
     return {
       step: step.step_number,
       title: normalizeStepTitle(
@@ -182,8 +218,14 @@ export default function RouteResultPage({
         step.from_station,
         step.to_station,
         isLast,
-        currentRoute?.destination_name
+        currentRoute?.destination_name,
+        appendStationSuffix,
       ),
+      isTransferWalk,
+      lineDirectionFrom:
+        step.step_type === 'transit' && step.transit_direction_from ? step.transit_direction_from : null,
+      lineDirectionTo:
+        step.step_type === 'transit' && step.transit_direction_to ? step.transit_direction_to : null,
       duration: step.duration_minutes ? `${step.duration_minutes} ${t('routeMins')}` : t('routeTimeUnknown'),
       distance: step.step_type === 'walking' && step.distance_meters ? `${step.distance_meters}m` : '',
       isWalking: step.step_type === 'walking',
@@ -191,6 +233,19 @@ export default function RouteResultPage({
       color: step.step_type === 'walking' ? BRAND_COLORS.blue : step.step_type === 'transit' ? BRAND_COLORS.green : BRAND_COLORS.warning,
       accessibility: localizeAccessibilityMessage(step.annotation.message),
       stationForPopup,
+      seatAvailabilityLevel: (() => {
+        const pct = getSeatProbabilityForRouteStep(
+          {
+            step_type: step.step_type,
+            from_station: step.from_station,
+            to_station: step.to_station,
+            stationForPopup,
+          },
+          stepStationDetails,
+          travelDateForSeatLookup,
+        );
+        return pct != null ? getSeatAvailabilityLevel(pct) : null;
+      })(),
     };
   }) || [];
 
@@ -231,6 +286,83 @@ export default function RouteResultPage({
       cancelled = true;
     };
   }, [currentRoute?.recommended_route_id]);
+
+  useEffect(() => {
+    if (!currentRoute) {
+      setRouteImageMap({});
+      return;
+    }
+    const routeKey = buildRouteKey(
+      toLocationLabel(currentRoute.origin_name),
+      toLocationLabel(currentRoute.destination_name),
+    );
+    invalidateRouteStationImageMapCache(routeKey);
+    let cancelled = false;
+    fetchRouteStationImageMap(routeKey)
+      .then((map) => {
+        if (!cancelled) setRouteImageMap(map);
+      })
+      .catch(() => {
+        if (!cancelled) setRouteImageMap({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentRoute?.recommended_route_id, currentRoute?.origin_name, currentRoute?.destination_name]);
+
+  useEffect(() => {
+    setStepImageIndex(0);
+  }, [currentStep]);
+
+  const resolveStepImages = (
+    step: {
+      isWalking: boolean;
+      stationForPopup: string | null;
+    },
+    stepIndex: number,
+  ): RouteStationImage[] => {
+    const stepImages = getCustomRouteStepImages(routeImageMap, stepIndex);
+    if (stepImages.length > 0) return stepImages;
+
+    const isLastStep = stepIndex === routeSteps.length - 1;
+    const showPlaceImageOnly = Boolean(step.isWalking && isLastStep && !step.stationForPopup);
+    const detail = step.stationForPopup ? stepStationDetails[step.stationForPopup] : undefined;
+
+    if (showPlaceImageOnly) {
+      const label = destination?.displayName || currentRoute?.destination_name;
+      if (label) {
+        return [
+          {
+            path: getStationStaticImageUrl(
+              toLocationLabel(label),
+              destination?.lat ?? null,
+              destination?.lon ?? null,
+            ),
+            caption: '',
+          },
+        ];
+      }
+      return [];
+    }
+
+    if (step.stationForPopup) {
+      const custom = getCustomStationImages(routeImageMap, step.stationForPopup);
+      if (custom.length > 0) return custom;
+      if (detail?.name) {
+        return [
+          {
+            path: getStationStaticImageUrl(detail.name, detail.lat ?? null, detail.lon ?? null),
+            caption: '',
+          },
+        ];
+      }
+      return [
+        { path: getStationStaticImageUrl(cleanStationQuery(step.stationForPopup)), caption: '' },
+      ];
+    }
+
+    return [];
+  };
 
   const scroll = (direction: 'left' | 'right') => {
     if (direction === 'left' && currentStep > 0) {
@@ -376,9 +508,11 @@ export default function RouteResultPage({
 
   const buildGoogleMapsDirectionsUrl = () => {
     if (!currentRoute) return window.location.href;
-    const originParam = formatNavigationPoint(origin, currentRoute.origin_name);
-    const destinationParam = formatNavigationPoint(destination, currentRoute.destination_name);
-    return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(originParam)}&destination=${encodeURIComponent(destinationParam)}&travelmode=transit&dir_action=navigate`;
+    return buildMapsDirectionsUrl({
+      origin: { label: formatNavigationPoint(origin, currentRoute.origin_name) },
+      destination: { label: formatNavigationPoint(destination, currentRoute.destination_name) },
+      waypoints: currentRoute.navigation_waypoints ?? [],
+    });
   };
 
   const buildShareableRouteLink = () => {
@@ -388,22 +522,23 @@ export default function RouteResultPage({
 
   const buildGoogleMapsAppUrl = () => {
     if (!currentRoute) return null;
-    const originParam = formatNavigationPoint(origin, currentRoute.origin_name);
-    const destinationParam = formatNavigationPoint(destination, currentRoute.destination_name);
-    const encodedOrigin = encodeURIComponent(originParam);
-    const encodedDestination = encodeURIComponent(destinationParam);
+    const mapsUrl = buildGoogleMapsDirectionsUrl();
     if (/Android/i.test(navigator.userAgent)) {
-      return `intent://www.google.com/maps/dir/?api=1&origin=${encodedOrigin}&destination=${encodedDestination}&travelmode=transit&dir_action=navigate#Intent;scheme=https;package=com.google.android.apps.maps;end`;
+      return buildAndroidMapsIntentUrl(mapsUrl);
     }
-    return `comgooglemaps://?saddr=${encodedOrigin}&daddr=${encodedDestination}&directionsmode=transit`;
+    return mapsUrl;
   };
 
   const isMobileBrowser = () =>
-    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
-    (navigator.maxTouchPoints > 1 && /Macintosh/i.test(navigator.userAgent));
+    detectMobileBrowser(navigator.userAgent, navigator.maxTouchPoints);
+
+  const showHint = (message: string) => {
+    setActionHint(message);
+    window.setTimeout(() => setActionHint(null), 2200);
+  };
 
   const promptGoogleMapsInstall = () => {
-    window.alert(t('routeGoogleMapsInstallPrompt'));
+    showHint(t('routeGoogleMapsInstallPrompt'));
   };
 
   const mapEmbedSrc = currentRoute
@@ -412,11 +547,6 @@ export default function RouteResultPage({
       // Fallback keeps map view functional even without Maps Embed API key.
       : `https://www.google.com/maps?output=embed&saddr=${encodeURIComponent(currentRoute.origin_name)}&daddr=${encodeURIComponent(currentRoute.destination_name)}&dirflg=r`
     : null;
-
-  const showHint = (message: string) => {
-    setActionHint(message);
-    window.setTimeout(() => setActionHint(null), 2200);
-  };
 
   const handleSaveRouteImage = async () => {
     if (!currentRoute || routeSteps.length === 0) {
@@ -462,6 +592,31 @@ export default function RouteResultPage({
       return lines;
     };
 
+    const drawLineDirection = (
+      ctx: CanvasRenderingContext2D,
+      x: number,
+      y: number,
+      maxWidth: number,
+      from: string,
+      to: string,
+    ) => {
+      const prefix = `${t('routeLineDirectionFrom')} `;
+      const middle = ` ${t('routeLineDirectionTo')} `;
+      ctx.fillStyle = BRAND_COLORS.navy;
+      ctx.font = '500 38px Poppins, sans-serif';
+      let cursorX = x;
+      ctx.fillText(prefix, cursorX, y, maxWidth);
+      cursorX += ctx.measureText(prefix).width;
+      ctx.font = '700 38px Poppins, sans-serif';
+      ctx.fillText(from, cursorX, y, maxWidth - (cursorX - x));
+      cursorX += ctx.measureText(from).width;
+      ctx.font = '500 38px Poppins, sans-serif';
+      ctx.fillText(middle, cursorX, y, maxWidth - (cursorX - x));
+      cursorX += ctx.measureText(middle).width;
+      ctx.font = '700 38px Poppins, sans-serif';
+      ctx.fillText(to, cursorX, y, maxWidth - (cursorX - x));
+    };
+
     /**
      * Resolve a station/destination preview image into a canvas-drawable
      * HTMLImageElement. We swallow load failures so the rest of the card
@@ -470,7 +625,14 @@ export default function RouteResultPage({
     const loadImage = (src: string): Promise<HTMLImageElement | null> =>
       new Promise((resolve) => {
         const img = new Image();
-        img.crossOrigin = 'anonymous';
+        try {
+          const resolved = new URL(src, window.location.href);
+          if (resolved.origin !== window.location.origin) {
+            img.crossOrigin = 'anonymous';
+          }
+        } catch {
+          img.crossOrigin = 'anonymous';
+        }
         img.onload = () => resolve(img);
         img.onerror = () => resolve(null);
         img.src = src;
@@ -505,26 +667,12 @@ export default function RouteResultPage({
           ? getElderHighlightFacilities(detail.station_facilities)
           : [];
 
-        let imageSrc: string | null = null;
-        const showPlaceImageOnly = step.step_type === 'walking' && isLast && !stationForPopup;
-        if (showPlaceImageOnly) {
-          const label = destination?.displayName || currentRoute.destination_name;
-          if (label) {
-            imageSrc = getStationStaticImageUrl(
-              toLocationLabel(label),
-              destination?.lat ?? null,
-              destination?.lon ?? null,
-            );
-          }
-        } else if (stationForPopup) {
-          if (detail) {
-            imageSrc = getStationStaticImageUrl(detail.name, detail.lat ?? null, detail.lon ?? null);
-          } else {
-            imageSrc = getStationStaticImageUrl(cleanStationQuery(stationForPopup));
-          }
-        }
-
         const view = routeSteps[index];
+        const stepImages = resolveStepImages(
+          { isWalking: view.isWalking, stationForPopup },
+          index,
+        );
+
         return {
           step: view.step,
           title: view.title,
@@ -532,14 +680,25 @@ export default function RouteResultPage({
           distance: view.distance,
           isWalking: view.isWalking,
           color: view.color,
+          lineDirectionFrom: view.lineDirectionFrom,
+          lineDirectionTo: view.lineDirectionTo,
           highlights,
-          imageSrc,
+          images: stepImages.map((img) => ({
+            path: img.path,
+            caption: img.caption?.trim() ?? '',
+          })),
         };
       });
 
-      // Prefetch all images in parallel; null entries simply skip drawing.
-      const images = await Promise.all(
-        downloadSteps.map((m) => (m.imageSrc ? loadImage(m.imageSrc) : Promise.resolve(null))),
+      // Prefetch every step image (all carousel slides) in parallel.
+      const loadedStepImages = await Promise.all(
+        downloadSteps.map((step) =>
+          Promise.all(
+            step.images.map((img) =>
+              img.path ? loadImage(resolveRouteImageUrl(img.path)) : Promise.resolve(null),
+            ),
+          ),
+        ),
       );
 
       const preCanvas = document.createElement('canvas');
@@ -579,6 +738,7 @@ export default function RouteResultPage({
       };
 
       preCtx.font = 'bold 48px Poppins, sans-serif';
+      const captionLineHeight = 42;
       const stepHeights = downloadSteps.map((step, idx) => {
         const titleLines = wrapLines(preCtx, step.title, stepTitleWidth);
         const localizedHighlights: LocalizedChip[] = step.highlights.map((label) => ({
@@ -593,25 +753,46 @@ export default function RouteResultPage({
           ? step.distance ? `${t('routeDistance')}: ${step.distance}` : ''
           : `${t('routeDuration')}: ${step.duration}`;
         const detailHeight = detailLine ? 60 : 0;
-        const imgHeight = images[idx] ? imageHeight + 30 : 0;
+        const lineDirectionHeight =
+          step.lineDirectionFrom && step.lineDirectionTo ? 50 : 0;
         const headerHeight = 110; // step number circle + label
         const titleSpacing = 54;
         const titleHeight = titleLines.length * titleSpacing + 30;
         const cardPaddingV = 80;
+
+        preCtx.font = '500 34px Poppins, sans-serif';
+        const imageBlocks = step.images.map((meta, imageIdx) => {
+          const img = loadedStepImages[idx]?.[imageIdx] ?? null;
+          if (!img) return { img: null, captionLines: [] as string[], height: 0 };
+          const captionLines = meta.caption ? wrapLines(preCtx, meta.caption, cardInnerWidth) : [];
+          const captionHeight = captionLines.length
+            ? captionLines.length * captionLineHeight + 16
+            : 0;
+          return {
+            img,
+            captionLines,
+            height: imageHeight + 24 + captionHeight + 20,
+          };
+        });
+        const imagesBlockHeight = imageBlocks.reduce((sum, block) => sum + block.height, 0);
+
         return {
           titleLines,
           chipRows,
           detailLine,
           detailHeight,
+          lineDirectionHeight,
           facilitiesBlockHeight,
-          imgHeight,
+          imageBlocks,
           height:
             cardPaddingV +
             headerHeight +
             titleHeight +
+            lineDirectionHeight +
             detailHeight +
             facilitiesBlockHeight +
-            imgHeight,
+            imagesBlockHeight +
+            24,
         };
       });
 
@@ -661,7 +842,8 @@ export default function RouteResultPage({
 
       let y = 330;
       downloadSteps.forEach((step, index) => {
-        const { titleLines, chipRows, detailLine, detailHeight, facilitiesBlockHeight, imgHeight, height } = stepHeights[index];
+        const { titleLines, chipRows, detailLine, detailHeight, lineDirectionHeight, facilitiesBlockHeight, imageBlocks, height } =
+          stepHeights[index];
 
         // Card background + left color stripe
         drawRoundedRect(ctx, padding, y, contentWidth, height, 28);
@@ -696,6 +878,18 @@ export default function RouteResultPage({
           textY += 54;
         });
         textY += 16; // small spacing under title
+
+        if (step.lineDirectionFrom && step.lineDirectionTo && lineDirectionHeight) {
+          drawLineDirection(
+            ctx,
+            padding + cardLeftPadding,
+            textY + 8,
+            cardInnerWidth,
+            step.lineDirectionFrom,
+            step.lineDirectionTo,
+          );
+          textY += lineDirectionHeight;
+        }
 
         // Detail line: walking shows distance only, others show duration
         if (detailLine) {
@@ -734,36 +928,47 @@ export default function RouteResultPage({
           textY += facilitiesBlockHeight;
         }
 
-        // Destination/station image — use cover-style cropping into rounded rect
-        const img = images[index];
-        if (img && imgHeight > 0) {
+        // All step photos + captions (same content as the on-screen carousel).
+        imageBlocks.forEach((block) => {
+          if (!block.img) return;
           const imgX = padding + cardLeftPadding;
           const imgW = cardInnerWidth;
           const imgH = imageHeight;
-          const imgY = y + height - imgH - 24;
-          const aspectImg = img.width / img.height;
+          const aspectImg = block.img.width / block.img.height;
           const aspectRect = imgW / imgH;
           let sx = 0;
           let sy = 0;
-          let sw = img.width;
-          let sh = img.height;
+          let sw = block.img.width;
+          let sh = block.img.height;
           if (aspectImg > aspectRect) {
-            sw = img.height * aspectRect;
-            sx = (img.width - sw) / 2;
+            sw = block.img.height * aspectRect;
+            sx = (block.img.width - sw) / 2;
           } else {
-            sh = img.width / aspectRect;
-            sy = (img.height - sh) / 2;
+            sh = block.img.width / aspectRect;
+            sy = (block.img.height - sh) / 2;
           }
           ctx.save();
-          drawRoundedRect(ctx, imgX, imgY, imgW, imgH, 18);
+          drawRoundedRect(ctx, imgX, textY, imgW, imgH, 18);
           ctx.clip();
-          ctx.drawImage(img, sx, sy, sw, sh, imgX, imgY, imgW, imgH);
+          ctx.drawImage(block.img, sx, sy, sw, sh, imgX, textY, imgW, imgH);
           ctx.restore();
           ctx.strokeStyle = BRAND_COLORS.border;
           ctx.lineWidth = 2;
-          drawRoundedRect(ctx, imgX, imgY, imgW, imgH, 18);
+          drawRoundedRect(ctx, imgX, textY, imgW, imgH, 18);
           ctx.stroke();
-        }
+          textY += imgH + 24;
+
+          if (block.captionLines.length) {
+            ctx.fillStyle = BRAND_COLORS.body;
+            ctx.font = '500 34px Poppins, sans-serif';
+            block.captionLines.forEach((line) => {
+              ctx.fillText(line, imgX, textY + 8, cardInnerWidth);
+              textY += captionLineHeight;
+            });
+            textY += 16;
+          }
+          textY += 4;
+        });
 
         y += height + cardGap;
       });
@@ -797,11 +1002,9 @@ export default function RouteResultPage({
   };
 
   /**
-   * Hand the user off to the Google Maps app (or maps.google.com on desktop)
-   * with the current origin/destination prefilled for transit navigation.
-   * We prefer lat,lon coordinates from the planning step when available
-   * because they remove ambiguity from station/place name matching, and
-   * fall back to display names from the route response otherwise.
+   * Open Google Maps with the recommended route prefilled via transit waypoints.
+   * Mobile uses HTTPS Maps URLs (Universal Links on iOS, intent on Android).
+   * If the app is not installed, show an in-page install hint after a short delay.
    */
   const handleStartNavigation = () => {
     if (!currentRoute) return;
@@ -1047,7 +1250,6 @@ export default function RouteResultPage({
                     {routeSteps.map((step, stepIndex) => {
                       const IconComponent = step.icon;
                       const isLastStep = stepIndex === routeSteps.length - 1;
-                      const showPlaceImageOnly = Boolean(step.isWalking && isLastStep && !step.stationForPopup);
                       const detail = step.stationForPopup ? stepStationDetails[step.stationForPopup] : undefined;
                       const resolvedStation =
                         Boolean(step.stationForPopup) &&
@@ -1058,25 +1260,13 @@ export default function RouteResultPage({
                           : [];
                       const showFacilityRow = highlights.length > 0;
 
-                      let imageSrc: string | null = null;
-                      if (showPlaceImageOnly) {
-                        const label = destination?.displayName || currentRoute?.destination_name;
-                        if (label) {
-                          imageSrc = getStationStaticImageUrl(
-                            toLocationLabel(label),
-                            destination?.lat ?? null,
-                            destination?.lon ?? null,
-                          );
-                        }
-                      } else if (step.stationForPopup && resolvedStation) {
-                        if (detail) {
-                          imageSrc = getStationStaticImageUrl(detail.name, detail.lat ?? null, detail.lon ?? null);
-                        } else {
-                          imageSrc = getStationStaticImageUrl(cleanStationQuery(step.stationForPopup));
-                        }
-                      }
-
-                      const showImageBlock = Boolean(imageSrc);
+                      const stepImages = resolveStepImages(step, stepIndex);
+                      const safeImageIndex =
+                        stepImages.length > 0 ? Math.min(stepImageIndex, stepImages.length - 1) : 0;
+                      const activeImage = stepImages[safeImageIndex] ?? null;
+                      const imageSrc = activeImage?.path ?? null;
+                      const imageCaption = activeImage?.caption?.trim() ?? '';
+                      const showImageBlock = stepImages.length > 0;
 
                       return (
                         <div
@@ -1118,6 +1308,30 @@ export default function RouteResultPage({
                                 </div>
                               </div>
 
+                              {step.lineDirectionFrom && step.lineDirectionTo && (
+                                <div
+                                  className="text-eldergo-blue-dark font-medium mb-3 -mt-1"
+                                  style={{ fontSize: `${15 * baseFontSize}px` }}
+                                >
+                                  {t('routeLineDirectionFrom')}{' '}
+                                  <span className="font-bold">{step.lineDirectionFrom}</span>
+                                  {' '}{t('routeLineDirectionTo')}{' '}
+                                  <span className="font-bold">{step.lineDirectionTo}</span>
+                                </div>
+                              )}
+
+                              {step.isTransferWalk && (
+                                <div
+                                  className="inline-flex items-center gap-2 self-start rounded-full bg-eldergo-warning/15 text-eldergo-warning border border-eldergo-warning/40 px-3 py-1.5 mb-3 font-semibold"
+                                  style={{ fontSize: `${13 * baseFontSize}px` }}
+                                  role="status"
+                                >
+                                  <ArrowRightLeft size={16 * baseFontSize} strokeWidth={2.5} aria-hidden />
+                                  <span>{t('routeTransferWalk')}</span>
+                                  <span className="font-medium opacity-90">· {t('routeTransferWalkHint')}</span>
+                                </div>
+                              )}
+
                               <div className="text-eldergo-muted mb-4" style={{ fontSize: `${16 * baseFontSize}px` }}>
                                 {step.isWalking
                                   ? step.distance
@@ -1125,6 +1339,44 @@ export default function RouteResultPage({
                                     : ''
                                   : `${t('routeDuration')}: ${step.duration}`}
                               </div>
+
+                              {step.seatAvailabilityLevel && (() => {
+                                const level = step.seatAvailabilityLevel as SeatAvailabilityLevel;
+                                const seatLevelConfig: Record<
+                                  SeatAvailabilityLevel,
+                                  { Icon: typeof Armchair; colorClass: string; textKey: 'routeSeatAvailabilityRelaxed' | 'routeSeatAvailabilityModerate' | 'routeSeatAvailabilityCrowded' }
+                                > = {
+                                  relaxed: {
+                                    Icon: Armchair,
+                                    colorClass: 'text-eldergo-green',
+                                    textKey: 'routeSeatAvailabilityRelaxed',
+                                  },
+                                  moderate: {
+                                    Icon: Users,
+                                    colorClass: 'text-eldergo-warning',
+                                    textKey: 'routeSeatAvailabilityModerate',
+                                  },
+                                  crowded: {
+                                    Icon: AlertCircle,
+                                    colorClass: 'text-red-600',
+                                    textKey: 'routeSeatAvailabilityCrowded',
+                                  },
+                                };
+                                const { Icon, colorClass, textKey } = seatLevelConfig[level];
+                                const tierLabel = t(textKey);
+                                return (
+                                  <div
+                                    className={`inline-flex items-center gap-2 self-start mb-4 font-medium ${colorClass}`}
+                                    style={{ fontSize: `${15 * baseFontSize}px` }}
+                                    role="status"
+                                    aria-label={`${t('routeSeatAvailabilityLabel')} ${tierLabel}`}
+                                  >
+                                    <Icon size={16 * baseFontSize} strokeWidth={2.5} aria-hidden />
+                                    <span>{t('routeSeatAvailabilityLabel')}</span>
+                                    <span className="font-semibold">{tierLabel}</span>
+                                  </div>
+                                );
+                              })()}
 
                               <div className="flex flex-col gap-4 pt-1 flex-1 min-h-0">
                                 {step.stationForPopup && (
@@ -1208,12 +1460,73 @@ export default function RouteResultPage({
                                   // card looks balanced. min-h-[160px] keeps
                                   // it from collapsing when the card has lots
                                   // of facility chips.
-                                  <div className="flex-1 min-h-[160px] rounded-xl overflow-hidden border border-eldergo-border shadow-sm">
-                                    <ImageWithFallback
-                                      src={imageSrc}
-                                      alt={detail?.name ?? step.stationForPopup ?? toLocationLabel(destination?.displayName) ?? 'Destination'}
-                                      className="w-full h-full object-cover"
-                                    />
+                                  <div className="flex-1 min-h-[160px] flex flex-col gap-2">
+                                    <div className="relative flex-1 min-h-[160px] rounded-xl overflow-hidden border border-eldergo-border shadow-sm">
+                                      <ImageWithFallback
+                                        src={imageSrc}
+                                        alt={
+                                          imageCaption ||
+                                          detail?.name ||
+                                          step.stationForPopup ||
+                                          toLocationLabel(destination?.displayName) ||
+                                          'Destination'
+                                        }
+                                        className="w-full h-full object-cover"
+                                      />
+                                      {stepImages.length > 1 && (
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setStepImageIndex((prev) =>
+                                                prev <= 0 ? stepImages.length - 1 : prev - 1,
+                                              )
+                                            }
+                                            className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow-md border border-eldergo-border"
+                                            aria-label="Previous photo"
+                                          >
+                                            <ChevronLeft size={20} className="text-eldergo-navy" />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setStepImageIndex((prev) =>
+                                                prev >= stepImages.length - 1 ? 0 : prev + 1,
+                                              )
+                                            }
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow-md border border-eldergo-border"
+                                            aria-label="Next photo"
+                                          >
+                                            <ChevronRight size={20} className="text-eldergo-navy" />
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                    {imageCaption && (
+                                      <p
+                                        className="text-center text-eldergo-navy/85 px-3 leading-snug"
+                                        style={{ fontSize: `${14 * baseFontSize}px` }}
+                                      >
+                                        {imageCaption}
+                                      </p>
+                                    )}
+                                    {stepImages.length > 1 && (
+                                      <div className="flex items-center justify-center gap-2">
+                                        {stepImages.map((_, dotIndex) => (
+                                          <button
+                                            key={`route-step-image-dot-${stepIndex}-${dotIndex}`}
+                                            type="button"
+                                            onClick={() => setStepImageIndex(dotIndex)}
+                                            className={`h-2.5 w-2.5 rounded-full ${
+                                              dotIndex === safeImageIndex
+                                                ? 'bg-eldergo-blue'
+                                                : 'bg-eldergo-border'
+                                            }`}
+                                            aria-label={`Photo ${dotIndex + 1} of ${stepImages.length}`}
+                                          />
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                               </div>

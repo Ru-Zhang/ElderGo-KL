@@ -14,11 +14,17 @@ from app.schemas.routes import (
 )
 from app.services.database import get_connection
 from app.services.google_maps_service import CandidateRoute, fetch_candidate_routes
+from app.services.klcc_monash_route_service import (
+    fetch_klcc_monash_brt_candidate,
+    is_klcc_to_monash_route,
+)
 from app.services.route_scoring_service import choose_best_candidate
 from app.services.accessibility_annotation_service import (
     AccessibilityAnnotationResult,
     annotate_google_step,
 )
+from app.services.navigation_waypoints_service import build_navigation_waypoints
+from app.services.transit_direction_service import build_transit_line_direction
 
 settings = get_settings()
 
@@ -105,6 +111,7 @@ def _step_from_google(step_number: int, google_step: dict) -> PreparedRouteStep:
     transit = google_step.get("transit_details", {})
     line = transit.get("line", {})
     vehicle = line.get("vehicle", {})
+    line_direction = build_transit_line_direction(transit) if step_type == "transit" else None
     annotation_result = annotate_google_step(google_step)
     return PreparedRouteStep(
         step=RouteStep(
@@ -119,6 +126,9 @@ def _step_from_google(step_number: int, google_step: dict) -> PreparedRouteStep:
             transit_vehicle_type=vehicle.get("type"),
             from_station=transit.get("departure_stop", {}).get("name"),
             to_station=transit.get("arrival_stop", {}).get("name"),
+            transit_headsign=transit.get("headsign"),
+            transit_direction_from=line_direction[0] if line_direction else None,
+            transit_direction_to=line_direction[1] if line_direction else None,
             annotation=annotation_result.annotation,
         ),
         annotation_result=annotation_result,
@@ -148,6 +158,7 @@ def _route_from_candidate(payload: RouteRecommendationRequest, candidate: Candid
         recommendation_reason="Selected from Google Maps transit candidates using ElderGo preference scoring.",
         map_polyline=candidate.polyline,
         steps=[prepared.step for prepared in prepared_steps],
+        navigation_waypoints=build_navigation_waypoints(candidate.steps),
         accessibility_points=accessibility_points,
     )
     return PreparedRecommendation(route=route, prepared_steps=prepared_steps)
@@ -380,13 +391,22 @@ def _persist_route(payload: RouteRecommendationRequest, prepared: PreparedRecomm
 
 
 async def recommend_route(payload: RouteRecommendationRequest) -> RecommendedRoute:
-    candidates = await fetch_candidate_routes(payload.origin, payload.destination, payload.departure_time)
-    best = choose_best_candidate(
-        candidates,
-        accessibility_first=payload.preferences.accessibility_first,
-        least_walk=payload.preferences.least_walk,
-        fewest_transfers=payload.preferences.fewest_transfers,
-    )
+    best: CandidateRoute | None = None
+    if is_klcc_to_monash_route(payload.origin, payload.destination):
+        composed = await fetch_klcc_monash_brt_candidate(
+            payload.origin, payload.destination, payload.departure_time
+        )
+        if composed is not None:
+            best = composed
+
+    if best is None:
+        candidates = await fetch_candidate_routes(payload.origin, payload.destination, payload.departure_time)
+        best = choose_best_candidate(
+            candidates,
+            accessibility_first=payload.preferences.accessibility_first,
+            least_walk=payload.preferences.least_walk,
+            fewest_transfers=payload.preferences.fewest_transfers,
+        )
     if best is None:
         raise ValueError("Google Maps did not return a usable route candidate.")
     prepared = _route_from_candidate(payload, best)

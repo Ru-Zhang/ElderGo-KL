@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useState } from 'react';
 import { AppProvider, useAppContext } from './AppProvider';
 import PlanningPage from '../pages/PlanningPage';
 import PlanYourTimePage from '../pages/PlanYourTimePage';
@@ -14,11 +14,12 @@ import PreferencePage from '../pages/PreferencePage';
 import ChatbotLoadingShell from '../components/chatbot/ChatbotLoadingShell';
 import { getTranslation } from '../i18n/translations';
 import { debugLog } from '../utils/debugLog';
-
-const AIChatbotSheet = lazy(() => import('../components/chatbot/AIChatbotSheet'));
 import { getLocationDetail } from '../services/locationsApi';
 import { ChatAction } from '../types/ai';
 import { recommendRoute } from '../services/routesApi';
+import { resetPageScroll } from '../utils/resetPageScroll';
+
+const AIChatbotSheet = lazy(() => import('../components/chatbot/AIChatbotSheet'));
 
 type PageType =
   | 'planning'
@@ -55,6 +56,19 @@ function AppContent() {
   useEffect(() => {
     void import('../components/chatbot/AIChatbotSheet');
   }, []);
+
+  const navigateToPage = (nextPage: PageType) => {
+    setCurrentPage(nextPage);
+  };
+
+  useLayoutEffect(() => {
+    resetPageScroll();
+  }, [currentPage]);
+
+  useEffect(() => {
+    resetPageScroll();
+    requestAnimationFrame(() => resetPageScroll());
+  }, [currentPage]);
 
   // Shared navigation callbacks keep page switching wiring centralized.
   const navHandlers = {

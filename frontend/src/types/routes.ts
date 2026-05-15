@@ -49,6 +49,12 @@ export interface RouteAccessibilityPoint {
   distance_meters?: number | null;
 }
 
+export interface NavigationWaypoint {
+  lat: number;
+  lon: number;
+  name?: string | null;
+}
+
 export interface RouteStep {
   step_number: number;
   step_type: RouteStepType;
@@ -61,6 +67,9 @@ export interface RouteStep {
   transit_vehicle_type?: string | null;
   from_station?: string | null;
   to_station?: string | null;
+  transit_headsign?: string | null;
+  transit_direction_from?: string | null;
+  transit_direction_to?: string | null;
   annotation: RouteAccessibilityAnnotation;
 }
 
@@ -74,6 +83,7 @@ export interface RecommendedRoute {
   recommendation_reason: string;
   map_polyline?: string | null;
   steps: RouteStep[];
+  navigation_waypoints?: NavigationWaypoint[];
   accessibility_points?: RouteAccessibilityPoint[];
 }
 

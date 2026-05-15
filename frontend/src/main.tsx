@@ -21,5 +21,9 @@ window.addEventListener("unhandledrejection", (event) => {
 });
 // #endregion
 
+if ("scrollRestoration" in history) {
+  history.scrollRestoration = "manual";
+}
+
 // Single React mount point for the Vite frontend app.
 createRoot(document.getElementById("root")!).render(<App />);
