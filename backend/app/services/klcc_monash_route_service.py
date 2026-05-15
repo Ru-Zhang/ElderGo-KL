@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from app.schemas.routes import PlaceInput
 from app.services.google_maps_service import CandidateRoute, fetch_candidate_routes
 
@@ -76,9 +78,11 @@ async def fetch_klcc_monash_brt_candidate(
     destination: PlaceInput,
     departure_time: str,
 ) -> CandidateRoute | None:
-    leg1_candidates = await fetch_candidate_routes(origin, USJ7_INTERCHANGE, departure_time)
-    leg2_candidates = await fetch_candidate_routes(USJ7_INTERCHANGE, SUNU_MONASH_BRT, departure_time)
-    leg3_candidates = await fetch_candidate_routes(SUNU_MONASH_BRT, destination, departure_time)
+    leg1_candidates, leg2_candidates, leg3_candidates = await asyncio.gather(
+        fetch_candidate_routes(origin, USJ7_INTERCHANGE, departure_time),
+        fetch_candidate_routes(USJ7_INTERCHANGE, SUNU_MONASH_BRT, departure_time),
+        fetch_candidate_routes(SUNU_MONASH_BRT, destination, departure_time),
+    )
 
     if not leg1_candidates or not leg2_candidates or not leg3_candidates:
         return None

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
   AlertTriangle,
@@ -11,8 +11,8 @@ import {
 import TopBar from '../components/layout/TopBar';
 import BottomNav from '../components/layout/BottomNav';
 import { useAppContext } from '../app/AppProvider';
-import { getLocationDetail, getPopularLocations, searchLocations } from '../services/locationsApi';
-import { LocationSummary, AccessibilityStatus } from '../types/locations';
+import { getPopularLocations, searchLocations } from '../services/locationsApi';
+import { LocationDetail, LocationSummary, AccessibilityStatus } from '../types/locations';
 import { getTranslation } from '../i18n/translations';
 import { LineBadge } from '../utils/lineBadge';
 
@@ -99,11 +99,16 @@ export default function StationsHomePage({
     };
   };
 
+  const STATION_SEARCH_DEBOUNCE_MS = 350;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [popularStations, setPopularStations] = useState<LocationSummary[]>([]);
   const [searchResults, setSearchResults] = useState<LocationSummary[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchRequestIdRef = useRef(0);
 
   useEffect(() => {
     // Re-fetch on language change so fallback/error messages stay localized.
@@ -112,24 +117,47 @@ export default function StationsHomePage({
       .catch(() => setError(t('stationDatabaseNotReady')));
   }, [language]);
 
-  const handleSearch = async (query: string) => {
-    setSearchQuery(query);
-    if (!query.trim()) {
-      setSearchResults([]);
-      setHasSearched(false);
-      return;
-    }
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, []);
 
-    // Mark searched state only for non-empty input to control empty-state UI.
-    setHasSearched(true);
+  const runStationSearch = async (query: string) => {
+    const requestId = ++searchRequestIdRef.current;
+    setIsSearching(true);
     try {
       const locations = await searchLocations(query);
+      if (requestId !== searchRequestIdRef.current) return;
       setSearchResults(dedupeLocations(locations));
       setError(null);
     } catch {
+      if (requestId !== searchRequestIdRef.current) return;
       setSearchResults([]);
       setError(t('stationDatabaseNotReady'));
+    } finally {
+      if (requestId === searchRequestIdRef.current) {
+        setIsSearching(false);
+      }
     }
+  };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+
+    if (!query.trim()) {
+      searchRequestIdRef.current += 1;
+      setSearchResults([]);
+      setHasSearched(false);
+      setIsSearching(false);
+      return;
+    }
+
+    setHasSearched(true);
+    searchDebounceRef.current = setTimeout(() => {
+      void runStationSearch(query);
+    }, STATION_SEARCH_DEBOUNCE_MS);
   };
 
   useEffect(() => {
@@ -140,18 +168,15 @@ export default function StationsHomePage({
     void handleSearch(query);
   }, [initialSearchQuery]);
 
-  const handleStationClick = async (location: LocationSummary) => {
-    try {
-      // Load full detail payload before navigation so destination page can render
-      // immediately without another blocking fetch.
-      const detail = await getLocationDetail(location.id);
-      if (detail) {
-        setSelectedStation(detail);
-        onNavigateToStationDetail();
-      }
-    } catch {
-      setError(t('stationDatabaseNotReady'));
-    }
+  const handleStationClick = (location: LocationSummary) => {
+    const summaryAsDetail: LocationDetail = {
+      ...location,
+      routes: location.routes ?? [],
+      known_facilities: [],
+      source_list: [],
+    };
+    setSelectedStation(summaryAsDetail);
+    onNavigateToStationDetail();
   };
 
   const shownLocations = hasSearched ? searchResults : popularStations;
@@ -193,6 +218,7 @@ export default function StationsHomePage({
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               className="w-full pl-16 pr-6 py-5 bg-white border border-eldergo-border rounded-full font-medium text-eldergo-navy placeholder:text-eldergo-muted focus:outline-none focus:border-eldergo-blue focus:ring-2 focus:ring-eldergo-blue/20 shadow-sm transition-shadow"
+              aria-busy={isSearching}
               style={{ fontSize: `${20 * baseFontSize}px` }}
             />
           </div>

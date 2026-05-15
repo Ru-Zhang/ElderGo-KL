@@ -2,16 +2,13 @@ import csv
 import json
 import re
 from functools import lru_cache
-from pathlib import Path
 
+from app.core.paths import CSV_OUTPUT_DIR
 from app.schemas.locations import LocationDetail, LocationSummary
 from app.services.mrt_facilities_service import get_mrt_facilities
 
-ROOT = Path(__file__).resolve().parents[3]
-BACKEND_ROOT = Path(__file__).resolve().parents[2]
-CSV_ROOT = BACKEND_ROOT / "csv_output"
-if not CSV_ROOT.exists():
-    CSV_ROOT = ROOT / "data" / "csv_output"
+# GTFS/accessibility CSV fallback when Postgres is empty or unavailable.
+CSV_ROOT = CSV_OUTPUT_DIR
 
 SOURCE_SYSTEM_LABELS = {
     "rapid_rail": "Rapid Rail",

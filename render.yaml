@@ -1,3 +1,7 @@
+# ElderGo KL — Render Blueprint
+# After deploy: GET https://<api-host>/api/v1/health/data (CSV + Gemini key count)
+# and smoke-test the AI chatbot on the static frontend.
+
 services:
   - type: web
     name: eldergo-kl-api
@@ -10,8 +14,9 @@ services:
     envVars:
       - key: ELDERGO_ENV
         value: production
+      # Set false in Dashboard when Postgres is imported and you want route persistence.
       - key: ELDERGO_DEMO_MODE
-        value: "true"
+        sync: false
       - key: ELDERGO_CORS_ORIGINS
         value: https://eldergo-kl-frontend.onrender.com
       - key: ELDERGO_DATABASE_URL
@@ -21,7 +26,7 @@ services:
       - key: OPENWEATHER_API_KEY
         sync: false
       - key: ELDERGO_GEMINI_MODEL
-        sync: false
+        value: gemini-2.5-flash
       - key: ELDERGO_GEMINI_API_KEY_PRIMARY
         sync: false
       - key: ELDERGO_GEMINI_API_KEY_SECONDARY
@@ -45,6 +50,8 @@ services:
       - key: VITE_API_BASE_URL
         value: https://eldergo-kl-api.onrender.com
       - key: VITE_GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: VITE_GOOGLE_MAPS_BROWSER_KEY
         sync: false
     routes:
       - type: rewrite

@@ -58,10 +58,10 @@ export default function PlanYourTimePage({
     setDepartureTime(departureTime);
     setRouteLoading(true);
     setRouteError(null);
+    setCurrentRoute(null);
+    onNavigateToRouteResult();
 
     try {
-      // Persist selected departure period in global context so weather/routing
-      // pages can stay consistent with the user's latest choice.
       const route = await recommendRoute({
         anonymousUserId,
         origin,
@@ -70,7 +70,6 @@ export default function PlanYourTimePage({
         preferences
       });
       setCurrentRoute(route);
-      onNavigateToRouteResult();
     } catch {
       setRouteError(t('planTimeUnableToRoute'));
     } finally {

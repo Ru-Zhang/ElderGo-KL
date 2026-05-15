@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   Accessibility,
   AlertTriangle,
@@ -16,6 +16,7 @@ import { ImageWithFallback } from '../components/common/ImageWithFallback';
 import { HoursDisplay } from '../components/common/HoursDisplay';
 import { useAppContext } from '../app/AppProvider';
 import { getTranslation } from '../i18n/translations';
+import { getLocationDetail } from '../services/locationsApi';
 import { getStationGooglePlaceDetail, getStationStaticImageUrl } from '../services/googlePlaces';
 import { pickFacilityIcon } from '../utils/facilityIcons';
 import { LineBadge } from '../utils/lineBadge';
@@ -38,10 +39,37 @@ export default function StationDetailPage({
   onNavigateToPreference,
   onShowChatbot,
 }: StationDetailPageProps) {
-  const { fontSize, language, selectedStation, setOrigin } = useAppContext();
+  const { fontSize, language, selectedStation, setDestination, setSelectedStation } = useAppContext();
+  const [detailLoading, setDetailLoading] = useState(false);
   const [placeLoading, setPlaceLoading] = useState(false);
   const [placeError, setPlaceError] = useState<string | null>(null);
   const [showLastTrains, setShowLastTrains] = useState(false);
+
+  useEffect(() => {
+    if (!selectedStation?.id) return;
+    if (selectedStation.source_list.length > 0) return;
+
+    let cancelled = false;
+    setDetailLoading(true);
+    getLocationDetail(selectedStation.id)
+      .then((detail) => {
+        if (!cancelled && detail) {
+          setSelectedStation(detail);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPlaceError(t('stationDataUnavailable'));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedStation?.id, selectedStation?.source_list.length, setSelectedStation, language]);
 
   const stationImageUrl = selectedStation
     ? getStationStaticImageUrl(selectedStation.name, selectedStation.lat, selectedStation.lon)
@@ -104,12 +132,13 @@ export default function StationDetailPage({
 
   const handlePlanRoute = () => {
     if (!selectedStation) return;
-    setOrigin({
+    const selection = {
       displayName: selectedStation.name,
       lat: selectedStation.lat ?? null,
       lon: selectedStation.lon ?? null,
       googlePlaceId: null,
-    });
+    };
+    setDestination(selection);
     onNavigateToPlanning();
   };
 
@@ -403,7 +432,7 @@ export default function StationDetailPage({
                 style={{ fontSize: `${22 * baseFontSize}px` }}
               >
                 <Navigation size={26 * baseFontSize} strokeWidth={2.4} />
-                {t('startRouteFromHere')}
+                {t('planRouteToStation')}
               </button>
 
               <button

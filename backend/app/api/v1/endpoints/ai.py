@@ -531,6 +531,8 @@ def create_conversation() -> AIConversationResponse:
 
 @router.post("/conversations/{conversation_id}/messages", response_model=AIMessageResponse)
 async def send_message(conversation_id: str, payload: AIMessageRequest) -> AIMessageResponse:
+    # Resolution order: guardrail → guide intents → plan_route fast-path → exploratory POI
+    # → structured chat flows → DB intent → Gemini (optional Maps grounding).
     mode = _guardrail_mode()
     travel_related = is_travel_related(payload.message)
     language = _response_language(payload)

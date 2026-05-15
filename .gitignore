@@ -60,11 +60,18 @@ dist/
 .env.test.local
 .env.production.local
 
+
 ############################
 # Logs
 ############################
 logs/
 *.log
+
+############################
+# Local docs / IDE (do not push)
+############################
+doc/
+.cursor/
 
 ############################
 # Misc

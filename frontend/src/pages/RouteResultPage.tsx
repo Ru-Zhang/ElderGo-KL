@@ -8,11 +8,8 @@ import { useAppContext } from '../app/AppProvider';
 import { getTranslation } from '../i18n/translations';
 import { DestinationWeather, getDestinationWeather } from '../services/weatherApi';
 import { getStationStaticImageUrl } from '../services/googlePlaces';
-import {
-  fetchRouteStationImageMap,
-  invalidateRouteStationImageMapCache,
-  type RouteStationImage,
-} from '../services/routeStationImages';
+import { fetchRouteStationImageMap, type RouteStationImage } from '../services/routeStationImages';
+import GoogleMapsInstallModal from '../components/common/GoogleMapsInstallModal';
 import { resolveStationDetailByName } from '../services/resolveStationDetail';
 import {
   buildRouteKey,
@@ -32,9 +29,9 @@ import { getElderHighlightFacilities, getFacilityTier } from '../utils/facilityP
 import { pickFacilityIcon } from '../utils/facilityIcons';
 import { translateFacility } from '../utils/dataI18n';
 import {
-  buildAndroidMapsIntentUrl,
+  attemptOpenGoogleMaps,
   buildMapsDirectionsUrl,
-  isMobileBrowser as detectMobileBrowser,
+  openGoogleMapsStore,
 } from '../utils/googleMapsNavigation';
 
 interface RouteResultPageProps {
@@ -60,8 +57,6 @@ const BRAND_COLORS = {
 };
 
 const GOOGLE_MAPS_EMBED_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || import.meta.env.VITE_GOOGLE_MAPS_BROWSER_KEY;
-const GOOGLE_MAPS_APP_DETECTION_DELAY_MS = 1600;
-
 export default function RouteResultPage({
   onNavigateToPlanning,
   onNavigateToPlanTime,
@@ -74,10 +69,12 @@ export default function RouteResultPage({
   const [viewMode, setViewMode] = useState<'text' | 'map'>(initialViewMode);
   const [currentStep, setCurrentStep] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const loadedStationKeysRef = useRef<Set<string>>(new Set());
   const { currentRoute, departureTime, origin, destination, fontSize, routeError, routeLoading, language } =
     useAppContext();
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [actionHint, setActionHint] = useState<string | null>(null);
+  const [showMapsInstallModal, setShowMapsInstallModal] = useState(false);
   const [weather, setWeather] = useState<DestinationWeather | null>(null);
   const [weatherStatus, setWeatherStatus] = useState<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
   const [stationModalName, setStationModalName] = useState<string | null>(null);
@@ -251,41 +248,37 @@ export default function RouteResultPage({
 
   useEffect(() => {
     setStepStationDetails({});
-    if (!currentRoute?.steps?.length) {
-      return;
-    }
-    const keys = new Set<string>();
-    currentRoute.steps.forEach((step, index, allSteps) => {
-      const isLast = index === allSteps.length - 1;
-      const explicitStation = step.to_station || step.from_station || null;
-      const inferredStation = extractStationNameFromInstruction(step.instruction);
-      const stationForPopup = !isLast
+    loadedStationKeysRef.current.clear();
+  }, [currentRoute?.recommended_route_id]);
+
+  useEffect(() => {
+    if (!currentRoute?.steps?.length) return;
+    const step = currentRoute.steps[currentStep];
+    if (!step) return;
+
+    const isLast = currentStep === currentRoute.steps.length - 1;
+    const explicitStation = step.to_station || step.from_station || null;
+    const inferredStation = extractStationNameFromInstruction(step.instruction);
+    const stationKey = !isLast
+      ? explicitStation || inferredStation
+      : step.step_type === 'transit'
         ? explicitStation || inferredStation
-        : step.step_type === 'transit'
-          ? explicitStation || inferredStation
-          : null;
-      if (stationForPopup) keys.add(stationForPopup);
-    });
+        : null;
+
+    if (!stationKey || loadedStationKeysRef.current.has(stationKey)) return;
+    loadedStationKeysRef.current.add(stationKey);
 
     let cancelled = false;
-    (async () => {
-      const next: Record<string, LocationDetail | null> = {};
-      await Promise.all(
-        [...keys].map(async (key) => {
-          try {
-            next[key] = await resolveStationDetailByName(key);
-          } catch {
-            next[key] = null;
-          }
-        }),
-      );
-      if (!cancelled) setStepStationDetails(next);
-    })();
+    void resolveStationDetailByName(stationKey).then((detail) => {
+      if (!cancelled) {
+        setStepStationDetails((prev) => ({ ...prev, [stationKey]: detail }));
+      }
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [currentRoute?.recommended_route_id]);
+  }, [currentRoute?.recommended_route_id, currentStep, currentRoute?.steps]);
 
   useEffect(() => {
     if (!currentRoute) {
@@ -296,7 +289,6 @@ export default function RouteResultPage({
       toLocationLabel(currentRoute.origin_name),
       toLocationLabel(currentRoute.destination_name),
     );
-    invalidateRouteStationImageMapCache(routeKey);
     let cancelled = false;
     fetchRouteStationImageMap(routeKey)
       .then((map) => {
@@ -520,25 +512,9 @@ export default function RouteResultPage({
     return buildGoogleMapsDirectionsUrl();
   };
 
-  const buildGoogleMapsAppUrl = () => {
-    if (!currentRoute) return null;
-    const mapsUrl = buildGoogleMapsDirectionsUrl();
-    if (/Android/i.test(navigator.userAgent)) {
-      return buildAndroidMapsIntentUrl(mapsUrl);
-    }
-    return mapsUrl;
-  };
-
-  const isMobileBrowser = () =>
-    detectMobileBrowser(navigator.userAgent, navigator.maxTouchPoints);
-
   const showHint = (message: string) => {
     setActionHint(message);
     window.setTimeout(() => setActionHint(null), 2200);
-  };
-
-  const promptGoogleMapsInstall = () => {
-    showHint(t('routeGoogleMapsInstallPrompt'));
   };
 
   const mapEmbedSrc = currentRoute
@@ -1001,48 +977,27 @@ export default function RouteResultPage({
     setShareMenuOpen(false);
   };
 
-  /**
-   * Open Google Maps with the recommended route prefilled via transit waypoints.
-   * Mobile uses HTTPS Maps URLs (Universal Links on iOS, intent on Android).
-   * If the app is not installed, show an in-page install hint after a short delay.
-   */
   const handleStartNavigation = () => {
     if (!currentRoute) return;
     const webUrl = buildGoogleMapsDirectionsUrl();
-    const appUrl = buildGoogleMapsAppUrl();
+    const destinationLabel = formatNavigationPoint(destination, currentRoute.destination_name);
 
-    if (!isMobileBrowser() || !appUrl) {
-      window.open(webUrl, '_blank', 'noopener,noreferrer');
-      return;
-    }
+    attemptOpenGoogleMaps({
+      webUrl,
+      destinationLabel,
+      onMapsMissing: () => setShowMapsInstallModal(true),
+    });
+  };
 
-    let openedGoogleMaps = false;
-    const markOpened = () => {
-      openedGoogleMaps = true;
-    };
-    const cleanup = () => {
-      window.removeEventListener('pagehide', markOpened);
-      window.removeEventListener('blur', markOpened);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        markOpened();
-      }
-    };
+  const handleInstallGoogleMaps = () => {
+    openGoogleMapsStore(navigator.userAgent);
+    setShowMapsInstallModal(false);
+  };
 
-    window.addEventListener('pagehide', markOpened, { once: true });
-    window.addEventListener('blur', markOpened, { once: true });
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    window.location.href = appUrl;
-
-    window.setTimeout(() => {
-      cleanup();
-      if (!openedGoogleMaps && !document.hidden) {
-        promptGoogleMapsInstall();
-      }
-    }, GOOGLE_MAPS_APP_DETECTION_DELAY_MS);
+  const handleOpenMapsInBrowser = () => {
+    const webUrl = buildGoogleMapsDirectionsUrl();
+    window.open(webUrl, '_blank', 'noopener,noreferrer');
+    setShowMapsInstallModal(false);
   };
 
   return (
@@ -1580,6 +1535,19 @@ export default function RouteResultPage({
         stationName={stationModalName}
         baseFontSize={baseFontSize}
         t={t}
+      />
+
+      <GoogleMapsInstallModal
+        isOpen={showMapsInstallModal}
+        title={t('routeGoogleMapsInstallTitle')}
+        body={t('routeGoogleMapsInstallBody')}
+        installLabel={t('routeGoogleMapsInstallConfirm')}
+        cancelLabel={t('routeGoogleMapsInstallCancel')}
+        browserLabel={t('routeGoogleMapsOpenInBrowser')}
+        baseFontSize={baseFontSize}
+        onInstall={handleInstallGoogleMaps}
+        onOpenInBrowser={handleOpenMapsInBrowser}
+        onClose={() => setShowMapsInstallModal(false)}
       />
     </div>
   );

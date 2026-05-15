@@ -1,4 +1,11 @@
-"""Shared Gemini API client with key pool rotation."""
+"""Shared Gemini API client with key pool rotation.
+
+Keys are loaded from env (see backend/.env.example):
+  ELDERGO_GEMINI_API_KEY_PRIMARY, ELDERGO_GEMINI_API_KEY_SECONDARY, ELDERGO_GEMINI_API_KEYS
+
+On HTTP 429 the key is marked exhausted until end of day (MYT), then the pool rotates
+to the next key. call_with_key_pool() is synchronous httpx — fine for current traffic.
+"""
 
 from __future__ import annotations
 
@@ -31,6 +38,8 @@ MAPS_GROUNDING_LANGUAGE = {
 
 
 class GeminiKeyPool:
+    """Round-robin Gemini API keys with per-day cooldown after rate limits."""
+
     def __init__(self) -> None:
         self._lock = Lock()
         self._exhausted_until: dict[str, datetime] = {}

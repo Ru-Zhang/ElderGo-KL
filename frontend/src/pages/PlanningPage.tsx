@@ -1,12 +1,16 @@
-import { useEffect, useState } from 'react';
-import { MapPin, Navigation, Lightbulb } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowUpDown, MapPin, Navigation, Lightbulb } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import BottomNav from '../components/layout/BottomNav';
 import PreferencesModal from '../components/common/PreferencesModal';
+import PlanningPlaceField from '../components/planning/PlanningPlaceField';
 import { useAppContext } from '../app/AppProvider';
 import { getTranslation } from '../i18n/translations';
-import { getPlaceSuggestions } from '../services/googlePlaces';
+import { getPlaceDetail, getPlaceSuggestions } from '../services/googlePlaces';
 import { PlaceSelection } from '../types/locations';
+
+const PLACES_DEBOUNCE_MS = 350;
+const MIN_QUERY_LENGTH = 2;
 
 interface PlanningPageProps {
   onNavigateToPlanning: () => void;
@@ -16,6 +20,22 @@ interface PlanningPageProps {
   onNavigateToPreference: () => void;
   onNavigateToUseElderGo: () => void;
   onShowChatbot: () => void;
+}
+
+function fieldValidationError(
+  text: string,
+  selected: PlaceSelection | null,
+  missingMessage: string,
+  invalidMessage: string,
+  pickFromListMessage: string
+): string | null {
+  if (!text.trim()) {
+    return missingMessage;
+  }
+  if (!selected?.googlePlaceId) {
+    return text.trim() ? pickFromListMessage : invalidMessage;
+  }
+  return null;
 }
 
 export default function PlanningPage({
@@ -47,14 +67,21 @@ export default function PlanningPage({
   const [destination, setDestination] = useState(routeDestination?.displayName || '');
   const [selectedOrigin, setSelectedOrigin] = useState<PlaceSelection | null>(origin);
   const [selectedDestination, setSelectedDestination] = useState<PlaceSelection | null>(routeDestination);
-  const [shouldClearRetainedOrigin, setShouldClearRetainedOrigin] = useState(Boolean(origin));
-  const [shouldClearRetainedDestination, setShouldClearRetainedDestination] = useState(Boolean(routeDestination));
   const [startSuggestions, setStartSuggestions] = useState<PlaceSelection[]>([]);
   const [destSuggestions, setDestSuggestions] = useState<PlaceSelection[]>([]);
   const [showStartDropdown, setShowStartDropdown] = useState(false);
   const [showDestDropdown, setShowDestDropdown] = useState(false);
   const [placesError, setPlacesError] = useState<string | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
+  const [startFieldError, setStartFieldError] = useState<string | null>(null);
+  const [destFieldError, setDestFieldError] = useState<string | null>(null);
+
+  const startFieldRef = useRef<HTMLDivElement>(null);
+  const destFieldRef = useRef<HTMLDivElement>(null);
+  const startDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const destDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startRequestIdRef = useRef(0);
+  const destRequestIdRef = useRef(0);
+
   const hasAnyPreferenceEnabled =
     preferences.accessibilityFirst || preferences.leastWalk || preferences.fewestTransfers;
   const shouldPromptPreferences = !onboardingCompleted && !hasAnyPreferenceEnabled;
@@ -66,18 +93,21 @@ export default function PlanningPage({
     if (origin?.displayName) {
       setStartPoint(origin.displayName);
       setSelectedOrigin(origin);
-      setShouldClearRetainedOrigin(false);
     }
     if (routeDestination?.displayName) {
       setDestination(routeDestination.displayName);
       setSelectedDestination(routeDestination);
-      setShouldClearRetainedDestination(false);
     }
   }, [origin?.displayName, routeDestination?.displayName]);
 
+  useEffect(() => {
+    return () => {
+      if (startDebounceRef.current) clearTimeout(startDebounceRef.current);
+      if (destDebounceRef.current) clearTimeout(destDebounceRef.current);
+    };
+  }, []);
+
   const toSuggestionLabel = (value: string) => {
-    // Keep labels short and elderly-friendly while retaining the most
-    // identifiable text fragment from Google place strings.
     const parts = value
       .split(',')
       .map((part) => part.trim())
@@ -99,6 +129,16 @@ export default function PlanningPage({
     return firstPart;
   };
 
+  const scrollToFirstError = (startErr: string | null, destErr: string | null) => {
+    requestAnimationFrame(() => {
+      if (startErr && startFieldRef.current) {
+        startFieldRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else if (destErr && destFieldRef.current) {
+        destFieldRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+  };
+
   const handleInputClick = () => {
     if (!hasClickedInput && shouldPromptPreferences) {
       setShowPreferences(true);
@@ -106,124 +146,208 @@ export default function PlanningPage({
     setHasClickedInput(true);
   };
 
-  const handleStartInputClick = () => {
-    handleInputClick();
-    if (!shouldClearRetainedOrigin) return;
-
-    // First edit after returning to this page clears retained route context,
-    // so users don't accidentally submit stale origin values.
+  const clearStartField = () => {
     setStartPoint('');
     setSelectedOrigin(null);
     setStartSuggestions([]);
     setShowStartDropdown(false);
-    setFormError(null);
-    setShouldClearRetainedOrigin(false);
+    setStartFieldError(null);
+    setRouteOrigin(null);
   };
 
-  const handleDestinationInputClick = () => {
-    handleInputClick();
-    if (!shouldClearRetainedDestination) return;
-
-    // Mirror origin behavior for destination to avoid mixed old/new pairs.
+  const clearDestField = () => {
     setDestination('');
     setSelectedDestination(null);
     setDestSuggestions([]);
     setShowDestDropdown(false);
-    setFormError(null);
-    setShouldClearRetainedDestination(false);
+    setDestFieldError(null);
+    setRouteDestination(null);
   };
 
-  const handleStartChange = async (value: string) => {
+  const fetchStartSuggestions = async (value: string) => {
+    if (value.trim().length < MIN_QUERY_LENGTH) {
+      setStartSuggestions([]);
+      setShowStartDropdown(false);
+      return;
+    }
+
+    const requestId = ++startRequestIdRef.current;
+    try {
+      const suggestions = await getPlaceSuggestions(value);
+      if (requestId !== startRequestIdRef.current) return;
+
+      setStartSuggestions(suggestions);
+      setPlacesError(null);
+      if (suggestions.length === 0) {
+        setStartFieldError(t('invalidStartingPoint'));
+        setShowStartDropdown(false);
+      } else {
+        setStartFieldError(null);
+        setShowStartDropdown(true);
+      }
+    } catch {
+      if (requestId !== startRequestIdRef.current) return;
+      setStartSuggestions([]);
+      setShowStartDropdown(false);
+      setPlacesError(t('googlePlacesUnavailable'));
+    }
+  };
+
+  const fetchDestSuggestions = async (value: string) => {
+    if (value.trim().length < MIN_QUERY_LENGTH) {
+      setDestSuggestions([]);
+      setShowDestDropdown(false);
+      return;
+    }
+
+    const requestId = ++destRequestIdRef.current;
+    try {
+      const suggestions = await getPlaceSuggestions(value);
+      if (requestId !== destRequestIdRef.current) return;
+
+      setDestSuggestions(suggestions);
+      setPlacesError(null);
+      if (suggestions.length === 0) {
+        setDestFieldError(t('invalidDestination'));
+        setShowDestDropdown(false);
+      } else {
+        setDestFieldError(null);
+        setShowDestDropdown(true);
+      }
+    } catch {
+      if (requestId !== destRequestIdRef.current) return;
+      setDestSuggestions([]);
+      setShowDestDropdown(false);
+      setPlacesError(t('googlePlacesUnavailable'));
+    }
+  };
+
+  const handleStartChange = (value: string) => {
     setStartPoint(value);
     setSelectedOrigin(null);
     setPlacesError(null);
+    setStartFieldError(null);
+
+    if (startDebounceRef.current) clearTimeout(startDebounceRef.current);
+
     if (!value.trim()) {
-      setFormError(null);
-    }
-    if (value.length > 0) {
-      try {
-        const suggestions = await getPlaceSuggestions(value);
-        setStartSuggestions(suggestions);
-        setPlacesError(null);
-        if (suggestions.length === 0) {
-          setFormError(t('invalidStartingPoint'));
-        } else {
-          setFormError(null);
-        }
-      } catch {
-        setStartSuggestions([]);
-        setPlacesError(t('googlePlacesUnavailable'));
-      }
-      setShowStartDropdown(true);
-    } else {
+      startRequestIdRef.current += 1;
+      setStartSuggestions([]);
       setShowStartDropdown(false);
+      return;
     }
+
+    setShowStartDropdown(false);
+    startDebounceRef.current = setTimeout(() => {
+      void fetchStartSuggestions(value);
+    }, PLACES_DEBOUNCE_MS);
   };
 
-  const handleDestChange = async (value: string) => {
+  const handleDestChange = (value: string) => {
     setDestination(value);
     setSelectedDestination(null);
     setPlacesError(null);
+    setDestFieldError(null);
+
+    if (destDebounceRef.current) clearTimeout(destDebounceRef.current);
+
     if (!value.trim()) {
-      setFormError(null);
-    }
-    if (value.length > 0) {
-      try {
-        const suggestions = await getPlaceSuggestions(value);
-        setDestSuggestions(suggestions);
-        setPlacesError(null);
-        if (suggestions.length === 0) {
-          setFormError(t('invalidDestination'));
-        } else {
-          setFormError(null);
-        }
-      } catch {
-        setDestSuggestions([]);
-        setPlacesError(t('googlePlacesUnavailable'));
-      }
-      setShowDestDropdown(true);
-    } else {
+      destRequestIdRef.current += 1;
+      setDestSuggestions([]);
       setShowDestDropdown(false);
+      return;
+    }
+
+    setShowDestDropdown(false);
+    destDebounceRef.current = setTimeout(() => {
+      void fetchDestSuggestions(value);
+    }, PLACES_DEBOUNCE_MS);
+  };
+
+  const handleStartSelect = async (suggestion: PlaceSelection, label: string) => {
+    setStartPoint(label);
+    const baseSelection = { ...suggestion, displayName: label };
+    setSelectedOrigin(baseSelection);
+    setShowStartDropdown(false);
+    setStartFieldError(null);
+    if (!suggestion.googlePlaceId) return;
+    try {
+      const detail = await getPlaceDetail(suggestion.googlePlaceId);
+      setSelectedOrigin(detail);
+      setRouteOrigin(detail);
+    } catch {
+      setRouteOrigin(baseSelection);
     }
   };
 
+  const handleDestSelect = async (suggestion: PlaceSelection, label: string) => {
+    setDestination(label);
+    const baseSelection = { ...suggestion, displayName: label };
+    setSelectedDestination(baseSelection);
+    setShowDestDropdown(false);
+    setDestFieldError(null);
+    if (!suggestion.googlePlaceId) return;
+    try {
+      const detail = await getPlaceDetail(suggestion.googlePlaceId);
+      setSelectedDestination(detail);
+      setRouteDestination(detail);
+    } catch {
+      setRouteDestination(baseSelection);
+    }
+  };
+
+  const handleSwapOriginDestination = () => {
+    const nextStart = destination;
+    const nextDest = startPoint;
+    const nextStartSel = selectedDestination;
+    const nextDestSel = selectedOrigin;
+    const nextStartErr = destFieldError;
+    const nextDestErr = startFieldError;
+
+    setStartPoint(nextStart);
+    setDestination(nextDest);
+    setSelectedOrigin(nextStartSel);
+    setSelectedDestination(nextDestSel);
+    setStartSuggestions([]);
+    setDestSuggestions([]);
+    setShowStartDropdown(false);
+    setShowDestDropdown(false);
+    setStartFieldError(nextStartErr);
+    setDestFieldError(nextDestErr);
+    setRouteOrigin(nextStartSel);
+    setRouteDestination(nextDestSel);
+  };
+
   const handleSearch = () => {
-    // Validation order is intentional: show the most actionable missing/invalid
-    // field message first, then block navigation until both selections are valid.
-    if (!startPoint && !destination) {
-      setFormError(t('missingStartAndDestination'));
-      return;
-    }
-    if (!startPoint) {
-      setFormError(t('missingStartingPoint'));
-      return;
-    }
-    if (!destination) {
-      setFormError(t('missingDestination'));
+    const startErr = fieldValidationError(
+      startPoint,
+      selectedOrigin,
+      t('missingStartingPoint'),
+      t('invalidStartingPoint'),
+      t('pickPlaceFromList')
+    );
+    const destErr = fieldValidationError(
+      destination,
+      selectedDestination,
+      t('missingDestination'),
+      t('invalidDestination'),
+      t('pickPlaceFromList')
+    );
+
+    setStartFieldError(startErr);
+    setDestFieldError(destErr);
+
+    if (startErr || destErr) {
+      scrollToFirstError(startErr, destErr);
       return;
     }
 
-    const invalidStart = !selectedOrigin;
-    const invalidDestination = !selectedDestination;
-
-    if (invalidStart && invalidDestination) {
-      setFormError(t('invalidStartAndDestination'));
-      return;
-    }
-    if (invalidStart) {
-      setFormError(t('invalidStartingPoint'));
-      return;
-    }
-    if (invalidDestination) {
-      setFormError(t('invalidDestination'));
-      return;
-    }
-
-    setFormError(null);
     setRouteOrigin(selectedOrigin);
     setRouteDestination(selectedDestination);
     onNavigateToPlanTime();
   };
+
+  const searchDisabled = !startPoint.trim() && !destination.trim();
 
   return (
     <div className="min-h-screen bg-eldergo-bg relative" style={{ fontFamily: 'Poppins' }}>
@@ -272,108 +396,89 @@ export default function PlanningPage({
               <p className="text-eldergo-navy font-semibold px-1" style={{ fontSize: `${16 * baseFontSize}px` }}>
                 {t('startPointHint')}
               </p>
-              <div className="relative">
-                <div className="absolute left-5 top-1/2 -translate-y-1/2 z-30 pointer-events-none">
+              <PlanningPlaceField
+                fieldRef={startFieldRef}
+                icon={
                   <Navigation
                     className="text-eldergo-blue"
                     size={22 * baseFontSize}
                     strokeWidth={2.5}
                   />
-                </div>
-                <input
-                  type="text"
-                  placeholder={t('enterStartingPoint')}
-                  value={startPoint}
-                  onChange={(e) => handleStartChange(e.target.value)}
-                  onClick={handleStartInputClick}
-                  onFocus={() => startPoint && setShowStartDropdown(true)}
-                  className="w-full pl-16 pr-6 py-5 bg-white border-2 border-eldergo-border rounded-xl font-medium text-eldergo-navy placeholder:text-eldergo-muted focus:outline-none focus:border-eldergo-blue shadow-md relative z-10"
-                  style={{ fontSize: `${18 * baseFontSize}px` }}
-                />
-                {showStartDropdown && startSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-eldergo-border rounded-xl shadow-lg z-40 max-h-60 overflow-y-auto">
-                    {startSuggestions.map((suggestion, index) => (
-                      (() => {
-                        const label = toSuggestionLabel(suggestion.displayName);
-                        return (
-                      <button
-                        key={index}
-                        onClick={() => {
-                          setStartPoint(label);
-                          setSelectedOrigin({ ...suggestion, displayName: label });
-                          setShowStartDropdown(false);
-                        }}
-                        className="w-full px-6 py-4 text-left font-medium text-eldergo-navy hover:bg-eldergo-bg transition-colors border-b border-eldergo-border last:border-b-0"
-                        style={{ fontSize: `${18 * baseFontSize}px` }}
-                      >
-                        {label}
-                      </button>
-                        );
-                      })()
-                    ))}
-                  </div>
-                )}
+                }
+                placeholder={t('enterStartingPoint')}
+                value={startPoint}
+                clearAriaLabel={t('clearStartPoint')}
+                fieldError={startFieldError}
+                showDropdown={showStartDropdown}
+                suggestions={startSuggestions}
+                baseFontSize={baseFontSize}
+                onValueChange={handleStartChange}
+                onClear={clearStartField}
+                onInputClick={handleInputClick}
+                onFocus={() => {
+                  setStartFieldError(null);
+                  if (startPoint.trim() && startSuggestions.length > 0) {
+                    setShowStartDropdown(true);
+                  }
+                }}
+                onSelectSuggestion={handleStartSelect}
+                toSuggestionLabel={toSuggestionLabel}
+              />
+
+              <div className="flex justify-center -my-1 px-1">
+                <button
+                  type="button"
+                  onClick={handleSwapOriginDestination}
+                  disabled={!startPoint && !destination}
+                  aria-label={t('swapOriginDestination')}
+                  title={t('swapOriginDestination')}
+                  className="flex items-center justify-center w-12 h-12 bg-white border-2 border-eldergo-border rounded-full shadow-md text-eldergo-blue hover:border-eldergo-blue hover:bg-eldergo-bg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ArrowUpDown size={22 * baseFontSize} strokeWidth={2.5} aria-hidden />
+                </button>
               </div>
 
               <p className="text-eldergo-navy font-semibold px-1" style={{ fontSize: `${16 * baseFontSize}px` }}>
                 {t('destinationHint')}
               </p>
-              <div className="relative">
-                <div className="absolute left-5 top-1/2 -translate-y-1/2 z-30 pointer-events-none">
+              <PlanningPlaceField
+                fieldRef={destFieldRef}
+                icon={
                   <MapPin
                     className="text-eldergo-warning"
                     size={22 * baseFontSize}
                     strokeWidth={2.5}
                   />
-                </div>
-                <input
-                  type="text"
-                  placeholder={t('enterDestination')}
-                  value={destination}
-                  onChange={(e) => handleDestChange(e.target.value)}
-                  onClick={handleDestinationInputClick}
-                  onFocus={() => destination && setShowDestDropdown(true)}
-                  className="w-full pl-16 pr-6 py-5 bg-white border-2 border-eldergo-border rounded-xl font-medium text-eldergo-navy placeholder:text-eldergo-muted focus:outline-none focus:border-eldergo-blue shadow-md relative z-10"
-                  style={{ fontSize: `${18 * baseFontSize}px` }}
-                />
-                {showDestDropdown && destSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-eldergo-border rounded-xl shadow-lg z-40 max-h-60 overflow-y-auto">
-                    {destSuggestions.map((suggestion, index) => (
-                      (() => {
-                        const label = toSuggestionLabel(suggestion.displayName);
-                        return (
-                      <button
-                        key={index}
-                        onClick={() => {
-                          setDestination(label);
-                          setSelectedDestination({ ...suggestion, displayName: label });
-                          setShowDestDropdown(false);
-                        }}
-                        className="w-full px-6 py-4 text-left font-medium text-eldergo-navy hover:bg-eldergo-bg transition-colors border-b border-eldergo-border last:border-b-0"
-                        style={{ fontSize: `${18 * baseFontSize}px` }}
-                      >
-                        {label}
-                      </button>
-                        );
-                      })()
-                    ))}
-                  </div>
-                )}
-              </div>
+                }
+                placeholder={t('enterDestination')}
+                value={destination}
+                clearAriaLabel={t('clearDestination')}
+                fieldError={destFieldError}
+                showDropdown={showDestDropdown}
+                suggestions={destSuggestions}
+                baseFontSize={baseFontSize}
+                onValueChange={handleDestChange}
+                onClear={clearDestField}
+                onInputClick={handleInputClick}
+                onFocus={() => {
+                  setDestFieldError(null);
+                  if (destination.trim() && destSuggestions.length > 0) {
+                    setShowDestDropdown(true);
+                  }
+                }}
+                onSelectSuggestion={handleDestSelect}
+                toSuggestionLabel={toSuggestionLabel}
+              />
 
               <button
+                type="button"
                 onClick={handleSearch}
-                disabled={!startPoint || !destination}
+                disabled={searchDisabled}
                 className="w-full bg-eldergo-warning hover:bg-eldergo-warning-dark disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-xl transition-colors shadow-md"
                 style={{ fontSize: `${20 * baseFontSize}px` }}
               >
                 {t('search')}
               </button>
-              {formError && (
-                <div className="bg-eldergo-warning-bg border-l-4 border-eldergo-warning p-4 rounded-xl text-eldergo-navy font-medium">
-                  {formError}
-                </div>
-              )}
             </div>
           </div>
         </main>

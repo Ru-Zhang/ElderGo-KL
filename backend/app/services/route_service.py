@@ -390,7 +390,18 @@ def _persist_route(payload: RouteRecommendationRequest, prepared: PreparedRecomm
         return recommended_route_id
 
 
-async def recommend_route(payload: RouteRecommendationRequest) -> RecommendedRoute:
+def _persist_route_background(payload: RouteRecommendationRequest, prepared: PreparedRecommendation) -> None:
+    try:
+        _persist_route(payload, prepared)
+    except Exception:
+        pass
+
+
+async def recommend_route(
+    payload: RouteRecommendationRequest,
+    *,
+    background_tasks=None,
+) -> RecommendedRoute:
     best: CandidateRoute | None = None
     if is_klcc_to_monash_route(payload.origin, payload.destination):
         composed = await fetch_klcc_monash_brt_candidate(
@@ -415,10 +426,14 @@ async def recommend_route(payload: RouteRecommendationRequest) -> RecommendedRou
     if settings.demo_mode:
         return recommendation.model_copy(update={"recommended_route_id": f"demo_{uuid.uuid4().hex[:12]}"})
 
-    # Route recommendation should still be returned even when persistence fails.
-    # We generate an ephemeral id so frontend flows remain usable.
-    try:
-        recommended_route_id = _persist_route(payload, prepared)
-    except Exception:
-        recommended_route_id = f"ephemeral_{uuid.uuid4().hex[:12]}"
+    # Return immediately with an ephemeral id; persist in background so the client
+    # does not wait on many sequential INSERT round-trips.
+    recommended_route_id = f"ephemeral_{uuid.uuid4().hex[:12]}"
+    if background_tasks is not None:
+        background_tasks.add_task(_persist_route_background, payload, prepared)
+    else:
+        try:
+            recommended_route_id = _persist_route(payload, prepared)
+        except Exception:
+            pass
     return recommendation.model_copy(update={"recommended_route_id": recommended_route_id})

@@ -1,27 +1,25 @@
-"""Load scraped mrt.com.my station extras from CSV (no DB migration)."""
+"""Load scraped mrt.com.my station extras from CSV (merged into location detail)."""
 
 from __future__ import annotations
 
 import csv
 import json
+import logging
 from functools import lru_cache
-from pathlib import Path
 
-# BACKEND_DIR = Path(__file__).resolve().parents[2]
-# CSV_PATH = BACKEND_DIR / "data" / "mrt_stations_facilities.csv"
+from app.core.paths import MRT_FACILITIES_CSV
 
-CSV_PATH = Path.cwd() / "data" / "mrt_stations_facilities.csv"
+logger = logging.getLogger(__name__)
 
-if not CSV_PATH.exists():
-    raise FileNotFoundError(f"CSV not found: {CSV_PATH}")
 
 @lru_cache
 def _load_rows() -> dict[str, dict]:
-    if not CSV_PATH.is_file():
+    if not MRT_FACILITIES_CSV.is_file():
+        logger.warning("MRT facilities CSV missing at %s", MRT_FACILITIES_CSV)
         return {}
 
     rows: dict[str, dict] = {}
-    with CSV_PATH.open(encoding="utf-8", newline="") as handle:
+    with MRT_FACILITIES_CSV.open(encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
         for row in reader:
             location_id = (row.get("location_id") or "").strip()
