@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { LocationDetail, PlaceSelection } from '../types/locations';
-import { TravelPreferences } from '../types/preferences';
+import { DEFAULT_PRIORITY_ORDER, TravelPreferences, normalizePriorityOrder } from '../types/preferences';
 import { RecommendedRoute } from '../types/routes';
 import { FontSizeMode, LanguageCode, UISettings } from '../types/settings';
 import { getOrCreateDeviceId } from '../utils/deviceId';
@@ -46,9 +46,10 @@ interface AppContextType {
 }
 
 const defaultPreferences: TravelPreferences = {
-  accessibilityFirst: true,
-  leastWalk: true,
+  accessibilityFirst: false,
+  leastWalk: false,
   fewestTransfers: false,
+  priorityOrder: DEFAULT_PRIORITY_ORDER,
 };
 
 const defaultSettings: UISettings = {
@@ -69,7 +70,12 @@ function loadLocalSettings(): UISettings {
 function loadLocalPreferences(): TravelPreferences {
   try {
     const raw = localStorage.getItem(LOCAL_PREFERENCES_KEY);
-    return raw ? { ...defaultPreferences, ...JSON.parse(raw) } : defaultPreferences;
+    if (!raw) return defaultPreferences;
+    const parsed = { ...defaultPreferences, ...JSON.parse(raw) };
+    return {
+      ...parsed,
+      priorityOrder: normalizePriorityOrder(parsed.priorityOrder),
+    };
   } catch {
     return defaultPreferences;
   }

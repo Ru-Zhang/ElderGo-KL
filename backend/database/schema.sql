@@ -112,9 +112,10 @@ CREATE TABLE IF NOT EXISTS user_ui_settings (
 
 CREATE TABLE IF NOT EXISTS user_travel_preferences (
     anonymous_user_id UUID PRIMARY KEY REFERENCES anonymous_users(anonymous_user_id) ON DELETE CASCADE,
-    accessibility_first BOOLEAN NOT NULL DEFAULT TRUE,
-    less_walking BOOLEAN NOT NULL DEFAULT TRUE,
-    fewer_transfers BOOLEAN NOT NULL DEFAULT TRUE,
+    accessibility_first BOOLEAN NOT NULL DEFAULT FALSE,
+    less_walking BOOLEAN NOT NULL DEFAULT FALSE,
+    fewer_transfers BOOLEAN NOT NULL DEFAULT FALSE,
+    priority_order JSONB NOT NULL DEFAULT '["accessibility", "walk", "transfers"]'::jsonb,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

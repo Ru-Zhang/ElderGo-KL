@@ -1,14 +1,12 @@
 """Route scoring — delegates to elder-first ranking (backward-compatible exports)."""
 
 from app.services.elder_route_ranking_service import (
-    ElderRankingWeights,
     RouteChoiceResult,
     align_composed_duration,
     choose_best_candidate,
     dedupe_candidates,
     layered_key_elder,
     rank_candidates_for_elders,
-    resolve_weights,
 )
 from app.services.google_maps_service import CandidateRoute, candidate_has_transit
 from app.schemas.preferences import TravelPreferences

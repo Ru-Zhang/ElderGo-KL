@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import * as Switch from '@radix-ui/react-switch';
-import { Save } from 'lucide-react';
+import { ArrowDown, ArrowUp, Save } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import BottomNav from '../components/layout/BottomNav';
 import { useAppContext } from '../app/AppProvider';
 import { getTranslation } from '../i18n/translations';
+import type { PreferenceFactor } from '../types/preferences';
 
 interface PreferencePageProps {
   onNavigateToPlanning: () => void;
@@ -21,7 +22,7 @@ export default function PreferencePage({
   onNavigateToPreference,
   onShowChatbot
 }: PreferencePageProps) {
-  const { fontSize, language, preferences, updatePreferences, clearPreferences } = useAppContext();
+  const { fontSize, language, preferences, updatePreferences } = useAppContext();
   // Keep a local editable copy so users can review/toggle multiple options
   // before committing changes to shared app state.
   const [localPreferences, setLocalPreferences] = useState(preferences);
@@ -40,6 +41,35 @@ export default function PreferencePage({
     setLocalPreferences(preferences);
     setStatusHint('cancelled');
     window.setTimeout(() => setStatusHint(null), 3000);
+  };
+
+  const isPreferenceEnabled = (factor: PreferenceFactor) => {
+    if (factor === 'accessibility') return localPreferences.accessibilityFirst;
+    if (factor === 'walk') return localPreferences.leastWalk;
+    return localPreferences.fewestTransfers;
+  };
+
+  const preferenceLabelKey = (factor: PreferenceFactor) => {
+    if (factor === 'accessibility') return 'accessibilityFirst';
+    if (factor === 'walk') return 'leastWalk';
+    return 'fewestTransfers';
+  };
+
+  const setPreferenceEnabled = (factor: PreferenceFactor, checked: boolean) => {
+    if (factor === 'accessibility') {
+      setLocalPreferences({ ...localPreferences, accessibilityFirst: checked });
+    } else if (factor === 'walk') {
+      setLocalPreferences({ ...localPreferences, leastWalk: checked });
+    } else {
+      setLocalPreferences({ ...localPreferences, fewestTransfers: checked });
+    }
+  };
+
+  const swapPriorityAt = (upperIndex: number) => {
+    if (upperIndex < 0 || upperIndex >= localPreferences.priorityOrder.length - 1) return;
+    const nextOrder = [...localPreferences.priorityOrder];
+    [nextOrder[upperIndex], nextOrder[upperIndex + 1]] = [nextOrder[upperIndex + 1], nextOrder[upperIndex]];
+    setLocalPreferences({ ...localPreferences, priorityOrder: nextOrder });
   };
 
   return (
@@ -76,60 +106,46 @@ export default function PreferencePage({
             {t('travelPreferencesElderNote')}
           </p>
 
-          <div className="space-y-4 mb-8">
-            <div className="flex items-center justify-between p-6 bg-white rounded-xl border-2 border-eldergo-border shadow-sm">
-              <div className="pr-4 flex-1">
-                <span className="font-medium text-eldergo-navy leading-tight block" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                  {t('accessibilityFirst')}
-                </span>
-                <span className="text-eldergo-muted mt-1 block" style={{ fontSize: `${14 * baseFontSize}px` }}>
-                  {t('accessibilityFirstHint')}
-                </span>
+          <div className="mb-8">
+            {localPreferences.priorityOrder.map((factor, index) => (
+              <div key={factor} className="relative">
+                <div className="flex min-h-[118px] items-center gap-3 rounded-xl border-2 border-eldergo-border bg-white px-4 py-5 shadow-md sm:min-h-[138px] sm:gap-5 sm:px-7 sm:py-6">
+                  <div
+                    className="flex flex-shrink-0 items-center justify-center rounded-full bg-eldergo-blue font-semibold text-white shadow-sm"
+                    style={{ width: `${46 * baseFontSize}px`, height: `${46 * baseFontSize}px`, fontSize: `${20 * baseFontSize}px` }}
+                  >
+                    {index + 1}
+                  </div>
+                  <span
+                    className="flex-1 pr-6 font-semibold text-eldergo-navy leading-tight"
+                    style={{ fontSize: `${19 * baseFontSize}px` }}
+                  >
+                    {t(preferenceLabelKey(factor) as any)}
+                  </span>
+                  <Switch.Root
+                    className="w-16 h-8 min-w-16 flex-shrink-0 bg-gray-300 rounded-full relative data-[state=checked]:bg-eldergo-green transition-colors"
+                    checked={isPreferenceEnabled(factor)}
+                    onCheckedChange={(checked) => setPreferenceEnabled(factor, checked)}
+                  >
+                    <Switch.Thumb className="block w-7 h-7 bg-white rounded-full shadow-lg transition-transform translate-x-0.5 data-[state=checked]:translate-x-[34px]" />
+                  </Switch.Root>
+                </div>
+                {index < localPreferences.priorityOrder.length - 1 && (
+                  <div className="relative z-10 flex h-16 -my-2 items-center justify-center">
+                    <button
+                      type="button"
+                      onClick={() => swapPriorityAt(index)}
+                      className="flex items-center justify-center gap-6 rounded-full border border-eldergo-border bg-white px-8 text-eldergo-navy shadow-md transition-colors hover:bg-eldergo-bg"
+                      style={{ height: `${44 * baseFontSize}px` }}
+                      aria-label={t('priorityMoveDown' as any)}
+                    >
+                      <ArrowUp size={22 * baseFontSize} strokeWidth={2.5} />
+                      <ArrowDown size={22 * baseFontSize} strokeWidth={2.5} />
+                    </button>
+                  </div>
+                )}
               </div>
-              <Switch.Root
-                className="w-16 h-8 min-w-16 flex-shrink-0 bg-gray-300 rounded-full relative data-[state=checked]:bg-eldergo-green transition-colors"
-                checked={localPreferences.accessibilityFirst}
-                onCheckedChange={(checked) => setLocalPreferences({ ...localPreferences, accessibilityFirst: checked })}
-              >
-                <Switch.Thumb className="block w-7 h-7 bg-white rounded-full shadow-lg transition-transform translate-x-0.5 data-[state=checked]:translate-x-[34px]" />
-              </Switch.Root>
-            </div>
-
-            <div className="flex items-center justify-between p-6 bg-white rounded-xl border-2 border-eldergo-border shadow-sm">
-              <div className="pr-4 flex-1">
-                <span className="font-medium text-eldergo-navy leading-tight block" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                  {t('leastWalk')}
-                </span>
-                <span className="text-eldergo-muted mt-1 block" style={{ fontSize: `${14 * baseFontSize}px` }}>
-                  {t('leastWalkHint')}
-                </span>
-              </div>
-              <Switch.Root
-                className="w-16 h-8 min-w-16 flex-shrink-0 bg-gray-300 rounded-full relative data-[state=checked]:bg-eldergo-green transition-colors"
-                checked={localPreferences.leastWalk}
-                onCheckedChange={(checked) => setLocalPreferences({ ...localPreferences, leastWalk: checked })}
-              >
-                <Switch.Thumb className="block w-7 h-7 bg-white rounded-full shadow-lg transition-transform translate-x-0.5 data-[state=checked]:translate-x-[34px]" />
-              </Switch.Root>
-            </div>
-
-            <div className="flex items-center justify-between p-6 bg-white rounded-xl border-2 border-eldergo-border shadow-sm">
-              <div className="pr-4 flex-1">
-                <span className="font-medium text-eldergo-navy leading-tight block" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                  {t('fewestTransfers')}
-                </span>
-                <span className="text-eldergo-muted mt-1 block" style={{ fontSize: `${14 * baseFontSize}px` }}>
-                  {t('fewestTransfersHint')}
-                </span>
-              </div>
-              <Switch.Root
-                className="w-16 h-8 min-w-16 flex-shrink-0 bg-gray-300 rounded-full relative data-[state=checked]:bg-eldergo-green transition-colors"
-                checked={localPreferences.fewestTransfers}
-                onCheckedChange={(checked) => setLocalPreferences({ ...localPreferences, fewestTransfers: checked })}
-              >
-                <Switch.Thumb className="block w-7 h-7 bg-white rounded-full shadow-lg transition-transform translate-x-0.5 data-[state=checked]:translate-x-[34px]" />
-              </Switch.Root>
-            </div>
+            ))}
           </div>
 
           <div className="flex gap-4">
@@ -153,7 +169,7 @@ export default function PreferencePage({
             <div
               className="fixed left-4 right-4 bottom-28 z-50 mx-auto max-w-2xl rounded-xl px-5 py-4 text-center font-semibold shadow-lg"
               style={{
-                backgroundColor: statusHint === 'saved' ? '#1B7F4A' : '#334155',
+                backgroundColor: statusHint === 'saved' ? '#65C25A' : '#1B3A5F',
                 color: '#ffffff',
                 fontSize: `${17 * baseFontSize}px`,
               }}

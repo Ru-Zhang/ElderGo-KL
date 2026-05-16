@@ -5,305 +5,174 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.schemas.preferences import TravelPreferences
 from app.services.google_maps_service import CandidateRoute
-from app.services.elder_route_ranking_service import (
-    align_composed_duration,
-    rank_candidates_for_elders,
-)
-from app.services.route_scoring_service import choose_best_for_monash_trip, choose_best_with_summary
+from app.services.route_scoring_service import choose_best_with_summary
 
 
-def _transit_step() -> dict:
-    return {"travel_mode": "TRANSIT", "transit_details": {}}
+def _transit_step(line: str = "KJ", accessible: bool = False) -> dict:
+    transit_details = {"line": {"short_name": line}}
+    if accessible:
+        transit_details["wheelchair_accessible"] = True
+    return {"travel_mode": "TRANSIT", "transit_details": transit_details}
 
 
-def _walking_step() -> dict:
-    return {
+def _walking_step(unknown_access: bool = False, not_supported_access: bool = False) -> dict:
+    step = {
         "travel_mode": "WALKING",
         "start_location": {"lat": 3.1, "lng": 101.6},
         "end_location": {"lat": 3.2, "lng": 101.7},
     }
+    if unknown_access:
+        step["accessibility_test"] = "unknown"
+    if not_supported_access:
+        step["accessibility_test"] = "not_supported"
+    return step
 
 
-def _candidate(duration: int, walking: int, transfers: int, steps: list | None = None) -> CandidateRoute:
-    default_steps = [_walking_step(), _transit_step(), _walking_step()]
+def _candidate(
+    duration: int,
+    walking: int,
+    transfers: int,
+    *,
+    accessible_transit: bool = False,
+    transit: bool = True,
+) -> CandidateRoute:
+    steps = [_walking_step()]
+    if transit:
+        steps.append(_transit_step(accessible=accessible_transit))
     return CandidateRoute(
         duration_minutes=duration,
         walking_distance_meters=walking,
         transfers=transfers,
-        steps=steps if steps is not None else default_steps,
+        steps=steps,
         polyline=None,
         raw={},
     )
 
 
-def test_choose_best_prefers_less_walking_over_fewer_transfers() -> None:
+def test_no_preferences_selects_fastest_google_candidate() -> None:
     candidates = [
-        _candidate(30, 900, 0),
-        _candidate(32, 200, 3),
+        _candidate(30, 100, 0),
+        _candidate(20, 900, 2),
+    ]
+    result = choose_best_with_summary(candidates, TravelPreferences())
+    assert result is not None
+    assert result.candidate.duration_minutes == 20
+    assert result.preference_summary_key == "routePreferenceFastest"
+    assert result.ranking_primary_factor == "duration"
+
+
+def test_single_least_walk_preference_uses_duration_tie_break() -> None:
+    candidates = [
+        _candidate(20, 300, 1),
+        _candidate(25, 100, 2),
+        _candidate(15, 100, 3),
+    ]
+    prefs = TravelPreferences(least_walk=True)
+    result = choose_best_with_summary(candidates, prefs)
+    assert result is not None
+    assert result.candidate.duration_minutes == 15
+    assert result.candidate.walking_distance_meters == 100
+    assert result.ranking_primary_factor == "walk"
+
+
+def test_single_fewest_transfers_preference_uses_duration_tie_break() -> None:
+    candidates = [
+        _candidate(20, 100, 2),
+        _candidate(30, 400, 0),
+        _candidate(25, 500, 0),
     ]
     prefs = TravelPreferences(fewest_transfers=True)
     result = choose_best_with_summary(candidates, prefs)
     assert result is not None
-    assert result.candidate.walking_distance_meters == 200
-
-
-def test_choose_best_prefers_fewer_transfers_when_walk_and_time_equal() -> None:
-    candidates = [
-        _candidate(30, 200, 2),
-        _candidate(30, 200, 0),
-    ]
-    prefs = TravelPreferences(fewest_transfers=True)
-    result = choose_best_with_summary(candidates, prefs)
-    assert result is not None
+    assert result.candidate.duration_minutes == 25
     assert result.candidate.transfers == 0
+    assert result.ranking_primary_factor == "transfers"
 
 
-def test_choose_best_always_returns_one_when_candidates_exist() -> None:
-    candidates = [_candidate(40, 900, 3)]
-    prefs = TravelPreferences(accessibility_first=True, least_walk=True, fewest_transfers=True)
-    result = choose_best_with_summary(candidates, prefs)
-    assert result is not None
-    assert result.candidate.duration_minutes == 40
-
-
-def test_preference_summary_key_for_accessibility() -> None:
-    walking_step = {
-        "travel_mode": "WALKING",
-        "start_location": {"lat": 3.1, "lng": 101.6},
-        "end_location": {"lat": 3.2, "lng": 101.7},
-    }
-    transit_step = {
-        "travel_mode": "TRANSIT",
-        "transit_details": {"line": {"short_name": "KJ"}},
-    }
-    candidates = [_candidate(25, 300, 1, steps=[walking_step, transit_step])]
+def test_single_accessibility_preference_uses_duration_tie_break() -> None:
+    candidates = [
+        _candidate(20, 100, 1),
+        _candidate(30, 500, 2, accessible_transit=True),
+        _candidate(25, 600, 3, accessible_transit=True),
+    ]
     prefs = TravelPreferences(accessibility_first=True)
     result = choose_best_with_summary(candidates, prefs)
     assert result is not None
-    assert result.preference_summary_key == "routePreferenceAccessibility"
+    assert result.candidate.duration_minutes == 25
+    assert result.ranking_primary_factor == "accessibility"
+
+
+def test_multiple_preferences_follow_user_priority_order() -> None:
+    low_walk = _candidate(40, 100, 2)
+    accessible = _candidate(45, 500, 2, accessible_transit=True)
+    prefs = TravelPreferences(
+        accessibility_first=True,
+        least_walk=True,
+        priority_order=["walk", "accessibility", "transfers"],
+    )
+    result = choose_best_with_summary([accessible, low_walk], prefs)
+    assert result is not None
+    assert result.candidate is low_walk
+    assert result.ranking_primary_factor == "walk"
+    assert result.ranking_secondary_factor == "accessibility"
+
+
+def test_priority_order_uses_fastest_duration_as_tie_break() -> None:
+    slower_low_walk = _candidate(30, 100, 2)
+    faster_low_walk = _candidate(20, 100, 3)
+    prefs = TravelPreferences(
+        least_walk=True,
+        priority_order=["walk", "accessibility", "transfers"],
+    )
+    result = choose_best_with_summary([slower_low_walk, faster_low_walk], prefs)
+    assert result is not None
+    assert result.candidate is faster_low_walk
+    assert result.ranking_primary_factor == "walk"
+    assert result.ranking_secondary_factor == "duration"
+
+
+def test_ranking_returns_only_a_google_candidate_from_the_input_pool() -> None:
+    google_fast = _candidate(20, 600, 2)
+    google_preferred = _candidate(25, 100, 2)
+    prefs = TravelPreferences(least_walk=True)
+    result = choose_best_with_summary([google_fast, google_preferred], prefs)
+    assert result is not None
+    assert result.candidate in [google_fast, google_preferred]
+    assert result.candidate is google_preferred
+
+
+def test_all_preferences_follow_full_user_order() -> None:
+    fewer_transfers = _candidate(50, 600, 0)
+    less_walk = _candidate(45, 100, 2)
+    accessible = _candidate(40, 500, 1)
+    prefs = TravelPreferences(
+        accessibility_first=True,
+        least_walk=True,
+        fewest_transfers=True,
+        priority_order=["transfers", "walk", "accessibility"],
+    )
+    result = choose_best_with_summary([accessible, less_walk, fewer_transfers], prefs)
+    assert result is not None
+    assert result.candidate is fewer_transfers
+    assert result.ranking_primary_factor == "transfers"
+    assert result.ranking_secondary_factor == "walk"
+
+
+def test_missing_invalid_partial_priority_order_normalizes_to_default() -> None:
+    prefs = TravelPreferences.model_validate(
+        {
+            "accessibility_first": True,
+            "least_walk": True,
+            "fewest_transfers": True,
+            "priority_order": ["walk", "bad"],
+        }
+    )
+    assert prefs.priority_order == ["walk", "accessibility", "transfers"]
 
 
 def test_walk_only_candidates_are_ignored() -> None:
-    walk_only = _candidate(180, 18000, 0, steps=[{"travel_mode": "WALKING"}])
-    transit = _candidate(
-        55,
-        600,
-        1,
-        steps=[
-            {"travel_mode": "WALKING"},
-            {"travel_mode": "TRANSIT", "transit_details": {"line": {"short_name": "BRT"}}},
-        ],
-    )
-    prefs = TravelPreferences(accessibility_first=True, least_walk=True, fewest_transfers=True)
-    result = choose_best_with_summary([walk_only, transit], prefs)
+    walk_only = _candidate(5, 100, 0, transit=False)
+    transit = _candidate(20, 300, 1)
+    result = choose_best_with_summary([walk_only, transit], TravelPreferences())
     assert result is not None
     assert result.candidate is transit
-
-
-def test_monash_trip_prefers_corridor_over_direct_bus() -> None:
-    bus = CandidateRoute(
-        duration_minutes=50,
-        walking_distance_meters=150,
-        transfers=1,
-        steps=[
-            {
-                "travel_mode": "TRANSIT",
-                "transit_details": {
-                    "departure_stop": {"name": "KL Sentral"},
-                    "arrival_stop": {"name": "Monash University"},
-                    "line": {"short_name": "770", "vehicle": {"type": "BUS"}},
-                },
-            }
-        ],
-        polyline=None,
-        raw={},
-    )
-    corridor = CandidateRoute(
-        duration_minutes=65,
-        walking_distance_meters=400,
-        transfers=3,
-        steps=[
-            {
-                "travel_mode": "TRANSIT",
-                "transit_details": {
-                    "departure_stop": {"name": "KL Sentral"},
-                    "arrival_stop": {"name": "USJ 7"},
-                    "line": {"short_name": "KJ", "vehicle": {"type": "SUBWAY"}},
-                },
-            },
-            {
-                "travel_mode": "TRANSIT",
-                "transit_details": {
-                    "departure_stop": {"name": "Stesen BRT USJ 7"},
-                    "arrival_stop": {"name": "Stesen BRT Sunu-Monash"},
-                    "line": {"short_name": "BRT", "name": "BRT Sunway Line", "vehicle": {"type": "BUS"}},
-                },
-            },
-        ],
-        polyline=None,
-        raw={"composed": True},
-    )
-    prefs = TravelPreferences(accessibility_first=True, least_walk=True, fewest_transfers=True)
-    result = choose_best_for_monash_trip([bus, corridor], prefs)
-    assert result is not None
-    assert result.candidate is corridor
-
-
-def test_no_transit_candidates_returns_none() -> None:
-    walk_only = _candidate(120, 15000, 0, steps=[{"travel_mode": "WALKING"}])
-    assert choose_best_with_summary([walk_only], TravelPreferences()) is None
-
-
-def test_elder_baseline_prefers_less_walking_when_all_prefs_off() -> None:
-    candidates = [
-        _candidate(30, 900, 0),
-        _candidate(32, 200, 3),
-    ]
-    prefs = TravelPreferences(
-        accessibility_first=False,
-        least_walk=False,
-        fewest_transfers=False,
-    )
-    result = choose_best_with_summary(candidates, prefs)
-    assert result is not None
-    assert result.candidate.walking_distance_meters == 200
-    assert result.preference_summary_key == "routePreferenceElderBaseline"
-
-
-def test_align_composed_duration_uses_google_when_lower() -> None:
-    composed = CandidateRoute(
-        duration_minutes=65,
-        walking_distance_meters=400,
-        transfers=3,
-        steps=[_transit_step()],
-        polyline=None,
-        raw={"composed": True},
-    )
-    direct = _candidate(50, 500, 2)
-    aligned = align_composed_duration(composed, [composed, direct])
-    assert aligned.duration_minutes == 50
-
-
-def test_exclusive_access_prefers_usj7_corridor_over_ss18() -> None:
-    ss18 = CandidateRoute(
-        duration_minutes=45,
-        walking_distance_meters=120,
-        transfers=1,
-        steps=[
-            {
-                "travel_mode": "TRANSIT",
-                "transit_details": {
-                    "departure_stop": {"name": "Stesen BRT SS18"},
-                    "arrival_stop": {"name": "Stesen BRT Sunu-Monash"},
-                    "line": {"short_name": "BRT", "name": "BRT Sunway Line", "vehicle": {"type": "BUS"}},
-                },
-            }
-        ],
-        polyline=None,
-        raw={},
-    )
-    usj7 = CandidateRoute(
-        duration_minutes=55,
-        walking_distance_meters=350,
-        transfers=3,
-        steps=[
-            {
-                "travel_mode": "TRANSIT",
-                "transit_details": {
-                    "departure_stop": {"name": "KL Sentral"},
-                    "arrival_stop": {"name": "USJ 7"},
-                    "line": {"short_name": "KJ", "vehicle": {"type": "SUBWAY"}},
-                },
-            },
-            {
-                "travel_mode": "TRANSIT",
-                "transit_details": {
-                    "departure_stop": {"name": "Stesen BRT USJ 7"},
-                    "arrival_stop": {"name": "Stesen BRT Sunu-Monash"},
-                    "line": {"short_name": "BRT", "name": "BRT Sunway Line", "vehicle": {"type": "BUS"}},
-                },
-            },
-        ],
-        polyline=None,
-        raw={"composed": True},
-    )
-    prefs = TravelPreferences(accessibility_first=True, least_walk=False, fewest_transfers=False)
-    result = rank_candidates_for_elders([ss18, usj7], prefs)
-    assert result is not None
-    assert result.candidate is usj7
-
-
-def test_exclusive_walk_prefers_ss18_over_usj7_corridor() -> None:
-    ss18 = CandidateRoute(
-        duration_minutes=45,
-        walking_distance_meters=120,
-        transfers=1,
-        steps=[
-            {
-                "travel_mode": "TRANSIT",
-                "transit_details": {
-                    "departure_stop": {"name": "Stesen BRT SS18"},
-                    "arrival_stop": {"name": "Stesen BRT Sunu-Monash"},
-                    "line": {"short_name": "BRT", "vehicle": {"type": "BUS"}},
-                },
-            }
-        ],
-        polyline=None,
-        raw={},
-    )
-    usj7 = CandidateRoute(
-        duration_minutes=55,
-        walking_distance_meters=350,
-        transfers=3,
-        steps=[
-            {
-                "travel_mode": "TRANSIT",
-                "transit_details": {
-                    "departure_stop": {"name": "Stesen BRT USJ 7"},
-                    "arrival_stop": {"name": "Stesen BRT Sunu-Monash"},
-                    "line": {"short_name": "BRT", "vehicle": {"type": "BUS"}},
-                },
-            }
-        ],
-        polyline=None,
-        raw={"composed": True},
-    )
-    prefs = TravelPreferences(accessibility_first=False, least_walk=True, fewest_transfers=False)
-    result = rank_candidates_for_elders([ss18, usj7], prefs)
-    assert result is not None
-    assert result.candidate is ss18
-
-
-def test_rank_candidates_corridor_filter_prefers_corridor_pool() -> None:
-    bus = _candidate(50, 150, 1)
-    corridor = CandidateRoute(
-        duration_minutes=65,
-        walking_distance_meters=400,
-        transfers=3,
-        steps=[
-            {
-                "travel_mode": "TRANSIT",
-                "transit_details": {
-                    "departure_stop": {"name": "Stesen BRT USJ 7"},
-                    "line": {"short_name": "BRT", "name": "BRT Sunway Line", "vehicle": {"type": "BUS"}},
-                },
-            }
-        ],
-        polyline=None,
-        raw={"composed": True},
-    )
-
-    def _is_corridor(c: CandidateRoute) -> bool:
-        return bool(isinstance(c.raw, dict) and c.raw.get("composed"))
-
-    prefs = TravelPreferences(accessibility_first=False, least_walk=False, fewest_transfers=False)
-    without_filter = rank_candidates_for_elders([bus, corridor], prefs)
-    with_filter = rank_candidates_for_elders(
-        [bus, corridor],
-        prefs,
-        corridor_filter=_is_corridor,
-    )
-    assert without_filter is not None
-    assert with_filter is not None
-    assert without_filter.candidate is bus
-    assert with_filter.candidate is corridor

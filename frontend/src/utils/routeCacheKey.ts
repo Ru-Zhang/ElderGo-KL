@@ -3,6 +3,8 @@ import { TravelPreferences } from '../types/preferences';
 import { RouteRecommendationRequest } from '../types/routes';
 import { normalizeDepartureKey, resolveDepartureDate } from './departureTime';
 
+const ROUTE_RANKING_CACHE_VERSION = 'google-priority-fastest-v2';
+
 function placeKey(place: PlaceSelection): string {
   if (typeof place.lat === 'number' && typeof place.lon === 'number') {
     return `${place.lat.toFixed(4)},${place.lon.toFixed(4)}`;
@@ -14,7 +16,8 @@ function placeKey(place: PlaceSelection): string {
 }
 
 function preferencesKey(preferences: TravelPreferences): string {
-  return `a${preferences.accessibilityFirst ? 1 : 0}w${preferences.leastWalk ? 1 : 0}t${preferences.fewestTransfers ? 1 : 0}`;
+  const order = preferences.priorityOrder.join(',');
+  return `a${preferences.accessibilityFirst ? 1 : 0}w${preferences.leastWalk ? 1 : 0}t${preferences.fewestTransfers ? 1 : 0}o:${order}`;
 }
 
 function departureBucket(departureTime: string): string {
@@ -53,6 +56,7 @@ function departureBucket(departureTime: string): string {
 
 export function buildRouteCacheKey(request: RouteRecommendationRequest): string {
   return [
+    ROUTE_RANKING_CACHE_VERSION,
     placeKey(request.origin),
     placeKey(request.destination),
     departureBucket(request.departureTime),

@@ -20,6 +20,7 @@ from app.services.departure_time_service import (
 )
 
 KL_TZ = ZoneInfo("Asia/Kuala_Lumpur")
+ROUTE_RANKING_CACHE_VERSION = "google-priority-fastest-v2"
 
 
 def _place_key(place: PlaceInput) -> str:
@@ -31,10 +32,12 @@ def _place_key(place: PlaceInput) -> str:
 
 
 def _preferences_key(preferences: TravelPreferences) -> str:
+    order = ",".join(preferences.priority_order)
     return (
         f"a{int(preferences.accessibility_first)}"
         f"w{int(preferences.least_walk)}"
         f"t{int(preferences.fewest_transfers)}"
+        f"o:{order}"
     )
 
 
@@ -77,6 +80,7 @@ def build_route_cache_key(payload: RouteRecommendationRequest) -> str:
     departure = _departure_bucket(payload.departure_time)
     return "|".join(
         [
+            ROUTE_RANKING_CACHE_VERSION,
             _place_key(payload.origin),
             _place_key(payload.destination),
             departure,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from hashlib import sha256
 from uuid import NAMESPACE_URL
 from uuid import UUID
@@ -45,6 +46,13 @@ def _ensure_default_user_rows(conn, anonymous_user_id: str) -> None:
     # read either table without checking first-time-user edge cases.
     conn.execute(
         """
+        ALTER TABLE user_travel_preferences
+        ADD COLUMN IF NOT EXISTS priority_order JSONB NOT NULL
+        DEFAULT '["accessibility", "walk", "transfers"]'::jsonb
+        """
+    )
+    conn.execute(
+        """
         INSERT INTO user_ui_settings (
             anonymous_user_id,
             language_code,
@@ -64,9 +72,17 @@ def _ensure_default_user_rows(conn, anonymous_user_id: str) -> None:
             accessibility_first,
             less_walking,
             fewer_transfers,
+            priority_order,
             updated_at
         )
-        VALUES (%(anonymous_user_id)s::uuid, FALSE, FALSE, FALSE, CURRENT_TIMESTAMP)
+        VALUES (
+            %(anonymous_user_id)s::uuid,
+            FALSE,
+            FALSE,
+            FALSE,
+            '["accessibility", "walk", "transfers"]'::jsonb,
+            CURRENT_TIMESTAMP
+        )
         ON CONFLICT (anonymous_user_id) DO NOTHING
         """,
         {"anonymous_user_id": anonymous_user_id},
@@ -137,6 +153,7 @@ def update_ui_settings(anonymous_user_id: str, payload: UISettings) -> UISetting
         return payload
 
     with get_connection() as conn:
+        _ensure_default_user_rows(conn, anonymous_user_id)
         conn.execute(
             """
             INSERT INTO user_ui_settings (
@@ -180,7 +197,7 @@ def get_travel_preferences(anonymous_user_id: str) -> TravelPreferences:
         _ensure_default_user_rows(conn, anonymous_user_id)
         row = conn.execute(
             """
-            SELECT accessibility_first, less_walking, fewer_transfers
+            SELECT accessibility_first, less_walking, fewer_transfers, priority_order
             FROM user_travel_preferences
             WHERE anonymous_user_id = %(anonymous_user_id)s::uuid
             """,
@@ -192,6 +209,7 @@ def get_travel_preferences(anonymous_user_id: str) -> TravelPreferences:
             accessibility_first=bool(row["accessibility_first"]),
             least_walk=bool(row["less_walking"]),
             fewest_transfers=bool(row["fewer_transfers"]),
+            priority_order=list(row.get("priority_order") or []),
         )
 
 
@@ -214,6 +232,7 @@ def update_travel_preferences(
                 accessibility_first,
                 less_walking,
                 fewer_transfers,
+                priority_order,
                 updated_at
             )
             VALUES (
@@ -221,12 +240,14 @@ def update_travel_preferences(
                 %(accessibility_first)s,
                 %(less_walking)s,
                 %(fewer_transfers)s,
+                %(priority_order)s::jsonb,
                 CURRENT_TIMESTAMP
             )
             ON CONFLICT (anonymous_user_id) DO UPDATE SET
                 accessibility_first = EXCLUDED.accessibility_first,
                 less_walking = EXCLUDED.less_walking,
                 fewer_transfers = EXCLUDED.fewer_transfers,
+                priority_order = EXCLUDED.priority_order,
                 updated_at = CURRENT_TIMESTAMP
             """,
             {
@@ -234,6 +255,7 @@ def update_travel_preferences(
                 "accessibility_first": payload.accessibility_first,
                 "less_walking": payload.least_walk,
                 "fewer_transfers": payload.fewest_transfers,
+                "priority_order": json.dumps(payload.priority_order),
             },
         )
     return payload

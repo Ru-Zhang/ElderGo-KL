@@ -18,11 +18,6 @@ from app.schemas.routes import (
 )
 from app.services.database import get_connection
 from app.services.google_maps_service import CandidateRoute
-from app.services.klcc_monash_route_service import (
-    fetch_klcc_monash_brt_candidate,
-    is_monash_brt_route,
-    uses_monash_corridor,
-)
 from app.exceptions.route_errors import RouteUnavailableError
 from app.services.elder_route_ranking_service import (
     align_composed_duration,
@@ -45,25 +40,13 @@ logger = logging.getLogger(__name__)
 
 async def _gather_route_candidates(
     payload: RouteRecommendationRequest,
-    *,
-    monash_brt: bool,
 ) -> list[CandidateRoute]:
-    candidates: list[CandidateRoute] = []
-    if monash_brt:
-        composed = await fetch_klcc_monash_brt_candidate(
-            payload.origin,
-            payload.destination,
-            payload.departure_time,
-        )
-        if composed is not None:
-            candidates.append(composed)
     direct = await fetch_transit_candidates_lenient(
         payload.origin,
         payload.destination,
         payload.departure_time,
     )
-    candidates.extend(direct)
-    unique = dedupe_candidates(candidates)
+    unique = dedupe_candidates(direct)
     return unique
 
 
@@ -220,7 +203,7 @@ def _route_from_candidate(
         duration_minutes=candidate.duration_minutes,
         transfers=candidate.transfers,
         walking_distance_meters=candidate.walking_distance_meters,
-        recommendation_reason="Best route for your departure time, balanced for your travel preferences.",
+        recommendation_reason="Chosen from Google Maps routes for your selected departure time and priority order.",
         preference_summary_key=preference_summary_key,
         ranking_primary_factor=ranking_primary_factor,
         ranking_secondary_factor=ranking_secondary_factor,
@@ -484,8 +467,7 @@ async def recommend_route(
         return cached
 
     google_started = time.perf_counter()
-    monash_brt = is_monash_brt_route(payload.origin, payload.destination)
-    transit_candidates = await _gather_route_candidates(payload, monash_brt=monash_brt)
+    transit_candidates = await _gather_route_candidates(payload)
     if not transit_candidates:
         raise RouteUnavailableError(
             "no_transit_route",
@@ -493,15 +475,9 @@ async def recommend_route(
             departure_time=payload.departure_time,
         )
 
-    from app.services.elder_route_ranking_service import uses_exclusive_preference_focus
-
-    corridor_filter = None
-    if monash_brt and not uses_exclusive_preference_focus(payload.preferences):
-        corridor_filter = uses_monash_corridor
     choice = rank_candidates_for_elders(
         transit_candidates,
         payload.preferences,
-        corridor_filter=corridor_filter,
     )
     if choice is None:
         raise RouteUnavailableError(

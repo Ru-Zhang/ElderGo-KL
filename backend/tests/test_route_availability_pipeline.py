@@ -66,10 +66,10 @@ def test_all_preferences_on_still_picks_transit_route() -> None:
     assert choice.candidate is transit
 
 
-async def _test_recommend_route_uses_compose_then_preferences() -> None:
+async def _test_recommend_route_uses_google_candidates_then_preferences() -> None:
     from app.services import route_service
 
-    composed = _transit_candidate(duration=45)
+    direct = _transit_candidate(duration=45)
     payload = RouteRecommendationRequest(
         origin=PlaceInput(display_name="USJ 7", lat=3.0553, lon=101.5919),
         destination=PlaceInput(display_name="Monash University", lat=3.06, lon=101.6),
@@ -86,26 +86,21 @@ async def _test_recommend_route_uses_compose_then_preferences() -> None:
             mock_cache.return_value.get = AsyncMock(return_value=None)
             mock_cache.return_value.set = AsyncMock()
             with patch(
-                "app.services.route_service.fetch_klcc_monash_brt_candidate",
-                new=AsyncMock(return_value=composed),
-            ) as mock_compose:
-                with patch(
-                    "app.services.route_service.fetch_transit_candidates",
-                    new=AsyncMock(),
-                ) as mock_direct:
-                    result = await route_service.recommend_route(payload)
+                "app.services.route_service.fetch_transit_candidates_lenient",
+                new=AsyncMock(return_value=[direct]),
+            ) as mock_direct:
+                result = await route_service.recommend_route(payload)
 
-    mock_compose.assert_awaited_once()
-    mock_direct.assert_not_awaited()
+    mock_direct.assert_awaited_once()
     assert result.duration_minutes == 45
     assert result.preference_summary_key is not None
 
 
-def test_recommend_route_uses_compose_then_preferences() -> None:
-    asyncio.run(_test_recommend_route_uses_compose_then_preferences())
+def test_recommend_route_uses_google_candidates_then_preferences() -> None:
+    asyncio.run(_test_recommend_route_uses_google_candidates_then_preferences())
 
 
-async def _test_recommend_route_falls_back_to_direct_when_compose_fails() -> None:
+async def _test_recommend_route_uses_lenient_google_candidates() -> None:
     from app.services import route_service
 
     direct = _transit_candidate(duration=60)
@@ -121,18 +116,14 @@ async def _test_recommend_route_falls_back_to_direct_when_compose_fails() -> Non
             mock_cache.return_value.get = AsyncMock(return_value=None)
             mock_cache.return_value.set = AsyncMock()
             with patch(
-                "app.services.route_service.fetch_klcc_monash_brt_candidate",
-                new=AsyncMock(return_value=None),
-            ):
-                with patch(
-                    "app.services.route_service.fetch_transit_candidates",
-                    new=AsyncMock(return_value=[direct]),
-                ) as mock_direct:
-                    result = await route_service.recommend_route(payload)
+                "app.services.route_service.fetch_transit_candidates_lenient",
+                new=AsyncMock(return_value=[direct]),
+            ) as mock_direct:
+                result = await route_service.recommend_route(payload)
 
     mock_direct.assert_awaited_once()
     assert result.duration_minutes == 60
 
 
-def test_recommend_route_falls_back_to_direct_when_compose_fails() -> None:
-    asyncio.run(_test_recommend_route_falls_back_to_direct_when_compose_fails())
+def test_recommend_route_uses_lenient_google_candidates() -> None:
+    asyncio.run(_test_recommend_route_uses_lenient_google_candidates())

@@ -67,6 +67,27 @@ def test_build_route_cache_key_differs_by_preferences():
     assert build_route_cache_key(base) != build_route_cache_key(other)
 
 
+def test_build_route_cache_key_differs_by_priority_order():
+    base = _sample_payload()
+    other = base.model_copy(
+        update={
+            "preferences": TravelPreferences(
+                accessibility_first=True,
+                least_walk=True,
+                fewest_transfers=False,
+                priority_order=["walk", "accessibility", "transfers"],
+            )
+        }
+    )
+    assert build_route_cache_key(base) != build_route_cache_key(other)
+
+
+def test_build_route_cache_key_includes_ranking_version():
+    payload = _sample_payload()
+    key = build_route_cache_key(payload)
+    assert key.startswith("google-priority-fastest-v2|")
+
+
 def test_build_route_cache_key_same_for_same_request():
     payload = _sample_payload()
     assert build_route_cache_key(payload) == build_route_cache_key(payload.model_copy())
