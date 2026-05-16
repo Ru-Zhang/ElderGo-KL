@@ -1118,6 +1118,7 @@ def test_chatbox_plan_route_pick_by_number_after_disambiguation(monkeypatch) -> 
         ]
 
     monkeypatch.setattr(ai_flow_service, "search_places_kv", fake_places)
+    monkeypatch.setattr(ai_flow_service, "lookup_known_kv_place", lambda _query: None)
 
     client = TestClient(app)
     start = client.post(
@@ -1253,6 +1254,24 @@ def test_chatbox_ticket_guide_returns_answer_blocks(monkeypatch) -> None:
     assert payload["answer_blocks"]
     assert any(block["type"] == "heading" for block in payload["answer_blocks"])
     assert any(block["type"] == "sources" for block in payload["answer_blocks"])
+
+
+def test_chatbox_discount_question_returns_concession_guide(monkeypatch) -> None:
+    _set_guardrail(monkeypatch)
+    gemini_called = _mock_call_with_key_pool_tracker(monkeypatch)
+
+    client = TestClient(app)
+    response = client.post(
+        "/ai/conversations/conv_test/messages",
+        json={"message": "i wanna know the discount"},
+    )
+    payload = response.json()
+    assert response.status_code == 200
+    assert payload["in_scope"] is True
+    assert "Klang Valley travel only" not in payload["answer"]
+    assert "senior" in payload["answer"].lower() or "warga emas" in payload["answer"].lower() or "长者" in payload["answer"]
+    assert any(action["type"] == "open_concession_guide" for action in payload["actions"])
+    assert gemini_called == []
 
 
 def test_chatbox_plan_route_flow_returns_structured_blocks(monkeypatch) -> None:

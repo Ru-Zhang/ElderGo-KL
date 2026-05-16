@@ -1,5 +1,8 @@
 import json
+import logging
+import time
 from dataclasses import dataclass
+from pathlib import Path
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 import uuid
@@ -10,23 +13,48 @@ from app.schemas.routes import (
     RouteAccessibilityAnnotation,
     RouteAccessibilityPoint,
     RouteRecommendationRequest,
+    RouteStationImageRef,
     RouteStep,
 )
 from app.services.database import get_connection
-from app.services.google_maps_service import CandidateRoute, fetch_candidate_routes
+from app.services.google_maps_service import CandidateRoute, fetch_transit_candidates
 from app.services.klcc_monash_route_service import (
     fetch_klcc_monash_brt_candidate,
-    is_klcc_to_monash_route,
+    is_monash_brt_route,
 )
-from app.services.route_scoring_service import choose_best_candidate
+from app.exceptions.route_errors import RouteUnavailableError
+from app.services.route_scoring_service import choose_best_with_summary
+from app.services.route_segment_image_matcher import resolve_route_step_images
 from app.services.accessibility_annotation_service import (
     AccessibilityAnnotationResult,
-    annotate_google_step,
+    annotate_all_route_steps,
 )
 from app.services.navigation_waypoints_service import build_navigation_waypoints
 from app.services.transit_direction_service import build_transit_line_direction
+from app.services.route_cache_service import build_route_cache_key, get_route_cache
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
+_DEBUG_LOG = Path(__file__).resolve().parents[3] / ".cursor" / "debug-ce83c2.log"
+
+
+def _agent_log(hypothesis_id: str, message: str, data: dict) -> None:
+    # #region agent log
+    try:
+        payload = {
+            "sessionId": "ce83c2",
+            "hypothesisId": hypothesis_id,
+            "location": "route_service.py",
+            "message": message,
+            "data": data,
+            "timestamp": int(time.time() * 1000),
+        }
+        _DEBUG_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with _DEBUG_LOG.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+    # #endregion
 
 
 @dataclass
@@ -103,7 +131,13 @@ def _clean_html_instruction(value: str | None) -> str:
     )
 
 
-def _step_from_google(step_number: int, google_step: dict) -> PreparedRouteStep:
+def _step_from_google(
+    step_number: int,
+    google_step: dict,
+    *,
+    annotation_result: AccessibilityAnnotationResult,
+    curated_images: list | None = None,
+) -> PreparedRouteStep:
     # Normalize a Google step into our internal route step shape while keeping
     # raw geometry/line metadata for later persistence and map rendering.
     mode = google_step.get("travel_mode")
@@ -112,7 +146,6 @@ def _step_from_google(step_number: int, google_step: dict) -> PreparedRouteStep:
     line = transit.get("line", {})
     vehicle = line.get("vehicle", {})
     line_direction = build_transit_line_direction(transit) if step_type == "transit" else None
-    annotation_result = annotate_google_step(google_step)
     return PreparedRouteStep(
         step=RouteStep(
             step_number=step_number,
@@ -129,15 +162,35 @@ def _step_from_google(step_number: int, google_step: dict) -> PreparedRouteStep:
             transit_headsign=transit.get("headsign"),
             transit_direction_from=line_direction[0] if line_direction else None,
             transit_direction_to=line_direction[1] if line_direction else None,
+            curated_images=[
+                RouteStationImageRef(path=image["path"], caption=image.get("caption", ""))
+                for image in (curated_images or [])
+            ],
             annotation=annotation_result.annotation,
         ),
         annotation_result=annotation_result,
     )
 
 
-def _route_from_candidate(payload: RouteRecommendationRequest, candidate: CandidateRoute) -> PreparedRecommendation:
+def _route_from_candidate(
+    payload: RouteRecommendationRequest,
+    candidate: CandidateRoute,
+    *,
+    preference_summary_key: str | None = None,
+) -> PreparedRecommendation:
+    annotation_results = annotate_all_route_steps(candidate.steps)
+    step_images = resolve_route_step_images(
+        candidate.steps,
+        payload.origin.display_name,
+        payload.destination.display_name,
+    )
     prepared_steps = [
-        _step_from_google(index + 1, step)
+        _step_from_google(
+            index + 1,
+            step,
+            annotation_result=annotation_results[index],
+            curated_images=step_images.get(index + 1, []),
+        )
         for index, step in enumerate(candidate.steps)
     ]
     accessibility_points: list[RouteAccessibilityPoint] = []
@@ -155,7 +208,8 @@ def _route_from_candidate(payload: RouteRecommendationRequest, candidate: Candid
         duration_minutes=candidate.duration_minutes,
         transfers=candidate.transfers,
         walking_distance_meters=candidate.walking_distance_meters,
-        recommendation_reason="Selected from Google Maps transit candidates using ElderGo preference scoring.",
+        recommendation_reason="Best route for your departure time, balanced for your travel preferences.",
+        preference_summary_key=preference_summary_key,
         map_polyline=candidate.polyline,
         steps=[prepared.step for prepared in prepared_steps],
         navigation_waypoints=build_navigation_waypoints(candidate.steps),
@@ -174,14 +228,12 @@ def _parse_optional_uuid(value: str | None) -> str | None:
 
 
 def _parse_travel_time(value: str) -> datetime | None:
-    if value == "now":
-        return datetime.now(UTC)
+    from app.services.departure_time_service import resolve_departure_datetime
+
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        if parsed.tzinfo is not None:
-            return parsed.astimezone(UTC).replace(tzinfo=None)
-        return parsed
-    except ValueError:
+        parsed = resolve_departure_datetime(value)
+        return parsed.astimezone(UTC).replace(tzinfo=None)
+    except (ValueError, TypeError):
         return None
 
 
@@ -402,38 +454,121 @@ async def recommend_route(
     *,
     background_tasks=None,
 ) -> RecommendedRoute:
-    best: CandidateRoute | None = None
-    if is_klcc_to_monash_route(payload.origin, payload.destination):
+    from app.services.departure_time_service import normalize_departure_key
+
+    started = time.perf_counter()
+    payload.departure_time = normalize_departure_key(payload.departure_time)
+    prefs = payload.preferences
+    _agent_log(
+        "H5",
+        "recommend_start",
+        {
+            "departure": payload.departure_time,
+            "origin": payload.origin.display_name[:40],
+            "destination": payload.destination.display_name[:40],
+            "accessibility_first": prefs.accessibility_first,
+            "least_walk": prefs.least_walk,
+            "fewest_transfers": prefs.fewest_transfers,
+            "demo_mode": settings.demo_mode,
+            "persist_snapshots": settings.persist_route_snapshots,
+        },
+    )
+    cache_key = build_route_cache_key(payload)
+    route_cache = get_route_cache()
+    cached = await route_cache.get(cache_key, payload.departure_time)
+    if cached is not None:
+        _agent_log("H5", "cache_hit", {"ms": round((time.perf_counter() - started) * 1000, 1)})
+        logger.info(
+            "route_recommend cache_hit ms=%.1f key=%s",
+            (time.perf_counter() - started) * 1000,
+            cache_key[:48],
+        )
+        return cached
+
+    google_started = time.perf_counter()
+    preference_summary_key: str | None = None
+    transit_candidates: list[CandidateRoute] = []
+
+    monash_brt = is_monash_brt_route(payload.origin, payload.destination)
+    _agent_log("H1", "google_phase_start", {"monash_brt": monash_brt})
+    if monash_brt:
         composed = await fetch_klcc_monash_brt_candidate(
-            payload.origin, payload.destination, payload.departure_time
+            payload.origin,
+            payload.destination,
+            payload.departure_time,
         )
         if composed is not None:
-            best = composed
+            transit_candidates.append(composed)
+            _agent_log(
+                "H1",
+                "monash_compose_ok",
+                {
+                    "transfers": composed.transfers,
+                    "duration_minutes": composed.duration_minutes,
+                },
+            )
 
-    if best is None:
-        candidates = await fetch_candidate_routes(payload.origin, payload.destination, payload.departure_time)
-        best = choose_best_candidate(
-            candidates,
-            accessibility_first=payload.preferences.accessibility_first,
-            least_walk=payload.preferences.least_walk,
-            fewest_transfers=payload.preferences.fewest_transfers,
+    if not transit_candidates:
+        transit_candidates = await fetch_transit_candidates(
+            payload.origin,
+            payload.destination,
+            payload.departure_time,
         )
-    if best is None:
-        raise ValueError("Google Maps did not return a usable route candidate.")
-    prepared = _route_from_candidate(payload, best)
+
+    choice = choose_best_with_summary(transit_candidates, payload.preferences)
+    if choice is None:
+        raise RouteUnavailableError(
+            "no_transit_route",
+            "No public transport route was found for this departure time. Try Leave now or a different time.",
+            departure_time=payload.departure_time,
+        )
+    best = choice.candidate
+    preference_summary_key = choice.preference_summary_key
+    google_ms = (time.perf_counter() - google_started) * 1000
+    _agent_log(
+        "H1",
+        "google_phase_done",
+        {
+            "google_ms": round(google_ms, 1),
+            "step_count": len(best.steps) if best else 0,
+        },
+    )
+
+    annotate_started = time.perf_counter()
+    _agent_log("H2", "annotate_phase_start", {"step_count": len(best.steps) if best else 0})
+    prepared = _route_from_candidate(payload, best, preference_summary_key=preference_summary_key)
+    annotate_ms = (time.perf_counter() - annotate_started) * 1000
+    _agent_log("H2", "annotate_phase_done", {"annotate_ms": round(annotate_ms, 1)})
     recommendation = prepared.route
+
     # In local/demo runs, route persistence can be unavailable; keep route planning usable.
     if settings.demo_mode:
-        return recommendation.model_copy(update={"recommended_route_id": f"demo_{uuid.uuid4().hex[:12]}"})
+        result = recommendation.model_copy(update={"recommended_route_id": f"demo_{uuid.uuid4().hex[:12]}"})
+        await route_cache.set(cache_key, result, payload.departure_time)
+        logger.info(
+            "route_recommend ok ms=%.1f google_ms=%.1f annotate_ms=%.1f",
+            (time.perf_counter() - started) * 1000,
+            google_ms,
+            annotate_ms,
+        )
+        return result
 
-    # Return immediately with an ephemeral id; persist in background so the client
-    # does not wait on many sequential INSERT round-trips.
+    # Return immediately with an ephemeral id; optional background persist must not
+    # block station search endpoints on the same database.
     recommended_route_id = f"ephemeral_{uuid.uuid4().hex[:12]}"
-    if background_tasks is not None:
+    if settings.persist_route_snapshots and background_tasks is not None:
         background_tasks.add_task(_persist_route_background, payload, prepared)
-    else:
+    elif settings.persist_route_snapshots:
         try:
             recommended_route_id = _persist_route(payload, prepared)
         except Exception:
             pass
-    return recommendation.model_copy(update={"recommended_route_id": recommended_route_id})
+    result = recommendation.model_copy(update={"recommended_route_id": recommended_route_id})
+    await route_cache.set(cache_key, result, payload.departure_time)
+    logger.info(
+        "route_recommend ok ms=%.1f google_ms=%.1f annotate_ms=%.1f",
+        (time.perf_counter() - started) * 1000,
+        google_ms,
+        annotate_ms,
+    )
+    return result

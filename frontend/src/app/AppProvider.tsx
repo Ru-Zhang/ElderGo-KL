@@ -27,6 +27,7 @@ interface AppContextType {
   currentRoute: RecommendedRoute | null;
   routeLoading: boolean;
   routeError: string | null;
+  routeErrorCode: string | null;
   selectedStation: LocationDetail | null;
   toggleLanguage: () => void;
   toggleFontSize: () => void;
@@ -39,6 +40,7 @@ interface AppContextType {
   setCurrentRoute: (route: RecommendedRoute | null) => void;
   setRouteLoading: (loading: boolean) => void;
   setRouteError: (error: string | null) => void;
+  setRouteErrorCode: (code: string | null) => void;
   setSelectedStation: (station: LocationDetail | null) => void;
 }
 
@@ -84,6 +86,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [currentRoute, setCurrentRoute] = useState<RecommendedRoute | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
+  const [routeErrorCode, setRouteErrorCode] = useState<string | null>(null);
   const [selectedStation, setSelectedStation] = useState<LocationDetail | null>(null);
   // Guard flags prevent late remote restore responses from overwriting user
   // interactions that happen immediately after app startup.
@@ -193,6 +196,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       currentRoute,
       routeLoading,
       routeError,
+      routeErrorCode,
       selectedStation,
       toggleLanguage,
       toggleFontSize,
@@ -205,6 +209,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setCurrentRoute,
       setRouteLoading,
       setRouteError,
+      setRouteErrorCode,
       setSelectedStation
     }}>
       {children}

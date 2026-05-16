@@ -1,8 +1,32 @@
+import json
+import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from app.schemas.routes import RouteAccessibilityAnnotation, RouteAccessibilityPoint
 from app.services.database import get_connection
+
+_DEBUG_LOG = Path(__file__).resolve().parents[3] / ".cursor" / "debug-ce83c2.log"
+
+
+def _agent_log(hypothesis_id: str, message: str, data: dict) -> None:
+    # #region agent log
+    try:
+        payload = {
+            "sessionId": "ce83c2",
+            "hypothesisId": hypothesis_id,
+            "location": "accessibility_annotation_service.py",
+            "message": message,
+            "data": data,
+            "timestamp": int(time.time() * 1000),
+        }
+        _DEBUG_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with _DEBUG_LOG.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+    # #endregion
 
 
 SUPPORTED_GOOGLE_ACCESSIBILITY_KEYS = {
@@ -169,11 +193,38 @@ def _normalize_json_list(value: Any) -> list[str]:
     return []
 
 
-def _find_station_by_coordinate(lat: float | None, lon: float | None) -> StationMatch | None:
+def _stop_cache_key(stop: dict[str, Any]) -> str:
+    location = stop.get("location", {})
+    lat = location.get("lat")
+    lon = location.get("lng", location.get("lon"))
+    if lat is not None and lon is not None:
+        return f"coord:{round(float(lat), 5)},{round(float(lon), 5)}"
+    name = stop.get("name")
+    if name:
+        return f"name:{str(name).strip().lower()}"
+    return "unknown"
+
+
+def _row_to_station_match(row) -> StationMatch:
+    return StationMatch(
+        station_id=row["station_id"],
+        station_name=row["station_name"],
+        accessibility_status=row["accessibility_status"],
+        confidence=row["confidence"],
+        source_list=_normalize_json_list(row["source_list"]),
+        note=row["note"],
+        distance_m=row["distance_m"],
+    )
+
+
+def _find_station_by_coordinate_with_conn(
+    conn,
+    lat: float | None,
+    lon: float | None,
+) -> StationMatch | None:
     if lat is None or lon is None:
         return None
-    with get_connection() as conn:
-        row = conn.execute(
+    row = conn.execute(
             """
             SELECT
                 station.station_id,
@@ -202,22 +253,18 @@ def _find_station_by_coordinate(lat: float | None, lon: float | None) -> Station
         ).fetchone()
     if not row:
         return None
-    return StationMatch(
-        station_id=row["station_id"],
-        station_name=row["station_name"],
-        accessibility_status=row["accessibility_status"],
-        confidence=row["confidence"],
-        source_list=_normalize_json_list(row["source_list"]),
-        note=row["note"],
-        distance_m=row["distance_m"],
-    )
+    return _row_to_station_match(row)
 
 
-def _find_station_by_name(name: str | None) -> StationMatch | None:
+def _find_station_by_coordinate(lat: float | None, lon: float | None) -> StationMatch | None:
+    with get_connection() as conn:
+        return _find_station_by_coordinate_with_conn(conn, lat, lon)
+
+
+def _find_station_by_name_with_conn(conn, name: str | None) -> StationMatch | None:
     if not name:
         return None
-    with get_connection() as conn:
-        row = conn.execute(
+    row = conn.execute(
             """
             SELECT
                 station.station_id,
@@ -239,31 +286,103 @@ def _find_station_by_name(name: str | None) -> StationMatch | None:
         ).fetchone()
     if not row:
         return None
-    return StationMatch(
-        station_id=row["station_id"],
-        station_name=row["station_name"],
-        accessibility_status=row["accessibility_status"],
-        confidence=row["confidence"],
-        source_list=_normalize_json_list(row["source_list"]),
-        note=row["note"],
-        distance_m=row["distance_m"],
-    )
+    return _row_to_station_match(row)
 
 
-def _find_station(stop: dict[str, Any] | None) -> StationMatch | None:
+def _find_station_by_name(name: str | None) -> StationMatch | None:
+    with get_connection() as conn:
+        return _find_station_by_name_with_conn(conn, name)
+
+
+def _collect_pending_stops(steps: list[dict[str, Any]]) -> tuple[dict[str, StationMatch | None], list[tuple[str, dict[str, Any]]]]:
+    pending: list[tuple[str, dict[str, Any]]] = []
+    cache: dict[str, StationMatch | None] = {}
+    for step in steps:
+        if step.get("travel_mode") != "TRANSIT":
+            continue
+        transit = step.get("transit_details", {})
+        for stop in (transit.get("departure_stop"), transit.get("arrival_stop")):
+            if not stop:
+                continue
+            key = _stop_cache_key(stop)
+            if key not in cache:
+                cache[key] = None
+                pending.append((key, stop))
+    return cache, pending
+
+
+def _prefetch_stations_with_conn(
+    conn,
+    pending: list[tuple[str, dict[str, Any]]],
+    cache: dict[str, StationMatch | None],
+) -> None:
+    for key, stop in pending:
+        location = stop.get("location", {})
+        lat = location.get("lat")
+        lon = location.get("lng", location.get("lon"))
+        matched = _find_station_by_coordinate_with_conn(conn, lat, lon)
+        if matched is None:
+            matched = _find_station_by_name_with_conn(conn, stop.get("name"))
+        cache[key] = matched
+
+
+def prefetch_station_matches(steps: list[dict[str, Any]]) -> dict[str, StationMatch | None]:
+    """Resolve transit stops in one DB connection for a whole route."""
+    cache, pending = _collect_pending_stops(steps)
+    if not pending:
+        return cache
+
+    prefetch_started = time.perf_counter()
+    _agent_log("H2", "prefetch_stations_start", {"stop_count": len(pending)})
+    try:
+        with get_connection() as conn:
+            _prefetch_stations_with_conn(conn, pending, cache)
+        _agent_log(
+            "H2",
+            "prefetch_stations_done",
+            {"ms": round((time.perf_counter() - prefetch_started) * 1000, 1)},
+        )
+    except Exception as exc:
+        _agent_log(
+            "H2",
+            "prefetch_stations_failed",
+            {
+                "ms": round((time.perf_counter() - prefetch_started) * 1000, 1),
+                "error": type(exc).__name__,
+            },
+        )
+    return cache
+
+
+def prefetch_station_matches_with_conn(
+    conn,
+    steps: list[dict[str, Any]],
+) -> dict[str, StationMatch | None]:
+    cache, pending = _collect_pending_stops(steps)
+    if pending:
+        _prefetch_stations_with_conn(conn, pending, cache)
+    return cache
+
+
+def _find_station(
+    stop: dict[str, Any] | None,
+    station_cache: dict[str, StationMatch | None] | None = None,
+) -> StationMatch | None:
     if not stop:
         return None
+    if station_cache is not None:
+        key = _stop_cache_key(stop)
+        if key in station_cache:
+            return station_cache[key]
     location = stop.get("location", {})
     lat = location.get("lat")
     lon = location.get("lng", location.get("lon"))
-    # Prefer geo match for precision, fallback to fuzzy name match when coordinates
-    # are missing or outside our import tolerance.
     return _find_station_by_coordinate(lat, lon) or _find_station_by_name(stop.get("name"))
 
 
-def _walking_accessibility_result(path_wkt: str) -> dict[str, Any] | None:
-    with get_connection() as conn:
-        row = conn.execute(
+def _walking_accessibility_result_with_conn(conn, path_wkt: str) -> dict[str, Any] | None:
+    walk_started = time.perf_counter()
+    row = conn.execute(
             """
             SELECT
                 accessibility_point_id,
@@ -300,6 +419,9 @@ def _walking_accessibility_result(path_wkt: str) -> dict[str, Any] | None:
             """,
             {"path_wkt": path_wkt, "support_types": list(ACCESSIBILITY_SUPPORT_TYPES)},
         ).fetchone()
+    walk_ms = round((time.perf_counter() - walk_started) * 1000, 1)
+    if walk_ms > 500:
+        _agent_log("H3", "walking_query_slow", {"ms": walk_ms})
     if not row:
         return None
 
@@ -339,7 +461,63 @@ def _walking_accessibility_result(path_wkt: str) -> dict[str, Any] | None:
     return None
 
 
-def annotate_google_step(google_step: dict[str, Any]) -> AccessibilityAnnotationResult:
+def _walking_accessibility_result(path_wkt: str) -> dict[str, Any] | None:
+    try:
+        with get_connection() as conn:
+            return _walking_accessibility_result_with_conn(conn, path_wkt)
+    except Exception:
+        return None
+
+
+def annotate_all_route_steps(steps: list[dict[str, Any]]) -> list[AccessibilityAnnotationResult]:
+    """Prefetch stations and annotate every step using one DB connection."""
+    annotate_started = time.perf_counter()
+    try:
+        with get_connection() as conn:
+            cache = prefetch_station_matches_with_conn(conn, steps)
+            results = [
+                annotate_google_step(step, station_cache=cache, db_conn=conn) for step in steps
+            ]
+        _agent_log(
+            "H2",
+            "annotate_all_route_steps_done",
+            {
+                "ms": round((time.perf_counter() - annotate_started) * 1000, 1),
+                "step_count": len(steps),
+            },
+        )
+        return results
+    except Exception as exc:
+        _agent_log(
+            "H2",
+            "annotate_all_route_steps_failed",
+            {
+                "ms": round((time.perf_counter() - annotate_started) * 1000, 1),
+                "error": type(exc).__name__,
+            },
+        )
+        return [annotate_google_step(step) for step in steps]
+
+
+def quick_step_accessibility_risk(google_step: dict[str, Any]) -> tuple[bool, bool]:
+    """Lightweight risk flags for route scoring (no database I/O)."""
+    travel_mode = google_step.get("travel_mode")
+    if travel_mode == "TRANSIT":
+        transit_details = google_step.get("transit_details", {})
+        if _google_has_accessibility_hint(transit_details):
+            return False, False
+        return True, False
+    if travel_mode == "WALKING":
+        return True, False
+    return False, False
+
+
+def annotate_google_step(
+    google_step: dict[str, Any],
+    *,
+    station_cache: dict[str, StationMatch | None] | None = None,
+    db_conn=None,
+) -> AccessibilityAnnotationResult:
     start_wkt = _point_wkt(google_step.get("start_location"))
     end_wkt = _point_wkt(google_step.get("end_location"))
     path_wkt = _line_wkt_from_step(google_step)
@@ -369,8 +547,8 @@ def annotate_google_step(google_step: dict[str, Any]) -> AccessibilityAnnotation
         # Database lookups are best-effort; annotation generation should never
         # hard-fail route planning.
         try:
-            from_station = _find_station(departure_stop)
-            to_station = _find_station(arrival_stop)
+            from_station = _find_station(departure_stop, station_cache)
+            to_station = _find_station(arrival_stop, station_cache)
         except Exception:
             from_station = None
             to_station = None
@@ -414,7 +592,10 @@ def annotate_google_step(google_step: dict[str, Any]) -> AccessibilityAnnotation
             # Nearby-point annotation is optional enrichment and should degrade
             # gracefully if spatial data is unavailable.
             try:
-                walking_result = _walking_accessibility_result(path_wkt)
+                if db_conn is not None:
+                    walking_result = _walking_accessibility_result_with_conn(db_conn, path_wkt)
+                else:
+                    walking_result = _walking_accessibility_result(path_wkt)
             except Exception:
                 walking_result = None
             if walking_result:

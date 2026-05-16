@@ -31,6 +31,11 @@ from app.services.chat_blocks_service import (
     parse_gemini_blocks_json,
 )
 from app.services.ai_guardrail_service import is_travel_related
+from app.services.ai_topic_inference_service import (
+    blocks_inferred_topic_answer,
+    guide_action_for_intent,
+    infer_probable_guide_intent,
+)
 from app.services.ai_flow_service import resolve_chat_flow
 from app.services.ai_language import resolve_response_language
 from app.services.ai_intent_service import (
@@ -536,6 +541,17 @@ async def send_message(conversation_id: str, payload: AIMessageRequest) -> AIMes
     mode = _guardrail_mode()
     travel_related = is_travel_related(payload.message)
     language = _response_language(payload)
+
+    probable_guide = infer_probable_guide_intent(payload.message)
+    if probable_guide and not payload.chat_flow and not travel_related:
+        clarify_blocks = blocks_inferred_topic_answer(probable_guide, language)
+        return _message_response(
+            conversation_id,
+            blocks=clarify_blocks,
+            in_scope=True,
+            actions=[guide_action_for_intent(probable_guide)],
+            response_source="db",
+        )
 
     if settings.ai_guardrail_enabled and not travel_related and not payload.chat_flow:
         if mode in {"hybrid", "rules_only"} or settings.ai_guardrail_strict:

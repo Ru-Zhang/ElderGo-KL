@@ -532,9 +532,9 @@ def blocks_ask_departure_time(language: str) -> list[ChatBlock]:
         language,
         examples=[
             {
-                "en": "now, morning, afternoon, evening (or 1, 2, 3, 4)",
-                "ms": "sekarang, pagi, petang, malam (atau 1, 2, 3, 4)",
-                "zh": "现在、早上、下午、晚上（或回复 1、2、3、4）",
+                "en": "now, morning rush, midday, evening rush, night — or e.g. tomorrow 6am (or 1–5)",
+                "ms": "sekarang, puncak pagi, tengah hari, puncak petang, malam — atau cth. esok 6 pagi (atau 1–5)",
+                "zh": "现在、早高峰、午间、晚高峰、夜间 — 或例如 明天 6点（或 1–5）",
             }[language]
         ],
     )
@@ -792,9 +792,9 @@ def blocks_invalid_departure(language: str) -> list[ChatBlock]:
             type="callout",
             tone="warning",
             text={
-                "en": "Please choose when you want to travel: now, morning, afternoon, or evening (you can also reply 1–4).",
-                "ms": "Sila pilih bila anda mahu bergerak: sekarang, pagi, petang, atau malam (anda juga boleh balas 1–4).",
-                "zh": "请选择出行时间：现在、早上、下午或晚上（也可回复数字 1–4）。",
+                "en": "Please choose: now, morning rush, midday, evening rush, or night (or reply 1–5).",
+                "ms": "Sila pilih: sekarang, puncak pagi, tengah hari, puncak petang, atau malam (atau balas 1–5).",
+                "zh": "请选择：现在、早高峰、午间、晚高峰或夜间（也可回复 1–5）。",
             }[language],
         )
     ]

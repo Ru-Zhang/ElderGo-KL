@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AppProvider, useAppContext } from './AppProvider';
 import PlanningPage from '../pages/PlanningPage';
 import PlanYourTimePage from '../pages/PlanYourTimePage';
@@ -16,8 +16,13 @@ import { getTranslation } from '../i18n/translations';
 import { debugLog } from '../utils/debugLog';
 import { getLocationDetail } from '../services/locationsApi';
 import { ChatAction } from '../types/ai';
-import { recommendRoute } from '../services/routesApi';
+import { API_BASE_URL } from '../services/api';
+import { getCachedRoute, recommendRoute } from '../services/routesApi';
+import { ApiError } from '../services/api';
+import { placeSelectionFromChatAction } from '../utils/placeSelection';
+import { resolveRouteErrorMessage } from '../utils/routeErrors';
 import { resetPageScroll } from '../utils/resetPageScroll';
+import type { PlaceSelection } from '../types/locations';
 
 const AIChatbotSheet = lazy(() => import('../components/chatbot/AIChatbotSheet'));
 
@@ -42,6 +47,8 @@ function AppContent() {
     language,
     fontSize,
     anonymousUserId,
+    origin,
+    destination,
     preferences,
     setSelectedStation,
     setOrigin,
@@ -49,9 +56,109 @@ function AppContent() {
     setDepartureTime,
     setCurrentRoute,
     setRouteLoading,
-    setRouteError
+    setRouteError,
+    setRouteErrorCode,
   } = useAppContext();
   const [stationsSearchQuery, setStationsSearchQuery] = useState('');
+  const routeAbortRef = useRef<AbortController | null>(null);
+  const routeRequestIdRef = useRef(0);
+
+  const requestRecommendedRoute = async (
+    routeOrigin: PlaceSelection,
+    routeDestination: PlaceSelection,
+    apiDepartureTime: string,
+    logSource: string,
+  ) => {
+    setDepartureTime(apiDepartureTime);
+    routeAbortRef.current?.abort();
+    const controller = new AbortController();
+    routeAbortRef.current = controller;
+    const requestId = ++routeRequestIdRef.current;
+    setRouteError(null);
+    setRouteErrorCode(null);
+
+    const routeRequest = {
+      anonymousUserId,
+      origin: routeOrigin,
+      destination: routeDestination,
+      departureTime: apiDepartureTime,
+      preferences,
+    };
+
+    const cachedRoute = getCachedRoute(routeRequest);
+    if (cachedRoute) {
+      debugLog(
+        `${logSource}`,
+        'frontend_cache_hit',
+        { apiDepartureTime, requestId, runId: 'post-fix' },
+        'H6',
+      );
+      setCurrentRoute(cachedRoute);
+      setRouteLoading(false);
+      setRouteInitialViewMode('text');
+      setCurrentPage('routeResult');
+      return;
+    }
+
+    setRouteLoading(true);
+    setCurrentRoute(null);
+    setRouteInitialViewMode('text');
+    setCurrentPage('routeResult');
+
+    const apiStarted = performance.now();
+    debugLog(
+      `${logSource}`,
+      'recommend_start',
+      { apiDepartureTime, requestId, apiBaseUrl: API_BASE_URL, runId: 'post-fix' },
+      'H6',
+    );
+
+    try {
+      const route = await recommendRoute(routeRequest, controller.signal);
+      if (requestId !== routeRequestIdRef.current) return;
+      if (controller.signal.aborted) return;
+      debugLog(
+        `${logSource}`,
+        'recommend_done',
+        { ms: Math.round(performance.now() - apiStarted), requestId, runId: 'post-fix' },
+        'H6',
+      );
+      setCurrentRoute(route);
+    } catch (error) {
+      if (requestId !== routeRequestIdRef.current) return;
+      if (controller.signal.aborted) {
+        debugLog(
+          `${logSource}`,
+          'recommend_aborted',
+          { ms: Math.round(performance.now() - apiStarted), requestId, runId: 'post-fix' },
+          'H6',
+        );
+        return;
+      }
+      const t = (key: Parameters<typeof getTranslation>[1]) => getTranslation(language, key);
+      debugLog(
+        `${logSource}`,
+        'recommend_error',
+        {
+          ms: Math.round(performance.now() - apiStarted),
+          error: error instanceof Error ? error.message : String(error),
+          runId: 'post-fix',
+        },
+        'H5',
+      );
+      setRouteErrorCode(error instanceof ApiError ? error.code ?? null : null);
+      setRouteError(resolveRouteErrorMessage(error, t, 'planTimeUnableToRoute'));
+    } finally {
+      if (requestId === routeRequestIdRef.current) {
+        setRouteLoading(false);
+      }
+    }
+  };
+
+  const handleShowRouteFromPlan = async (apiDepartureTime: string) => {
+    if (!origin || !destination) return;
+    await requestRecommendedRoute(origin, destination, apiDepartureTime, 'App.tsx:handleShowRouteFromPlan');
+  };
 
   useEffect(() => {
     void import('../components/chatbot/AIChatbotSheet');
@@ -88,10 +195,20 @@ function AppContent() {
     switch (action.type) {
       case 'open_planning':
         if (action.origin_name) {
-          setOrigin({ displayName: action.origin_name });
+          setOrigin({
+            displayName: action.origin_name,
+            lat: action.origin_lat ?? null,
+            lon: action.origin_lon ?? null,
+            googlePlaceId: action.origin_google_place_id ?? null,
+          });
         }
         if (action.destination_name) {
-          setDestination({ displayName: action.destination_name });
+          setDestination({
+            displayName: action.destination_name,
+            lat: action.destination_lat ?? null,
+            lon: action.destination_lon ?? null,
+            googlePlaceId: action.destination_google_place_id ?? null,
+          });
         }
         setCurrentPage('planning');
         break;
@@ -138,41 +255,26 @@ function AppContent() {
         if (!action.origin_name || !action.destination_name) {
           break;
         }
-        const originSelection = {
+        const originSelection = placeSelectionFromChatAction({
           displayName: action.origin_name,
-          lat: action.origin_lat ?? null,
-          lon: action.origin_lon ?? null,
-          googlePlaceId: action.origin_google_place_id ?? null
-        };
-        const destinationSelection = {
+          lat: action.origin_lat,
+          lon: action.origin_lon,
+          googlePlaceId: action.origin_google_place_id,
+        });
+        const destinationSelection = placeSelectionFromChatAction({
           displayName: action.destination_name,
-          lat: action.destination_lat ?? null,
-          lon: action.destination_lon ?? null,
-          googlePlaceId: action.destination_google_place_id ?? null
-        };
+          lat: action.destination_lat,
+          lon: action.destination_lon,
+          googlePlaceId: action.destination_google_place_id,
+        });
         setOrigin(originSelection);
         setDestination(destinationSelection);
-        setDepartureTime(action.departure_time || 'now');
-        setCurrentRoute(null);
-        setRouteLoading(true);
-        setRouteError(null);
-        setRouteInitialViewMode('text');
-        setCurrentPage('routeResult');
-        try {
-          const route = await recommendRoute({
-            anonymousUserId,
-            origin: originSelection,
-            destination: destinationSelection,
-            departureTime: action.departure_time || 'now',
-            preferences
-          });
-          setCurrentRoute(route);
-        } catch {
-          setRouteError('Unable to plan route. Please try again from Planning.');
-          setCurrentPage('planning');
-        } finally {
-          setRouteLoading(false);
-        }
+        await requestRecommendedRoute(
+          originSelection,
+          destinationSelection,
+          action.departure_time || 'now',
+          'App.tsx:compute_route',
+        );
         break;
       }
       default:
@@ -198,7 +300,7 @@ function AppContent() {
       {currentPage === 'planTime' && (
         <PlanYourTimePage
           {...navHandlers}
-          onNavigateToRouteResult={() => setCurrentPage('routeResult')}
+          onRequestRoute={(apiDepartureTime) => void handleShowRouteFromPlan(apiDepartureTime)}
         />
       )}
       {currentPage === 'routeResult' && (

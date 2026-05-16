@@ -55,6 +55,11 @@ export interface NavigationWaypoint {
   name?: string | null;
 }
 
+export interface RouteStationImageRef {
+  path: string;
+  caption?: string;
+}
+
 export interface RouteStep {
   step_number: number;
   step_type: RouteStepType;
@@ -70,6 +75,7 @@ export interface RouteStep {
   transit_headsign?: string | null;
   transit_direction_from?: string | null;
   transit_direction_to?: string | null;
+  curated_images?: RouteStationImageRef[];
   annotation: RouteAccessibilityAnnotation;
 }
 
@@ -81,6 +87,7 @@ export interface RecommendedRoute {
   transfers: number;
   walking_distance_meters: number;
   recommendation_reason: string;
+  preference_summary_key?: string | null;
   map_polyline?: string | null;
   steps: RouteStep[];
   navigation_waypoints?: NavigationWaypoint[];

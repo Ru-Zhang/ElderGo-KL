@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     ai_guardrail_mode: str = Field(default="hybrid", alias="ELDERGO_AI_GUARDRAIL_MODE")
     ai_guardrail_strict: bool = Field(default=False, alias="ELDERGO_AI_GUARDRAIL_STRICT")
     demo_mode: bool = Field(default=True, alias="ELDERGO_DEMO_MODE")
+    # Off by default so route planning does not hold DB connections after the response.
+    persist_route_snapshots: bool = Field(default=False, alias="ELDERGO_PERSIST_ROUTE_SNAPSHOTS")
+    route_cache_ttl_seconds: int = Field(default=900, alias="ELDERGO_ROUTE_CACHE_TTL_SECONDS")
+    route_cache_max_entries: int = Field(default=64, alias="ELDERGO_ROUTE_CACHE_MAX_ENTRIES")
 
     model_config = SettingsConfigDict(
         env_file=(

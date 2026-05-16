@@ -7,11 +7,16 @@ import { getLocationDetail, searchLocations } from './locationsApi';
  * LocationDetail. Mirrors the lookup strategy used by StationDetailModal so
  * step cards and the modal stay consistent.
  */
-export async function resolveStationDetailByName(rawName: string): Promise<LocationDetail | null> {
+export async function resolveStationDetailByName(
+  rawName: string,
+  signal?: AbortSignal,
+): Promise<LocationDetail | null> {
   const cleaned = cleanStationQuery(rawName);
   const queries = Array.from(new Set([cleaned, rawName.trim()].filter(Boolean)));
+  const init = signal ? { signal } : undefined;
   for (const q of queries) {
-    const matches = await searchLocations(q);
+    if (signal?.aborted) return null;
+    const matches = await searchLocations(q, init);
     if (!matches.length) continue;
     const lower = q.toLowerCase();
     const best =
@@ -19,7 +24,7 @@ export async function resolveStationDetailByName(rawName: string): Promise<Locat
       matches.find((m) => m.name.toLowerCase().startsWith(lower)) ||
       matches.find((m) => m.name.toLowerCase().includes(lower)) ||
       matches[0];
-    const fetched = await getLocationDetail(best.id);
+    const fetched = await getLocationDetail(best.id, init);
     if (fetched) return fetched;
   }
   return null;

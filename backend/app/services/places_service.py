@@ -86,8 +86,9 @@ async def get_place_detail(place_id: str) -> PlaceDetail:
     result = body["result"]
     location = result.get("geometry", {}).get("location", {})
     opening_hours = result.get("opening_hours", {}).get("weekday_text", [])
+    # Prefer short place name over full formatted address for planning UI readability.
     return PlaceDetail(
-        display_name=result.get("formatted_address") or result.get("name") or place_id,
+        display_name=result.get("name") or result.get("formatted_address") or place_id,
         google_place_id=result.get("place_id") or place_id,
         lat=location.get("lat"),
         lon=location.get("lng"),
@@ -141,7 +142,7 @@ async def search_places_kv(query: str, limit: int = 5) -> list[PlaceDetail]:
         location = item.get("geometry", {}).get("location", {})
         places.append(
             PlaceDetail(
-                display_name=item.get("formatted_address") or item.get("name") or query,
+                display_name=item.get("name") or item.get("formatted_address") or query,
                 google_place_id=place_id,
                 lat=location.get("lat"),
                 lon=location.get("lng"),

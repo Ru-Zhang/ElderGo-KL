@@ -1,4 +1,9 @@
 import { PlaceSelection } from '../types/locations';
+import {
+  formatPlaceDisplayName,
+  normalizePlaceText,
+  placeTextsMatch,
+} from '../utils/placeDisplay';
 import { apiRequest } from './api';
 import { API_BASE_URL } from './api';
 
@@ -32,18 +37,117 @@ export async function getPlaceSuggestions(query: string): Promise<PlaceSelection
   }));
 }
 
-export async function getPlaceDetail(placeId: string): Promise<PlaceSelection> {
+export function placeDetailToSelection(
+  detail: {
+    display_name: string;
+    google_place_id: string;
+    lat?: number | null;
+    lon?: number | null;
+    name?: string | null;
+  },
+  preferredLabel?: string | null
+): PlaceSelection {
+  const rawLabel = preferredLabel?.trim() || detail.name?.trim() || detail.display_name;
+  const selection = {
+    displayName: formatPlaceDisplayName(rawLabel),
+    googlePlaceId: detail.google_place_id,
+    lat: detail.lat,
+    lon: detail.lon,
+  };
+  // #region agent log
+  fetch('http://127.0.0.1:7267/ingest/af3fa6c2-77fe-4e06-a79f-1e670577b9b2', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'ce83c2' },
+    body: JSON.stringify({
+      sessionId: 'ce83c2',
+      hypothesisId: 'H-A',
+      location: 'googlePlaces.ts:placeDetailToSelection',
+      message: 'place_label_mapped',
+      data: {
+        preferredLabel: preferredLabel ?? null,
+        googleName: detail.name ?? null,
+        displayName: selection.displayName,
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+  return selection;
+}
+
+export async function getPlaceDetail(
+  placeId: string,
+  preferredLabel?: string | null
+): Promise<PlaceSelection> {
   const detail = await apiRequest<{
     display_name: string;
     google_place_id: string;
     lat?: number | null;
     lon?: number | null;
+    name?: string | null;
   }>(`/places/details/${encodeURIComponent(placeId)}`);
+  return placeDetailToSelection(detail, preferredLabel);
+}
+
+/** Resolve station or free-text prefill to a confirmed Google place (case-insensitive). */
+export async function resolvePlaceSelection(place: PlaceSelection): Promise<PlaceSelection> {
+  if (place.googlePlaceId) {
+    try {
+      return await getPlaceDetail(place.googlePlaceId, place.displayName);
+    } catch {
+      return {
+        ...place,
+        displayName: formatPlaceDisplayName(place.displayName),
+      };
+    }
+  }
+
+  if (place.lat != null && place.lon != null && place.displayName.trim()) {
+    try {
+      const detail = await getStationGooglePlaceDetail(
+        place.displayName,
+        place.lat,
+        place.lon,
+      );
+      return placeDetailToSelection(detail);
+    } catch {
+      return {
+        ...place,
+        displayName: formatPlaceDisplayName(place.displayName),
+      };
+    }
+  }
+
+  const query = place.displayName.trim();
+  if (!query) {
+    return place;
+  }
+
+  try {
+    const suggestions = await getPlaceSuggestions(query);
+    const normalizedQuery = normalizePlaceText(query);
+    const exactMatch = suggestions.find((suggestion) => {
+      const short = formatPlaceDisplayName(suggestion.displayName);
+      return (
+        placeTextsMatch(short, query) ||
+        placeTextsMatch(suggestion.displayName, query) ||
+        normalizePlaceText(short) === normalizedQuery
+      );
+    });
+
+    if (exactMatch?.googlePlaceId) {
+      return await getPlaceDetail(
+        exactMatch.googlePlaceId,
+        formatPlaceDisplayName(exactMatch.displayName)
+      );
+    }
+  } catch {
+    // Keep original prefill when Places is unavailable.
+  }
+
   return {
-    displayName: detail.display_name,
-    googlePlaceId: detail.google_place_id,
-    lat: detail.lat,
-    lon: detail.lon
+    ...place,
+    displayName: formatPlaceDisplayName(place.displayName),
   };
 }
 

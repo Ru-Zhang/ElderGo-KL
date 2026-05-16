@@ -50,6 +50,40 @@ export function sortFacilitiesForElders(items: string[]): string[] {
     .map((entry) => entry.value);
 }
 
+function normalizeFacilityLabel(label: string): string {
+  return label.toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+/** Drop near-duplicate labels (e.g. "Shops" when "Shops & Mall" is present). */
+export function dedupeFacilities(items: string[]): string[] {
+  const ordered = sortFacilitiesForElders(items);
+  const kept: string[] = [];
+
+  for (const item of ordered) {
+    const norm = normalizeFacilityLabel(item);
+    const supersededIdx = kept.findIndex((existing) => {
+      const existingNorm = normalizeFacilityLabel(existing);
+      if (norm === existingNorm) return true;
+      return existingNorm.length > norm.length + 2 && existingNorm.includes(norm);
+    });
+    if (supersededIdx >= 0) continue;
+
+    const withoutShorter = kept.filter((existing) => {
+      const existingNorm = normalizeFacilityLabel(existing);
+      return !(norm.length > existingNorm.length + 2 && norm.includes(existingNorm));
+    });
+
+    kept.length = 0;
+    kept.push(...withoutShorter, item);
+  }
+
+  return kept;
+}
+
+export function prepareFacilitiesForDisplay(items: string[]): string[] {
+  return dedupeFacilities(items);
+}
+
 /** Mobility + comfort tiers only — used on compact route step cards. */
 export function getElderHighlightFacilities(items: string[]): string[] {
   return sortFacilitiesForElders(items).filter((label) => getFacilityTier(label) <= 2);

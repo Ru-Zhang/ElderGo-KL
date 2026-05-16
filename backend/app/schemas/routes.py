@@ -47,6 +47,11 @@ class NavigationWaypoint(BaseModel):
     name: str | None = None
 
 
+class RouteStationImageRef(BaseModel):
+    path: str
+    caption: str = ""
+
+
 class RouteStep(BaseModel):
     step_number: int
     step_type: Literal["walking", "transit", "arrival"]
@@ -62,6 +67,7 @@ class RouteStep(BaseModel):
     transit_headsign: str | None = None
     transit_direction_from: str | None = None
     transit_direction_to: str | None = None
+    curated_images: list[RouteStationImageRef] = Field(default_factory=list)
     annotation: RouteAccessibilityAnnotation
 
 
@@ -73,6 +79,7 @@ class RecommendedRoute(BaseModel):
     transfers: int
     walking_distance_meters: int
     recommendation_reason: str
+    preference_summary_key: str | None = None
     map_polyline: str | None = None
     steps: list[RouteStep]
     navigation_waypoints: list[NavigationWaypoint] = Field(default_factory=list)

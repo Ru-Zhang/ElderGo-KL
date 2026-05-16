@@ -66,10 +66,13 @@ TICKET_PATTERNS = (
 )
 CONCESSION_PATTERNS = (
     re.compile(r"\b(?:senior|elderly|warga emas)\s+(?:concession|discount)\b", re.I),
-    re.compile(r"\b(?:apply|application)\b.*\bconcession\b", re.I),
+    re.compile(r"\b(?:apply|application)\b.*\b(?:concession|discount)\b", re.I),
     re.compile(r"\bconcession\b", re.I),
     re.compile(r"\bkonsesi\b", re.I),
-    re.compile(r"(?:长者|老人|优惠).*(?:申请|折扣)"),
+    re.compile(r"\b(?:discount|discounts|cheaper\s+fare|half\s+fare|reduced\s+fare)\b", re.I),
+    re.compile(r"\b(?:diskaun|tambang\s+murah)\b", re.I),
+    re.compile(r"(?:长者|老人|乐龄).*(?:优惠|折扣)"),
+    re.compile(r"(?:优惠|折扣).*(?:票|交通|地铁|公交)"),
 )
 PRIVACY_PATTERNS = (
     re.compile(r"\bprivacy\b", re.I),
@@ -540,43 +543,24 @@ async def resolve_intent(message: str, request: AIMessageRequest) -> IntentResul
         if flow_result is not None:
             return flow_result
 
-    if intent == "ticket_guide":
-        guide_blocks = blocks_for_guide("ticket_guide", language)
-        return IntentResult(
-            intent=intent,
-            answer=blocks_to_plain_text(guide_blocks),
-            answer_blocks=guide_blocks,
-            actions=[ChatAction(type="open_ticket_guide")],
-            in_scope=True,
+    if intent in {"ticket_guide", "concession_guide", "privacy", "preference"}:
+        from app.services.ai_topic_inference_service import (
+            blocks_inferred_topic_answer,
+            guide_action_for_intent,
+            infer_probable_guide_intent,
         )
 
-    if intent == "concession_guide":
-        guide_blocks = blocks_for_guide("concession_guide", language)
+        guide_intent = intent  # type: ignore[assignment]
+        probable = infer_probable_guide_intent(message)
+        if probable == guide_intent:
+            guide_blocks = blocks_inferred_topic_answer(guide_intent, language)
+        else:
+            guide_blocks = blocks_for_guide(guide_intent, language)
         return IntentResult(
             intent=intent,
             answer=blocks_to_plain_text(guide_blocks),
             answer_blocks=guide_blocks,
-            actions=[ChatAction(type="open_concession_guide")],
-            in_scope=True,
-        )
-
-    if intent == "privacy":
-        guide_blocks = blocks_for_guide("privacy", language)
-        return IntentResult(
-            intent=intent,
-            answer=blocks_to_plain_text(guide_blocks),
-            answer_blocks=guide_blocks,
-            actions=[ChatAction(type="open_privacy")],
-            in_scope=True,
-        )
-
-    if intent == "preference":
-        guide_blocks = blocks_for_guide("preference", language)
-        return IntentResult(
-            intent=intent,
-            answer=blocks_to_plain_text(guide_blocks),
-            answer_blocks=guide_blocks,
-            actions=[ChatAction(type="open_preference")],
+            actions=[guide_action_for_intent(guide_intent)],
             in_scope=True,
         )
 
@@ -695,9 +679,15 @@ async def resolve_intent(message: str, request: AIMessageRequest) -> IntentResul
 def should_use_gemini_supplement(message: str) -> bool:
     """Use Gemini only for substantive in-scope questions not covered by app features."""
     from app.services.ai_exploratory_poi_service import is_exploratory_poi_message
+    from app.services.ai_topic_inference_service import infer_probable_guide_intent
 
     if is_exploratory_poi_message(message):
         return True
+
+    if infer_probable_guide_intent(message) is None and classify_intent(message, AIMessageRequest(message=message)) == "general":
+        stripped = message.strip()
+        if len(stripped) >= 8:
+            return True
 
     stripped = message.strip()
     cjk_count = sum(1 for ch in stripped if "\u4e00" <= ch <= "\u9fff")

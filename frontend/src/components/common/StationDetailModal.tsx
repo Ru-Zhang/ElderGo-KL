@@ -15,9 +15,8 @@ import type { LocationDetail } from '../../types/locations';
 import { resolveStationDetailByName } from '../../services/resolveStationDetail';
 import { parseHoursSummary } from '../../utils/hoursParser';
 import { LineBadge } from '../../utils/lineBadge';
-import { pickFacilityIcon } from '../../utils/facilityIcons';
-import { getFacilityTier, sortFacilitiesForElders } from '../../utils/facilityPriority';
-import { translateFacility } from '../../utils/dataI18n';
+import { prepareFacilitiesForDisplay } from '../../utils/facilityPriority';
+import FacilityChips from './FacilityChips';
 import { useAppContext } from '../../app/AppProvider';
 import { HoursDisplay } from './HoursDisplay';
 
@@ -120,7 +119,7 @@ export function StationDetailModal({
             label: t('accessibilityChipUnknown'),
           };
 
-  const facilities = sortFacilitiesForElders(detail?.station_facilities ?? []);
+  const facilities = prepareFacilitiesForDisplay(detail?.station_facilities ?? []);
   const address = detail?.station_address ?? null;
   const parsedHours = parseHoursSummary(detail?.station_hours_summary);
   const facilitySourceUrl = detail?.facility_source_url ?? null;
@@ -281,38 +280,12 @@ export function StationDetailModal({
                     >
                       {t('stationFacilities')}
                     </p>
-                    <div className="flex flex-wrap gap-2.5">
-                      {facilities.map((item) => {
-                        const Icon = pickFacilityIcon(item);
-                        const tier = getFacilityTier(item);
-                        const chipClass =
-                          tier === 1
-                            ? 'border-eldergo-blue bg-eldergo-blue text-white font-semibold shadow-md'
-                            : tier === 2
-                              ? 'border-eldergo-blue/70 bg-eldergo-blue/15 text-eldergo-navy font-semibold'
-                              : 'border-eldergo-border bg-eldergo-bg text-eldergo-navy font-medium';
-                        const iconColor =
-                          tier === 1
-                            ? 'text-white flex-shrink-0'
-                            : tier === 2
-                              ? 'text-eldergo-blue-dark flex-shrink-0'
-                              : 'text-eldergo-blue flex-shrink-0';
-                        return (
-                          <span
-                            key={item}
-                            className={`inline-flex items-center gap-2 rounded-full border-2 px-3.5 py-1.5 ${chipClass}`}
-                            style={{ fontSize: `${14 * baseFontSize}px` }}
-                          >
-                            <Icon
-                              size={16 * baseFontSize}
-                              className={iconColor}
-                              strokeWidth={tier === 3 ? 2.2 : 2.6}
-                            />
-                            <span>{translateFacility(item, language)}</span>
-                          </span>
-                        );
-                      })}
-                    </div>
+                    <FacilityChips
+                      items={facilities}
+                      language={language}
+                      baseFontSize={baseFontSize}
+                      compact
+                    />
                   </div>
                 </>
               )}

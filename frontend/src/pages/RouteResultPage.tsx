@@ -10,6 +10,9 @@ import { DestinationWeather, getDestinationWeather } from '../services/weatherAp
 import { getStationStaticImageUrl } from '../services/googlePlaces';
 import { fetchRouteStationImageMap, type RouteStationImage } from '../services/routeStationImages';
 import GoogleMapsInstallModal from '../components/common/GoogleMapsInstallModal';
+import RouteLoadingPanel from '../components/route/RouteLoadingPanel';
+import RouteResultSkeleton from '../components/route/RouteResultSkeleton';
+import RouteUnavailableView from '../components/route/RouteUnavailableView';
 import { resolveStationDetailByName } from '../services/resolveStationDetail';
 import {
   buildRouteKey,
@@ -33,6 +36,14 @@ import {
   buildMapsDirectionsUrl,
   openGoogleMapsStore,
 } from '../utils/googleMapsNavigation';
+import { formatDepartureContextLabel, resolveDepartureDate } from '../utils/departureTime';
+import {
+  formatLaterOutlookRows,
+  primarySeniorWeatherTip,
+  simplifyWeatherCondition,
+  weatherRiskBadgeLabel,
+} from '../utils/weatherDisplay';
+import { formatTransitStepTitle } from '../utils/transitModeLabel';
 
 interface RouteResultPageProps {
   onNavigateToPlanning: () => void;
@@ -70,8 +81,17 @@ export default function RouteResultPage({
   const [currentStep, setCurrentStep] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const loadedStationKeysRef = useRef<Set<string>>(new Set());
-  const { currentRoute, departureTime, origin, destination, fontSize, routeError, routeLoading, language } =
-    useAppContext();
+  const {
+    currentRoute,
+    departureTime,
+    origin,
+    destination,
+    fontSize,
+    routeError,
+    routeErrorCode,
+    routeLoading,
+    language,
+  } = useAppContext();
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [actionHint, setActionHint] = useState<string | null>(null);
   const [showMapsInstallModal, setShowMapsInstallModal] = useState(false);
@@ -125,6 +145,9 @@ export default function RouteResultPage({
     isLastStep?: boolean,
     destinationName?: string | null,
     appendStationSuffix?: boolean,
+    transitLine?: string | null,
+    transitVehicleType?: string | null,
+    transitHeadsign?: string | null,
   ) => {
     const shortFrom = removeBracketContent(toLocationLabel(fromStation));
     const shortTo = removeBracketContent(toLocationLabel(toStation));
@@ -147,9 +170,14 @@ export default function RouteResultPage({
     }
 
     if (stepType === 'transit' && shortFrom && shortTo) {
-      const vehicleMatch = cleanedInstruction.match(/^(Bus|Subway|Train|Light rail|Tram|Metro|Ferry)/i);
-      const vehicle = vehicleMatch ? vehicleMatch[1] : 'Transit';
-      return `${vehicle} ${actionFrom} ${shortFrom} ${actionTo} ${shortTo}`;
+      return formatTransitStepTitle(
+        language,
+        shortFrom,
+        shortTo,
+        transitLine,
+        transitVehicleType,
+        transitHeadsign,
+      );
     }
 
     const walkToMatch = cleanedInstruction.match(/^(Walk to )(.+)$/i);
@@ -217,6 +245,9 @@ export default function RouteResultPage({
         isLast,
         currentRoute?.destination_name,
         appendStationSuffix,
+        step.transit_line,
+        step.transit_vehicle_type,
+        step.transit_headsign,
       ),
       isTransferWalk,
       lineDirectionFrom:
@@ -268,15 +299,15 @@ export default function RouteResultPage({
     if (!stationKey || loadedStationKeysRef.current.has(stationKey)) return;
     loadedStationKeysRef.current.add(stationKey);
 
-    let cancelled = false;
-    void resolveStationDetailByName(stationKey).then((detail) => {
-      if (!cancelled) {
+    const controller = new AbortController();
+    void resolveStationDetailByName(stationKey, controller.signal).then((detail) => {
+      if (!controller.signal.aborted) {
         setStepStationDetails((prev) => ({ ...prev, [stationKey]: detail }));
       }
     });
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [currentRoute?.recommended_route_id, currentStep, currentRoute?.steps]);
 
@@ -313,6 +344,14 @@ export default function RouteResultPage({
     },
     stepIndex: number,
   ): RouteStationImage[] => {
+    const curated = currentRoute?.steps[stepIndex]?.curated_images;
+    if (curated && curated.length > 0) {
+      return curated.map((image) => ({
+        path: image.path,
+        caption: image.caption || '',
+      }));
+    }
+
     const stepImages = getCustomRouteStepImages(routeImageMap, stepIndex);
     if (stepImages.length > 0) return stepImages;
 
@@ -380,10 +419,37 @@ export default function RouteResultPage({
       destinationName: destination?.displayName || currentRoute.destination_name,
       lat: destination?.lat,
       lon: destination?.lon,
-      departureTime: departureTime as 'now' | 'morning' | 'afternoon' | 'evening'
+      departureTime
     })
       .then((nextWeather) => {
         if (cancelled) return;
+        // #region agent log
+        fetch('http://127.0.0.1:7267/ingest/af3fa6c2-77fe-4e06-a79f-1e670577b9b2', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'ce83c2' },
+          body: JSON.stringify({
+            sessionId: 'ce83c2',
+            hypothesisId: 'H4-H5',
+            location: 'RouteResultPage.tsx:weather-loaded',
+            message: 'weather vs departure',
+            data: {
+              departureTime,
+              periodLabel: nextWeather.periodLabel,
+              departureForecastLabel: nextWeather.departureForecastLabel,
+              riskLevel: nextWeather.riskLevel,
+              weatherMain: nextWeather.weatherMain,
+              precipPct: nextWeather.precipitationProbabilityPercent,
+              peakPop: nextWeather.peakPopPercent,
+              rainPeriodStart: nextWeather.rainPeriodStart,
+              rainPeriodEnd: nextWeather.rainPeriodEnd,
+              rainWindowHours: nextWeather.rainWindowHours,
+              tempC: nextWeather.temperatureC,
+              runId: 'weather-rain-v2',
+            },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
         setWeather(nextWeather);
         setWeatherStatus('ready');
       })
@@ -398,37 +464,34 @@ export default function RouteResultPage({
     };
   }, [currentRoute?.recommended_route_id, currentRoute?.destination_name, departureTime, destination?.displayName, destination?.lat, destination?.lon]);
 
-  const seniorWeatherTips = () => {
-    if (weatherStatus === 'loading') return [t('routeWeatherSeniorLoading')];
-    if (weatherStatus !== 'ready' || !weather) return [t('routeWeatherSeniorUnavailable')];
-    const tipKeys = {
-      storm: ['routeWeatherSeniorStorm1', 'routeWeatherSeniorStorm2'],
-      rain: ['routeWeatherSeniorRain1', 'routeWeatherSeniorRain2'],
-      hot: ['routeWeatherSeniorHot1', 'routeWeatherSeniorHot2'],
-      clear: ['routeWeatherSeniorClear1', 'routeWeatherSeniorClear2'],
-      unavailable: ['routeWeatherSeniorUnavailable']
-    } as const;
-    return tipKeys[weather.riskLevel].map((key) => t(key));
+  const seniorWeatherTip = () => {
+    if (weatherStatus === 'loading') return t('routeWeatherSeniorLoading');
+    if (weatherStatus !== 'ready' || !weather) return t('routeWeatherSeniorUnavailable');
+    return primarySeniorWeatherTip(weather, language);
   };
 
-  const weatherDestinationLabel = weather
-    ? toLocationLabel(weather.destinationName)
+  const plannedDestinationLabel = destination?.displayName
+    ? toLocationLabel(destination.displayName)
     : currentRoute
       ? toLocationLabel(currentRoute.destination_name)
       : t('routeWeatherTitle');
 
-  const weatherPeriodLabel = () => {
-    if (weatherStatus !== 'ready' || !weather) return '-';
-    // Show a rain period only when there is meaningful rain signal for trip timing.
-    const hasRainSignal = weather.riskLevel === 'rain' || weather.riskLevel === 'storm' || (weather.precipitationProbabilityPercent ?? 0) > 0 || weather.rainMm > 0;
-    if (!hasRainSignal) return '-';
-    const periodKeys = {
-      now: 'planTimeNow',
-      morning: 'planTimeMorning',
-      afternoon: 'planTimeAfternoon',
-      evening: 'planTimeEvening'
-    } as const;
-    return t(periodKeys[weather.periodLabel]);
+  const geocodedAreaLabel = weather ? toLocationLabel(weather.destinationName) : '';
+  const showGeocodedHint =
+    Boolean(geocodedAreaLabel) &&
+    geocodedAreaLabel.toLowerCase() !== plannedDestinationLabel.toLowerCase();
+
+  const weatherLeavingLabel = () => {
+    if (!departureTime) return '-';
+    const customIso = departureTime.includes('T') ? departureTime : undefined;
+    const preset = customIso ? 'now' : departureTime;
+    const timeLabel = formatDepartureContextLabel(preset, language, customIso);
+    return t('planTimeLeavingAt').replace('{time}', timeLabel);
+  };
+
+  const weatherConditionText = () => {
+    if (!weather) return '';
+    return simplifyWeatherCondition(weather.weatherDescription || weather.weatherMain, language);
   };
 
   const getWeatherIcon = () => {
@@ -443,50 +506,114 @@ export default function RouteResultPage({
 
   const WeatherIcon = getWeatherIcon();
 
+  const weatherDepartureDate = resolveDepartureDate(
+    departureTime?.includes('T') ? 'now' : departureTime || 'now',
+    departureTime?.includes('T') ? departureTime : undefined,
+  );
+
+  const laterOutlookRows =
+    weather && weather.hourlyOutlook.length > 0
+      ? formatLaterOutlookRows(
+          weather.hourlyOutlook,
+          language,
+          weatherConditionText(),
+          weatherDepartureDate,
+        )
+      : [];
+
+  const weatherRiskWord =
+    weather && weather.riskLevel !== 'clear' && weather.riskLevel !== 'unavailable'
+      ? weatherRiskBadgeLabel(weather, t)
+      : null;
+
   const weatherCard = (
-    <div className="bg-white/95 border-2 border-eldergo-border p-5 rounded-2xl shadow-md mb-6">
-      <div className="flex items-center gap-4 mb-4">
-        <div className="w-12 h-12 bg-eldergo-blue/15 rounded-full flex items-center justify-center flex-shrink-0">
-          <WeatherIcon size={28} strokeWidth={2.5} className="text-eldergo-blue" />
+    <div className="bg-white/95 border-2 border-eldergo-border p-4 sm:p-5 rounded-2xl shadow-md mb-4">
+      <div className="flex items-start gap-3">
+        <div className="w-11 h-11 bg-eldergo-blue/15 rounded-full flex items-center justify-center flex-shrink-0">
+          <WeatherIcon size={24} strokeWidth={2.5} className="text-eldergo-blue" />
         </div>
-        <h3 className="text-[20px] font-semibold text-eldergo-navy leading-tight">
-          {weatherDestinationLabel}
-        </h3>
+        <div className="min-w-0 flex-1 pt-0.5">
+          <h3 className="text-[18px] font-semibold text-eldergo-navy leading-snug break-words">
+            {plannedDestinationLabel}
+          </h3>
+          {weatherStatus === 'ready' && weather ? (
+            <p className="text-[15px] text-eldergo-muted mt-1 leading-snug">
+              <span className="font-medium text-eldergo-navy">{weatherLeavingLabel()}</span>
+              {weatherRiskWord ? (
+                <span>
+                  {' '}
+                  · <span className="font-medium text-eldergo-navy">{weatherRiskWord}</span>
+                </span>
+              ) : null}
+            </p>
+          ) : (
+            <p className="text-[14px] text-eldergo-muted mt-1">{t('routeWeatherForDeparture')}</p>
+          )}
+          {showGeocodedHint && (
+            <p className="text-[12px] text-eldergo-muted mt-1 leading-snug">
+              {t('routeWeatherGeocodedHint').replace('{name}', geocodedAreaLabel)}
+            </p>
+          )}
+        </div>
       </div>
-      <div>
-          {weatherStatus === 'ready' && weather && (
-            <div className="grid grid-cols-2 gap-3 text-center">
-              <div className="rounded-xl bg-eldergo-bg px-3 py-3">
-                <div className="text-[20px] font-bold text-eldergo-blue">{weather.temperatureC}&deg;C</div>
-                <div className="text-[13px] text-eldergo-muted">{t('routeWeatherTemp')}</div>
-              </div>
-              <div className="rounded-xl bg-eldergo-bg px-3 py-3">
-                <div className="text-[20px] font-bold text-eldergo-blue">{weather.feelsLikeC}&deg;C</div>
-                <div className="text-[13px] text-eldergo-muted">{t('routeWeatherFeelsLike')}</div>
-              </div>
-              <div className="rounded-xl bg-eldergo-bg px-3 py-3">
-                <div className="text-[20px] font-bold text-eldergo-blue">{weather.windKmh}</div>
-                <div className="text-[13px] text-eldergo-muted">{t('routeWeatherWind')}</div>
-              </div>
-              <div className="rounded-xl bg-eldergo-bg px-3 py-3">
-                <div className="text-[20px] font-bold text-eldergo-blue">{weatherPeriodLabel()}</div>
-                <div className="text-[13px] text-eldergo-muted">{t('routeWeatherRainPeriod')}</div>
-              </div>
+
+      {weatherStatus === 'ready' && weather && (
+        <div className="mt-4 space-y-3">
+          <div className="rounded-xl bg-eldergo-blue/10 px-4 py-3.5">
+            <p className="text-[34px] font-bold text-eldergo-blue tabular-nums leading-none tracking-tight">
+              {weather.temperatureC}&deg;C
+            </p>
+            <p className="text-[15px] text-eldergo-navy mt-2 leading-snug">
+              {t('routeWeatherFeelsLike')} {weather.feelsLikeC}&deg;C
+              {weatherConditionText() ? (
+                <span className="text-eldergo-muted">
+                  {' '}
+                  · {weatherConditionText()}
+                </span>
+              ) : null}
+            </p>
+          </div>
+
+          {laterOutlookRows.length > 0 && (
+            <div className="rounded-xl border border-eldergo-border bg-[#F8FAFC] px-4 py-3">
+              <p className="text-[15px] font-semibold text-eldergo-navy leading-snug">
+                {t('routeWeatherLaterTitle')}
+              </p>
+              <p className="text-[13px] text-eldergo-muted mt-0.5 mb-2 leading-snug">
+                {t('routeWeatherLaterHint')}
+              </p>
+              <ul className="divide-y divide-eldergo-border/70">
+                {laterOutlookRows.map((row) => (
+                  <li
+                    key={`${row.hoursAfterLabel}-${row.clockLabel}`}
+                    className="flex items-center justify-between gap-4 py-2.5 first:pt-0 last:pb-0"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-[17px] font-semibold text-eldergo-navy tabular-nums leading-tight">
+                        {row.hoursAfterLabel}
+                      </p>
+                      <p className="text-[13px] text-eldergo-muted tabular-nums mt-0.5">{row.clockLabel}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-[20px] font-bold text-eldergo-navy tabular-nums leading-none">
+                        {row.temperature}
+                      </p>
+                      {row.note ? (
+                        <p className="text-[12px] text-eldergo-muted mt-1 max-w-[9rem] leading-snug ml-auto">
+                          {row.note}
+                        </p>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
-          <div className="mt-4 rounded-xl bg-eldergo-green/10 px-4 py-3">
-            <div className="text-[15px] font-semibold text-eldergo-navy mb-2">
-              {t('routeWeatherSeniorTitle')}
-            </div>
-            <ul className="space-y-1">
-              {seniorWeatherTips().map((tip) => (
-                <li key={tip} className="flex gap-2 text-[14px] leading-relaxed text-eldergo-muted">
-                  <span className="mt-2 h-1.5 w-1.5 rounded-full bg-eldergo-green flex-shrink-0" />
-                  <span>{tip}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+        </div>
+      )}
+
+      <div className="mt-4 rounded-xl bg-eldergo-green/10 px-4 py-3">
+        <p className="text-[15px] leading-relaxed text-eldergo-navy">{seniorWeatherTip()}</p>
       </div>
     </div>
   );
@@ -1000,6 +1127,53 @@ export default function RouteResultPage({
     setShowMapsInstallModal(false);
   };
 
+  const showRouteUnavailable = Boolean(routeError && !currentRoute && !routeLoading);
+
+  if (showRouteUnavailable) {
+    return (
+      <div className="min-h-screen relative" style={{ fontFamily: 'Poppins' }}>
+        <div
+          className="fixed inset-0 z-0 bg-cover bg-center"
+          style={{ backgroundImage: 'url(/background-elder.png)' }}
+        />
+        <div
+          className="fixed inset-0 z-0"
+          style={{
+            backgroundImage: 'url(/watermark-elder.jpg)',
+            opacity: '0.12',
+          }}
+        />
+        <div className="relative z-10">
+          <TopBar onLogoClick={onNavigateToPlanTime} />
+          <main className="pt-20 pb-44 px-6">
+            <div className="max-w-2xl mx-auto mt-6">
+              <RouteUnavailableView
+                variant={routeErrorCode === 'no_transit_route' ? 'no_transit' : 'generic'}
+                departureTime={departureTime}
+                origin={origin}
+                destination={destination}
+                baseFontSize={baseFontSize}
+                language={language}
+                message={routeError}
+                t={t}
+                onNavigateToPlanTime={onNavigateToPlanTime}
+                onNavigateToPlanning={onNavigateToPlanning}
+              />
+            </div>
+          </main>
+          <BottomNav
+            activeTab="planning"
+            onChatbotClick={onShowChatbot}
+            onStationClick={onNavigateToStation}
+            onHelpClick={onNavigateToHelp}
+            onPlanningClick={onNavigateToPlanning}
+            onPreferenceClick={onNavigateToPreference}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen relative" style={{ fontFamily: 'Poppins' }}>
       <div
@@ -1023,19 +1197,29 @@ export default function RouteResultPage({
       <TopBar onLogoClick={onNavigateToPlanTime} />
 
       <main className="pt-20 pb-44 px-6">
-        <div className="max-w-2xl mx-auto mt-6">
-          {routeLoading && (
-            <div
-              className="bg-white/95 p-8 rounded-2xl shadow-md mb-6 flex flex-col items-center gap-4 text-center"
-              role="status"
-              aria-live="polite"
-            >
-              <Loader2 className="animate-spin text-eldergo-blue" size={44} aria-hidden />
-              <p className="text-[20px] font-semibold text-eldergo-navy">{t('routeComputing')}</p>
-            </div>
-          )}
-
-          {!routeLoading && !currentRoute && (
+        <div
+          className="max-w-2xl mx-auto mt-6 relative min-h-[50vh]"
+          aria-busy={routeLoading}
+        >
+          {routeLoading ? (
+            <>
+              <RouteResultSkeleton baseFontSize={baseFontSize} />
+              <div className="absolute inset-0 z-30 flex items-center justify-center px-4">
+                <div
+                  className="absolute inset-0 bg-white/55 backdrop-blur-sm"
+                  aria-hidden
+                />
+                <RouteLoadingPanel
+                  origin={origin}
+                  destination={destination}
+                  baseFontSize={baseFontSize}
+                  t={t}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+          {!currentRoute && (
             <div className="bg-white/95 p-6 rounded-2xl shadow-md mb-6">
               <h3 className="text-[24px] font-semibold text-eldergo-navy mb-3">
                 {t('routeNoSelectionTitle')}
@@ -1095,6 +1279,11 @@ export default function RouteResultPage({
                 </h3>
               )}
             </div>
+            {currentRoute?.preference_summary_key ? (
+              <p className="mb-4 rounded-xl bg-eldergo-bg px-4 py-3 text-center text-[14px] leading-relaxed text-eldergo-muted">
+                {t(currentRoute.preference_summary_key as any)}
+              </p>
+            ) : null}
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
                 <div className="text-[20px] font-bold text-eldergo-blue">{currentRoute?.duration_minutes ?? '-'} {t('routeMins')}</div>
@@ -1181,21 +1370,27 @@ export default function RouteResultPage({
               )}
 
               <div className="relative">
-                <button
-                  onClick={() => scroll('left')}
-                  className="absolute -left-2 sm:left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 sm:w-12 sm:h-12 bg-white/95 backdrop-blur-sm border-2 border-eldergo-border rounded-full flex items-center justify-center hover:bg-white hover:border-eldergo-blue transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={currentStep === 0}
-                >
-                  <ChevronLeft size={20} strokeWidth={2.5} className="text-eldergo-navy sm:w-6 sm:h-6" />
-                </button>
+                {currentStep > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => scroll('left')}
+                    className="absolute -left-2 sm:left-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border-2 border-eldergo-border bg-white/95 shadow-lg backdrop-blur-sm transition-all hover:border-eldergo-blue hover:bg-white sm:h-12 sm:w-12"
+                    aria-label={t('routeStepPrevious')}
+                  >
+                    <ChevronLeft size={20} strokeWidth={2.5} className="text-eldergo-navy sm:h-6 sm:w-6" />
+                  </button>
+                )}
 
-                <button
-                  onClick={() => scroll('right')}
-                  className="absolute -right-2 sm:right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 sm:w-12 sm:h-12 bg-white/95 backdrop-blur-sm border-2 border-eldergo-border rounded-full flex items-center justify-center hover:bg-white hover:border-eldergo-blue transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={currentStep === routeSteps.length - 1}
-                >
-                  <ChevronRight size={20} strokeWidth={2.5} className="text-eldergo-navy sm:w-6 sm:h-6" />
-                </button>
+                {currentStep < routeSteps.length - 1 && (
+                  <button
+                    type="button"
+                    onClick={() => scroll('right')}
+                    className="absolute -right-2 sm:right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border-2 border-eldergo-border bg-white/95 shadow-lg backdrop-blur-sm transition-all hover:border-eldergo-blue hover:bg-white sm:h-12 sm:w-12"
+                    aria-label={t('routeStepNext')}
+                  >
+                    <ChevronRight size={20} strokeWidth={2.5} className="text-eldergo-navy sm:h-6 sm:w-6" />
+                  </button>
+                )}
 
                 <div className="overflow-hidden">
                   <div
@@ -1428,34 +1623,31 @@ export default function RouteResultPage({
                                         }
                                         className="w-full h-full object-cover"
                                       />
-                                      {stepImages.length > 1 && (
-                                        <>
+                                      {stepImages.length > 1 && safeImageIndex > 0 && (
+                                        <button
+                                          type="button"
+                                          onClick={() => setStepImageIndex((prev) => Math.max(0, prev - 1))}
+                                          className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full border border-eldergo-border bg-white/90 p-2 shadow-md"
+                                          aria-label={t('routePhotoPrevious')}
+                                        >
+                                          <ChevronLeft size={20} className="text-eldergo-navy" />
+                                        </button>
+                                      )}
+                                      {stepImages.length > 1 &&
+                                        safeImageIndex < stepImages.length - 1 && (
                                           <button
                                             type="button"
                                             onClick={() =>
                                               setStepImageIndex((prev) =>
-                                                prev <= 0 ? stepImages.length - 1 : prev - 1,
+                                                Math.min(stepImages.length - 1, prev + 1),
                                               )
                                             }
-                                            className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow-md border border-eldergo-border"
-                                            aria-label="Previous photo"
-                                          >
-                                            <ChevronLeft size={20} className="text-eldergo-navy" />
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              setStepImageIndex((prev) =>
-                                                prev >= stepImages.length - 1 ? 0 : prev + 1,
-                                              )
-                                            }
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow-md border border-eldergo-border"
-                                            aria-label="Next photo"
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full border border-eldergo-border bg-white/90 p-2 shadow-md"
+                                            aria-label={t('routePhotoNext')}
                                           >
                                             <ChevronRight size={20} className="text-eldergo-navy" />
                                           </button>
-                                        </>
-                                      )}
+                                        )}
                                     </div>
                                     {imageCaption && (
                                       <p
@@ -1515,6 +1707,8 @@ export default function RouteResultPage({
           )}
 
           {weatherCard}
+            </>
+          )}
         </div>
       </main>
 

@@ -5,9 +5,20 @@ import BottomNav from '../components/layout/BottomNav';
 import PreferencesModal from '../components/common/PreferencesModal';
 import PlanningPlaceField from '../components/planning/PlanningPlaceField';
 import { useAppContext } from '../app/AppProvider';
-import { getTranslation } from '../i18n/translations';
-import { getPlaceDetail, getPlaceSuggestions } from '../services/googlePlaces';
+import { getTranslation, type TranslationKey } from '../i18n/translations';
+import {
+  getPlaceDetail,
+  getPlaceSuggestions,
+  resolvePlaceSelection,
+} from '../services/googlePlaces';
 import { PlaceSelection } from '../types/locations';
+import {
+  formatPlaceDisplayName,
+  isPlaceResolved,
+  placeSelectionNeedsUserPick,
+  placeTextsMatch,
+  shouldAutoResolvePlace,
+} from '../utils/placeDisplay';
 
 const PLACES_DEBOUNCE_MS = 350;
 const MIN_QUERY_LENGTH = 2;
@@ -22,20 +33,40 @@ interface PlanningPageProps {
   onShowChatbot: () => void;
 }
 
-function fieldValidationError(
+type PlaceFieldErrorKey =
+  | 'missingStartingPoint'
+  | 'missingDestination'
+  | 'invalidStartingPoint'
+  | 'invalidDestination'
+  | 'pickPlaceFromList';
+
+function fieldValidationErrorKey(
   text: string,
   selected: PlaceSelection | null,
-  missingMessage: string,
-  invalidMessage: string,
-  pickFromListMessage: string
-): string | null {
+  missingKey: PlaceFieldErrorKey,
+  invalidKey: PlaceFieldErrorKey,
+  pickFromListKey: PlaceFieldErrorKey
+): PlaceFieldErrorKey | null {
   if (!text.trim()) {
-    return missingMessage;
+    return missingKey;
   }
-  if (!selected?.googlePlaceId) {
-    return text.trim() ? pickFromListMessage : invalidMessage;
+  if (!isPlaceResolved(selected)) {
+    return text.trim() ? pickFromListKey : invalidKey;
   }
   return null;
+}
+
+function applyResolvedPlace(
+  resolved: PlaceSelection,
+  setText: (value: string) => void,
+  setSelected: (value: PlaceSelection) => void,
+  setRoute: (value: PlaceSelection) => void
+) {
+  const label = formatPlaceDisplayName(resolved.displayName);
+  setText(label);
+  const next = { ...resolved, displayName: label };
+  setSelected(next);
+  setRoute(next);
 }
 
 export default function PlanningPage({
@@ -59,21 +90,26 @@ export default function PlanningPage({
   } = useAppContext();
   const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
 
-  const t = (key: string) => getTranslation(language, key as any);
+  const t = (key: TranslationKey) => getTranslation(language, key);
 
   const [showPreferences, setShowPreferences] = useState(false);
   const [hasClickedInput, setHasClickedInput] = useState(false);
-  const [startPoint, setStartPoint] = useState(origin?.displayName || '');
-  const [destination, setDestination] = useState(routeDestination?.displayName || '');
+  const [startPoint, setStartPoint] = useState(formatPlaceDisplayName(origin?.displayName) || '');
+  const [destination, setDestination] = useState(formatPlaceDisplayName(routeDestination?.displayName) || '');
   const [selectedOrigin, setSelectedOrigin] = useState<PlaceSelection | null>(origin);
   const [selectedDestination, setSelectedDestination] = useState<PlaceSelection | null>(routeDestination);
   const [startSuggestions, setStartSuggestions] = useState<PlaceSelection[]>([]);
   const [destSuggestions, setDestSuggestions] = useState<PlaceSelection[]>([]);
   const [showStartDropdown, setShowStartDropdown] = useState(false);
   const [showDestDropdown, setShowDestDropdown] = useState(false);
-  const [placesError, setPlacesError] = useState<string | null>(null);
-  const [startFieldError, setStartFieldError] = useState<string | null>(null);
-  const [destFieldError, setDestFieldError] = useState<string | null>(null);
+  const [placesErrorKey, setPlacesErrorKey] = useState<'googlePlacesUnavailable' | null>(null);
+  const [startFieldErrorKey, setStartFieldErrorKey] = useState<PlaceFieldErrorKey | null>(null);
+  const [destFieldErrorKey, setDestFieldErrorKey] = useState<PlaceFieldErrorKey | null>(null);
+  const placesError = placesErrorKey ? t(placesErrorKey) : null;
+  const startFieldError = startFieldErrorKey ? t(startFieldErrorKey) : null;
+  const destFieldError = destFieldErrorKey ? t(destFieldErrorKey) : null;
+  const [resolvingStart, setResolvingStart] = useState(false);
+  const [resolvingDest, setResolvingDest] = useState(false);
 
   const startFieldRef = useRef<HTMLDivElement>(null);
   const destFieldRef = useRef<HTMLDivElement>(null);
@@ -85,20 +121,63 @@ export default function PlanningPage({
   const hasAnyPreferenceEnabled =
     preferences.accessibilityFirst || preferences.leastWalk || preferences.fewestTransfers;
   const shouldPromptPreferences = !onboardingCompleted && !hasAnyPreferenceEnabled;
-  const chatPrefillNeedsConfirm =
-    Boolean(origin?.displayName && !origin.googlePlaceId) ||
-    Boolean(routeDestination?.displayName && !routeDestination.googlePlaceId);
+  const showChatConfirmBanner =
+    (placeSelectionNeedsUserPick(selectedOrigin) || placeSelectionNeedsUserPick(selectedDestination)) &&
+    !(resolvingStart || resolvingDest);
 
   useEffect(() => {
-    if (origin?.displayName) {
-      setStartPoint(origin.displayName);
-      setSelectedOrigin(origin);
+    if (!origin?.displayName) return;
+
+    const label = formatPlaceDisplayName(origin.displayName);
+    setStartPoint(label);
+    setSelectedOrigin({ ...origin, displayName: label });
+
+    if (!shouldAutoResolvePlace(origin)) {
+      return;
     }
-    if (routeDestination?.displayName) {
-      setDestination(routeDestination.displayName);
-      setSelectedDestination(routeDestination);
+
+    let cancelled = false;
+    setResolvingStart(true);
+    void resolvePlaceSelection(origin)
+      .then((resolved) => {
+        if (cancelled) return;
+        applyResolvedPlace(resolved, setStartPoint, setSelectedOrigin, setRouteOrigin);
+      })
+      .finally(() => {
+        if (!cancelled) setResolvingStart(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [origin, setRouteOrigin]);
+
+  useEffect(() => {
+    if (!routeDestination?.displayName) return;
+
+    const label = formatPlaceDisplayName(routeDestination.displayName);
+    setDestination(label);
+    setSelectedDestination({ ...routeDestination, displayName: label });
+
+    if (!shouldAutoResolvePlace(routeDestination)) {
+      return;
     }
-  }, [origin?.displayName, routeDestination?.displayName]);
+
+    let cancelled = false;
+    setResolvingDest(true);
+    void resolvePlaceSelection(routeDestination)
+      .then((resolved) => {
+        if (cancelled) return;
+        applyResolvedPlace(resolved, setDestination, setSelectedDestination, setRouteDestination);
+      })
+      .finally(() => {
+        if (!cancelled) setResolvingDest(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [routeDestination, setRouteDestination]);
 
   useEffect(() => {
     return () => {
@@ -106,28 +185,6 @@ export default function PlanningPage({
       if (destDebounceRef.current) clearTimeout(destDebounceRef.current);
     };
   }, []);
-
-  const toSuggestionLabel = (value: string) => {
-    const parts = value
-      .split(',')
-      .map((part) => part.trim())
-      .filter(Boolean);
-
-    if (parts.length === 0) return value;
-    if (parts.length === 1) return parts[0];
-
-    const firstPart = parts[0];
-    if (/[A-Za-z]/.test(firstPart) && !/^\d+$/.test(firstPart)) {
-      return firstPart;
-    }
-
-    const secondPart = parts[1];
-    if (secondPart && /[A-Za-z]/.test(secondPart)) {
-      return secondPart;
-    }
-
-    return firstPart;
-  };
 
   const scrollToFirstError = (startErr: string | null, destErr: string | null) => {
     requestAnimationFrame(() => {
@@ -151,7 +208,7 @@ export default function PlanningPage({
     setSelectedOrigin(null);
     setStartSuggestions([]);
     setShowStartDropdown(false);
-    setStartFieldError(null);
+    setStartFieldErrorKey(null);
     setRouteOrigin(null);
   };
 
@@ -160,7 +217,7 @@ export default function PlanningPage({
     setSelectedDestination(null);
     setDestSuggestions([]);
     setShowDestDropdown(false);
-    setDestFieldError(null);
+    setDestFieldErrorKey(null);
     setRouteDestination(null);
   };
 
@@ -177,19 +234,19 @@ export default function PlanningPage({
       if (requestId !== startRequestIdRef.current) return;
 
       setStartSuggestions(suggestions);
-      setPlacesError(null);
+      setPlacesErrorKey(null);
       if (suggestions.length === 0) {
-        setStartFieldError(t('invalidStartingPoint'));
+        setStartFieldErrorKey('invalidStartingPoint');
         setShowStartDropdown(false);
       } else {
-        setStartFieldError(null);
+        setStartFieldErrorKey(null);
         setShowStartDropdown(true);
       }
     } catch {
       if (requestId !== startRequestIdRef.current) return;
       setStartSuggestions([]);
       setShowStartDropdown(false);
-      setPlacesError(t('googlePlacesUnavailable'));
+      setPlacesErrorKey('googlePlacesUnavailable');
     }
   };
 
@@ -206,27 +263,66 @@ export default function PlanningPage({
       if (requestId !== destRequestIdRef.current) return;
 
       setDestSuggestions(suggestions);
-      setPlacesError(null);
+      setPlacesErrorKey(null);
       if (suggestions.length === 0) {
-        setDestFieldError(t('invalidDestination'));
+        setDestFieldErrorKey('invalidDestination');
         setShowDestDropdown(false);
       } else {
-        setDestFieldError(null);
+        setDestFieldErrorKey(null);
         setShowDestDropdown(true);
       }
     } catch {
       if (requestId !== destRequestIdRef.current) return;
       setDestSuggestions([]);
       setShowDestDropdown(false);
-      setPlacesError(t('googlePlacesUnavailable'));
+      setPlacesErrorKey('googlePlacesUnavailable');
+    }
+  };
+
+  const tryResolveFieldOnBlur = async (
+    text: string,
+    selected: PlaceSelection | null,
+    setText: (value: string) => void,
+    setSelected: (value: PlaceSelection) => void,
+    setRoute: (value: PlaceSelection) => void,
+    setResolving: (value: boolean) => void,
+    setFieldErrorKey: (value: PlaceFieldErrorKey | null) => void
+  ) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    if (selected && isPlaceResolved(selected) && placeTextsMatch(trimmed, selected.displayName)) {
+      setText(formatPlaceDisplayName(selected.displayName));
+      return;
+    }
+
+    setResolving(true);
+    try {
+      const resolved = await resolvePlaceSelection({
+        displayName: trimmed,
+        lat: selected?.lat ?? null,
+        lon: selected?.lon ?? null,
+        googlePlaceId: selected?.googlePlaceId ?? null,
+      });
+      if (isPlaceResolved(resolved)) {
+        applyResolvedPlace(resolved, setText, setSelected, setRoute);
+        setFieldErrorKey(null);
+      }
+    } finally {
+      setResolving(false);
     }
   };
 
   const handleStartChange = (value: string) => {
     setStartPoint(value);
+    if (selectedOrigin && placeTextsMatch(value, selectedOrigin.displayName)) {
+      setPlacesErrorKey(null);
+      setStartFieldErrorKey(null);
+      return;
+    }
     setSelectedOrigin(null);
-    setPlacesError(null);
-    setStartFieldError(null);
+    setPlacesErrorKey(null);
+    setStartFieldErrorKey(null);
 
     if (startDebounceRef.current) clearTimeout(startDebounceRef.current);
 
@@ -245,9 +341,14 @@ export default function PlanningPage({
 
   const handleDestChange = (value: string) => {
     setDestination(value);
+    if (selectedDestination && placeTextsMatch(value, selectedDestination.displayName)) {
+      setPlacesErrorKey(null);
+      setDestFieldErrorKey(null);
+      return;
+    }
     setSelectedDestination(null);
-    setPlacesError(null);
-    setDestFieldError(null);
+    setPlacesErrorKey(null);
+    setDestFieldErrorKey(null);
 
     if (destDebounceRef.current) clearTimeout(destDebounceRef.current);
 
@@ -265,14 +366,15 @@ export default function PlanningPage({
   };
 
   const handleStartSelect = async (suggestion: PlaceSelection, label: string) => {
-    setStartPoint(label);
-    const baseSelection = { ...suggestion, displayName: label };
+    const shortLabel = formatPlaceDisplayName(label);
+    setStartPoint(shortLabel);
+    const baseSelection = { ...suggestion, displayName: shortLabel };
     setSelectedOrigin(baseSelection);
     setShowStartDropdown(false);
-    setStartFieldError(null);
+    setStartFieldErrorKey(null);
     if (!suggestion.googlePlaceId) return;
     try {
-      const detail = await getPlaceDetail(suggestion.googlePlaceId);
+      const detail = await getPlaceDetail(suggestion.googlePlaceId, shortLabel);
       setSelectedOrigin(detail);
       setRouteOrigin(detail);
     } catch {
@@ -281,14 +383,29 @@ export default function PlanningPage({
   };
 
   const handleDestSelect = async (suggestion: PlaceSelection, label: string) => {
-    setDestination(label);
-    const baseSelection = { ...suggestion, displayName: label };
+    const shortLabel = formatPlaceDisplayName(label);
+    setDestination(shortLabel);
+    const baseSelection = { ...suggestion, displayName: shortLabel };
     setSelectedDestination(baseSelection);
     setShowDestDropdown(false);
-    setDestFieldError(null);
+    setDestFieldErrorKey(null);
     if (!suggestion.googlePlaceId) return;
     try {
-      const detail = await getPlaceDetail(suggestion.googlePlaceId);
+      const detail = await getPlaceDetail(suggestion.googlePlaceId, shortLabel);
+      // #region agent log
+      fetch('http://127.0.0.1:7267/ingest/af3fa6c2-77fe-4e06-a79f-1e670577b9b2', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'ce83c2' },
+        body: JSON.stringify({
+          sessionId: 'ce83c2',
+          hypothesisId: 'H-A',
+          location: 'PlanningPage.tsx:handleDestSelect',
+          message: 'dest_selected',
+          data: { pickedLabel: shortLabel, storedLabel: detail.displayName },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
       setSelectedDestination(detail);
       setRouteDestination(detail);
     } catch {
@@ -301,8 +418,8 @@ export default function PlanningPage({
     const nextDest = startPoint;
     const nextStartSel = selectedDestination;
     const nextDestSel = selectedOrigin;
-    const nextStartErr = destFieldError;
-    const nextDestErr = startFieldError;
+    const nextStartErr = destFieldErrorKey;
+    const nextDestErr = startFieldErrorKey;
 
     setStartPoint(nextStart);
     setDestination(nextDest);
@@ -312,42 +429,85 @@ export default function PlanningPage({
     setDestSuggestions([]);
     setShowStartDropdown(false);
     setShowDestDropdown(false);
-    setStartFieldError(nextStartErr);
-    setDestFieldError(nextDestErr);
+    setStartFieldErrorKey(nextStartErr);
+    setDestFieldErrorKey(nextDestErr);
     setRouteOrigin(nextStartSel);
     setRouteDestination(nextDestSel);
   };
 
-  const handleSearch = () => {
-    const startErr = fieldValidationError(
+  const handleSearch = async () => {
+    let originForSearch = selectedOrigin;
+    let destinationForSearch = selectedDestination;
+
+    if (startPoint.trim() && !isPlaceResolved(selectedOrigin)) {
+      setResolvingStart(true);
+      try {
+        originForSearch = await resolvePlaceSelection({
+          displayName: startPoint.trim(),
+          lat: selectedOrigin?.lat ?? null,
+          lon: selectedOrigin?.lon ?? null,
+          googlePlaceId: selectedOrigin?.googlePlaceId ?? null,
+        });
+        if (isPlaceResolved(originForSearch)) {
+          applyResolvedPlace(originForSearch, setStartPoint, setSelectedOrigin, setRouteOrigin);
+        }
+      } finally {
+        setResolvingStart(false);
+      }
+    }
+
+    if (destination.trim() && !isPlaceResolved(selectedDestination)) {
+      setResolvingDest(true);
+      try {
+        destinationForSearch = await resolvePlaceSelection({
+          displayName: destination.trim(),
+          lat: selectedDestination?.lat ?? null,
+          lon: selectedDestination?.lon ?? null,
+          googlePlaceId: selectedDestination?.googlePlaceId ?? null,
+        });
+        if (isPlaceResolved(destinationForSearch)) {
+          applyResolvedPlace(
+            destinationForSearch,
+            setDestination,
+            setSelectedDestination,
+            setRouteDestination
+          );
+        }
+      } finally {
+        setResolvingDest(false);
+      }
+    }
+
+    const startErr = fieldValidationErrorKey(
       startPoint,
-      selectedOrigin,
-      t('missingStartingPoint'),
-      t('invalidStartingPoint'),
-      t('pickPlaceFromList')
+      originForSearch,
+      'missingStartingPoint',
+      'invalidStartingPoint',
+      'pickPlaceFromList'
     );
-    const destErr = fieldValidationError(
+    const destErr = fieldValidationErrorKey(
       destination,
-      selectedDestination,
-      t('missingDestination'),
-      t('invalidDestination'),
-      t('pickPlaceFromList')
+      destinationForSearch,
+      'missingDestination',
+      'invalidDestination',
+      'pickPlaceFromList'
     );
 
-    setStartFieldError(startErr);
-    setDestFieldError(destErr);
+    setStartFieldErrorKey(startErr);
+    setDestFieldErrorKey(destErr);
 
     if (startErr || destErr) {
       scrollToFirstError(startErr, destErr);
       return;
     }
 
-    setRouteOrigin(selectedOrigin);
-    setRouteDestination(selectedDestination);
+    setRouteOrigin(originForSearch);
+    setRouteDestination(destinationForSearch);
     onNavigateToPlanTime();
   };
 
-  const searchDisabled = !startPoint.trim() && !destination.trim();
+  const searchDisabled =
+    resolvingStart || resolvingDest || (!startPoint.trim() && !destination.trim());
 
   return (
     <div className="min-h-screen bg-eldergo-bg relative" style={{ fontFamily: 'Poppins' }}>
@@ -375,14 +535,20 @@ export default function PlanningPage({
           <div className="max-w-2xl mx-auto space-y-6 mt-8">
             <button
               onClick={onNavigateToUseElderGo}
-              className="flex items-center gap-3 bg-white/95 px-4 py-3 rounded-xl shadow-md text-eldergo-navy hover:text-eldergo-blue transition-colors group"
+              className="flex min-h-[52px] w-full items-center gap-3 rounded-xl bg-white/95 px-4 py-3 text-left shadow-md text-eldergo-navy transition-colors group hover:text-eldergo-blue"
             >
-              <Lightbulb size={24 * baseFontSize} strokeWidth={2.5} className="group-hover:text-eldergo-warning" />
-              <span className="font-medium" style={{ fontSize: `${18 * baseFontSize}px` }}>{t('howToUse')}</span>
+              <Lightbulb
+                size={24 * baseFontSize}
+                strokeWidth={2.5}
+                className="shrink-0 group-hover:text-eldergo-warning"
+              />
+              <span className="font-medium leading-snug" style={{ fontSize: `${18 * baseFontSize}px` }}>
+                {t('howToUse')}
+              </span>
             </button>
 
             <div className="space-y-4">
-              {chatPrefillNeedsConfirm && (
+              {showChatConfirmBanner && (
                 <div className="bg-eldergo-blue/10 border-l-4 border-eldergo-blue p-4 rounded-xl text-eldergo-navy font-medium">
                   {t('chatConfirmPlaceFromList')}
                 </div>
@@ -393,7 +559,10 @@ export default function PlanningPage({
                 </div>
               )}
 
-              <p className="text-eldergo-navy font-semibold px-1" style={{ fontSize: `${16 * baseFontSize}px` }}>
+              <p
+                className="min-h-[2.75rem] px-1 text-left font-semibold leading-snug text-eldergo-navy"
+                style={{ fontSize: `${16 * baseFontSize}px` }}
+              >
                 {t('startPointHint')}
               </p>
               <PlanningPlaceField
@@ -416,13 +585,24 @@ export default function PlanningPage({
                 onClear={clearStartField}
                 onInputClick={handleInputClick}
                 onFocus={() => {
-                  setStartFieldError(null);
+                  setStartFieldErrorKey(null);
                   if (startPoint.trim() && startSuggestions.length > 0) {
                     setShowStartDropdown(true);
                   }
                 }}
+                onBlur={() => {
+                  void tryResolveFieldOnBlur(
+                    startPoint,
+                    selectedOrigin,
+                    setStartPoint,
+                    setSelectedOrigin,
+                    setRouteOrigin,
+                    setResolvingStart,
+                    setStartFieldErrorKey
+                  );
+                }}
+                resolving={resolvingStart}
                 onSelectSuggestion={handleStartSelect}
-                toSuggestionLabel={toSuggestionLabel}
               />
 
               <div className="flex justify-center -my-1 px-1">
@@ -438,7 +618,10 @@ export default function PlanningPage({
                 </button>
               </div>
 
-              <p className="text-eldergo-navy font-semibold px-1" style={{ fontSize: `${16 * baseFontSize}px` }}>
+              <p
+                className="min-h-[2.75rem] px-1 text-left font-semibold leading-snug text-eldergo-navy"
+                style={{ fontSize: `${16 * baseFontSize}px` }}
+              >
                 {t('destinationHint')}
               </p>
               <PlanningPlaceField
@@ -461,20 +644,31 @@ export default function PlanningPage({
                 onClear={clearDestField}
                 onInputClick={handleInputClick}
                 onFocus={() => {
-                  setDestFieldError(null);
+                  setDestFieldErrorKey(null);
                   if (destination.trim() && destSuggestions.length > 0) {
                     setShowDestDropdown(true);
                   }
                 }}
+                onBlur={() => {
+                  void tryResolveFieldOnBlur(
+                    destination,
+                    selectedDestination,
+                    setDestination,
+                    setSelectedDestination,
+                    setRouteDestination,
+                    setResolvingDest,
+                    setDestFieldErrorKey
+                  );
+                }}
+                resolving={resolvingDest}
                 onSelectSuggestion={handleDestSelect}
-                toSuggestionLabel={toSuggestionLabel}
               />
 
               <button
                 type="button"
                 onClick={handleSearch}
                 disabled={searchDisabled}
-                className="w-full bg-eldergo-warning hover:bg-eldergo-warning-dark disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-xl transition-colors shadow-md"
+                className="w-full rounded-xl bg-eldergo-warning py-4 font-semibold text-white shadow-md transition-colors hover:bg-eldergo-warning-dark disabled:cursor-not-allowed disabled:bg-eldergo-border disabled:text-white/80"
                 style={{ fontSize: `${20 * baseFontSize}px` }}
               >
                 {t('search')}

@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronDown, ChevronRight, ChevronUp, Loader2, Send } from 'lucide-react';
+import { ChevronRight, Loader2, Send } from 'lucide-react';
 import { useAppContext } from '../../app/AppProvider';
-import { getTranslation } from '../../i18n/translations';
+import { getTranslation, TranslationKey } from '../../i18n/translations';
 import { createAIConversation, sendAIMessage } from '../../services/aiApi';
 import { ApiError } from '../../services/api';
 import { ChatAction, ChatBlock, ChatFlowType, ResponseSourceType } from '../../types/ai';
 import { FontSizeMode } from '../../types/settings';
 import ChatMessageBlocks from './ChatMessageBlocks';
-import { formatChatActionLabel, SUGGESTED_QUESTIONS } from './suggestedQuestions';
+import ChatQuickQuestions from './ChatQuickQuestions';
+import { formatChatActionLabel } from './suggestedQuestions';
 import { debugLog } from '../../utils/debugLog';
 
 interface AIChatbotSheetProps {
@@ -161,8 +162,8 @@ export default function AIChatbotSheet({ isOpen, onClose, onNavigate }: AIChatbo
   const inputFontPx = Math.round(18 * fontScale);
   const disclaimerFontPx = Math.round(13 * fontScale);
   const quickQuestionsFontPx = Math.round(18 * fontScale);
+  const welcomeFontPx = Math.round(20 * fontScale);
   const actionFontPx = Math.round(15 * fontScale);
-  const titleFontPx = Math.round(24 * fontScale);
   const blockHeadingFontPx = Math.round(20 * fontScale);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -174,7 +175,7 @@ export default function AIChatbotSheet({ isOpen, onClose, onNavigate }: AIChatbo
   const [isNavigating, setIsNavigating] = useState(false);
   const [navigatingLabel, setNavigatingLabel] = useState('');
   const [hasHydrated, setHasHydrated] = useState(false);
-  const [quickQuestionsExpanded, setQuickQuestionsExpanded] = useState(true);
+  const [quickQuestionsExpanded, setQuickQuestionsExpanded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const runNavigation = async (action: ChatAction) => {
@@ -319,6 +320,7 @@ export default function AIChatbotSheet({ isOpen, onClose, onNavigate }: AIChatbo
     const outgoingSlots = options?.resetFlow ? {} : flowSlots;
 
     setIsSending(true);
+    setQuickQuestionsExpanded(false);
     setMessages((prev) => [...prev, { text: trimmed, isUser: true }]);
 
     try {
@@ -401,7 +403,7 @@ export default function AIChatbotSheet({ isOpen, onClose, onNavigate }: AIChatbo
     await sendToAI(text);
   };
 
-  const handleSuggestedQuestion = (messageKey: string) => {
+  const handleSuggestedQuestion = (messageKey: TranslationKey) => {
     setChatFlow(null);
     setFlowSlots({});
     void sendToAI(t(messageKey), { resetFlow: true });
@@ -412,6 +414,8 @@ export default function AIChatbotSheet({ isOpen, onClose, onNavigate }: AIChatbo
   };
 
   if (!isOpen) return null;
+
+  const isEmptyChat = hasHydrated && messages.length === 0;
 
   return (
     <>
@@ -471,13 +475,6 @@ export default function AIChatbotSheet({ isOpen, onClose, onNavigate }: AIChatbo
               </button>
             </div>
 
-            <h2
-              className="font-bold text-eldergo-navy leading-tight mb-3 shrink-0 break-words"
-              style={{ fontSize: `${titleFontPx}px` }}
-            >
-              {t('chatbotGreeting')}
-            </h2>
-
             {!hasHydrated && (
               <div
                 className="mb-3 flex items-center gap-2 text-eldergo-muted shrink-0"
@@ -491,6 +488,27 @@ export default function AIChatbotSheet({ isOpen, onClose, onNavigate }: AIChatbo
 
             <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden mb-3">
               <div className="space-y-4 min-w-0">
+                {isEmptyChat && (
+                  <div className="space-y-4 min-w-0 pb-2">
+                    <h2
+                      className="font-bold text-eldergo-navy leading-snug break-words"
+                      style={{ fontSize: `${welcomeFontPx}px` }}
+                    >
+                      {t('chatbotGreeting')}
+                    </h2>
+                    <ChatQuickQuestions
+                      variant="empty"
+                      expanded
+                      onToggleExpanded={() => {}}
+                      onSelectQuestion={handleSuggestedQuestion}
+                      disabled={isSending || isNavigating}
+                      chipFontPx={chipFontPx}
+                      bodyFontPx={bodyFontPx}
+                      sectionFontPx={quickQuestionsFontPx}
+                      t={t}
+                    />
+                  </div>
+                )}
                 {messages.map((msg, index) => (
                   <div
                     key={index}
@@ -591,48 +609,19 @@ export default function AIChatbotSheet({ isOpen, onClose, onNavigate }: AIChatbo
             </div>
 
             <div className="shrink-0 min-w-0 border-t border-eldergo-border/70 bg-white pt-3">
-              <button
-                type="button"
-                onClick={() => setQuickQuestionsExpanded((prev) => !prev)}
-                className="mb-2 w-full flex items-center justify-between gap-2 min-h-12 px-1 text-left font-bold text-eldergo-navy hover:text-eldergo-blue transition-colors"
-                style={{ fontSize: `${quickQuestionsFontPx}px` }}
-                aria-expanded={quickQuestionsExpanded}
-              >
-                <span>{t('chatSuggestedQuestionsLabel')}</span>
-                <span className="flex items-center gap-1 shrink-0 text-eldergo-blue font-bold">
-                  <span>
-                    {quickQuestionsExpanded
-                      ? t('chatSuggestedQuestionsHide')
-                      : t('chatSuggestedQuestionsShow')}
-                  </span>
-                  {quickQuestionsExpanded ? (
-                    <ChevronUp size={22} aria-hidden />
-                  ) : (
-                    <ChevronDown size={22} aria-hidden />
-                  )}
-                </span>
-              </button>
-              {quickQuestionsExpanded && (
-              <div className="mb-3 max-h-[22vh] overflow-y-auto overflow-x-hidden -mx-1 px-1">
-                <div className="flex flex-wrap gap-2 min-w-0">
-                  {SUGGESTED_QUESTIONS.map((question) => (
-                    <button
-                      key={question.id}
-                      type="button"
-                      disabled={isSending || isNavigating}
-                      onClick={() => handleSuggestedQuestion(question.messageKey)}
-                      aria-label={`${t(question.labelKey)} — ${t('chatTapToAsk')}`}
-                      className="min-h-11 max-w-full px-3 py-2 font-semibold text-eldergo-navy bg-white border-2 border-eldergo-blue rounded-xl shadow-sm hover:bg-eldergo-blue/10 hover:border-eldergo-blue-dark active:scale-[0.99] transition-all disabled:opacity-50 break-words text-left [overflow-wrap:anywhere] inline-flex items-center gap-1.5"
-                      style={{ fontSize: `${chipFontPx}px` }}
-                    >
-                      <span>{t(question.labelKey)}</span>
-                      <ChevronRight size={18} className="shrink-0 text-eldergo-blue" aria-hidden />
-                    </button>
-                  ))}
-                </div>
-                </div>
+              {!isEmptyChat && (
+                <ChatQuickQuestions
+                  variant="compact"
+                  expanded={quickQuestionsExpanded}
+                  onToggleExpanded={() => setQuickQuestionsExpanded((prev) => !prev)}
+                  onSelectQuestion={handleSuggestedQuestion}
+                  disabled={isSending || isNavigating}
+                  chipFontPx={chipFontPx}
+                  bodyFontPx={bodyFontPx}
+                  sectionFontPx={quickQuestionsFontPx}
+                  t={t}
+                />
               )}
-
               <div className="flex gap-2 items-stretch min-w-0">
                 <input
                   type="text"

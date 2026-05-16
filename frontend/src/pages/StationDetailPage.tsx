@@ -7,7 +7,6 @@ import {
   Clock,
   HelpCircle,
   MapPin,
-  Navigation,
   TrainFront,
 } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
@@ -17,12 +16,16 @@ import { HoursDisplay } from '../components/common/HoursDisplay';
 import { useAppContext } from '../app/AppProvider';
 import { getTranslation } from '../i18n/translations';
 import { getLocationDetail } from '../services/locationsApi';
-import { getStationGooglePlaceDetail, getStationStaticImageUrl } from '../services/googlePlaces';
-import { pickFacilityIcon } from '../utils/facilityIcons';
+import {
+  getStationGooglePlaceDetail,
+  getStationStaticImageUrl,
+  placeDetailToSelection,
+} from '../services/googlePlaces';
+import { formatPlaceDisplayName } from '../utils/placeDisplay';
 import { LineBadge } from '../utils/lineBadge';
 import { parseHoursSummary } from '../utils/hoursParser';
-import { getFacilityTier, sortFacilitiesForElders } from '../utils/facilityPriority';
-import { translateFacility } from '../utils/dataI18n';
+import { prepareFacilitiesForDisplay } from '../utils/facilityPriority';
+import FacilityChips from '../components/common/FacilityChips';
 
 interface StationDetailPageProps {
   onNavigateToPlanning: () => void;
@@ -42,6 +45,7 @@ export default function StationDetailPage({
   const { fontSize, language, selectedStation, setDestination, setSelectedStation } = useAppContext();
   const [detailLoading, setDetailLoading] = useState(false);
   const [placeLoading, setPlaceLoading] = useState(false);
+  const [planRouteLoading, setPlanRouteLoading] = useState(false);
   const [placeError, setPlaceError] = useState<string | null>(null);
   const [showLastTrains, setShowLastTrains] = useState(false);
 
@@ -78,7 +82,7 @@ export default function StationDetailPage({
   const t = (key: string) => getTranslation(language, key as any);
 
   const status = selectedStation?.accessibility_status ?? 'unknown';
-  const facilities = sortFacilitiesForElders(selectedStation?.station_facilities ?? []);
+  const facilities = prepareFacilitiesForDisplay(selectedStation?.station_facilities ?? []);
   const address = selectedStation?.station_address ?? null;
   const hours = selectedStation?.station_hours_summary ?? null;
   const parsedHours = parseHoursSummary(hours);
@@ -130,16 +134,28 @@ export default function StationDetailPage({
     }
   };
 
-  const handlePlanRoute = () => {
+  const handlePlanRoute = async () => {
     if (!selectedStation) return;
-    const selection = {
-      displayName: selectedStation.name,
+    setPlanRouteLoading(true);
+    const fallback = {
+      displayName: formatPlaceDisplayName(selectedStation.name),
       lat: selectedStation.lat ?? null,
       lon: selectedStation.lon ?? null,
       googlePlaceId: null,
     };
-    setDestination(selection);
-    onNavigateToPlanning();
+    try {
+      const detail = await getStationGooglePlaceDetail(
+        selectedStation.name,
+        selectedStation.lat,
+        selectedStation.lon,
+      );
+      setDestination(placeDetailToSelection(detail));
+    } catch {
+      setDestination(fallback);
+    } finally {
+      setPlanRouteLoading(false);
+      onNavigateToPlanning();
+    }
   };
 
   const dataSourcesLine = [
@@ -341,47 +357,7 @@ export default function StationDetailPage({
                 {t('stationFacilities')}
               </h2>
               {facilities.length > 0 ? (
-                <div className="flex flex-wrap gap-3">
-                  {facilities.map((item) => {
-                    // Pick icon and tier from the canonical English label so
-                    // matching keeps working when the UI is in BM, but show
-                    // the localized label to the user.
-                    const Icon = pickFacilityIcon(item);
-                    const tier = getFacilityTier(item);
-                    const localizedLabel = translateFacility(item, language);
-                    // Tier 1 (mobility): solid filled brand blue chip — unmistakable
-                    // Tier 2 (toilets/help/surau/shelter): clearly tinted with strong border
-                    // Tier 3: neutral default
-                    // Weights stay within the brand's SemiBold/Medium/Regular
-                    // range; tier 1 leans on color + shadow rather than 700.
-                    const chipClass =
-                      tier === 1
-                        ? 'border-eldergo-blue bg-eldergo-blue text-white font-semibold shadow-md'
-                        : tier === 2
-                          ? 'border-eldergo-blue/70 bg-eldergo-blue/15 text-eldergo-navy font-semibold'
-                          : 'border-eldergo-border bg-eldergo-bg text-eldergo-navy font-medium';
-                    const iconColor =
-                      tier === 1
-                        ? 'text-white flex-shrink-0'
-                        : tier === 2
-                          ? 'text-eldergo-blue-dark flex-shrink-0'
-                          : 'text-eldergo-blue flex-shrink-0';
-                    return (
-                      <span
-                        key={item}
-                        className={`inline-flex items-center gap-2 rounded-full border-2 px-4 py-2 ${chipClass}`}
-                        style={{ fontSize: `${15 * baseFontSize}px` }}
-                      >
-                        <Icon
-                          size={18 * baseFontSize}
-                          className={iconColor}
-                          strokeWidth={tier === 3 ? 2.2 : 2.6}
-                        />
-                        <span>{localizedLabel}</span>
-                      </span>
-                    );
-                  })}
-                </div>
+                <FacilityChips items={facilities} language={language} baseFontSize={baseFontSize} />
               ) : (
                 <p
                   className="text-eldergo-muted"
@@ -427,12 +403,14 @@ export default function StationDetailPage({
                 blue outline so users can clearly distinguish them. */}
             <div className="space-y-3">
               <button
-                onClick={handlePlanRoute}
-                className="w-full bg-eldergo-blue hover:bg-eldergo-blue-dark text-white font-semibold py-6 rounded-2xl transition-colors shadow-lg min-h-[80px] flex items-center justify-center gap-3"
+                type="button"
+                onClick={() => void handlePlanRoute()}
+                disabled={planRouteLoading}
+                aria-label={t('planRouteToStation')}
+                className="w-full bg-eldergo-blue hover:bg-eldergo-blue-dark disabled:bg-eldergo-muted text-white font-semibold py-6 rounded-2xl transition-colors shadow-lg min-h-[80px] flex items-center justify-center text-center leading-snug px-4"
                 style={{ fontSize: `${22 * baseFontSize}px` }}
               >
-                <Navigation size={26 * baseFontSize} strokeWidth={2.4} />
-                {t('planRouteToStation')}
+                {planRouteLoading ? t('loadingPlaceDetails') : t('planRouteToStation')}
               </button>
 
               <button

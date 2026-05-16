@@ -17,6 +17,9 @@ export const SUGGESTED_QUESTIONS: SuggestedQuestion[] = [
   { id: 'preferences', labelKey: 'chatSuggest_preferences', messageKey: 'chatSuggest_preferencesMsg' }
 ];
 
+export const PRIMARY_SUGGESTED_QUESTIONS = SUGGESTED_QUESTIONS.slice(0, 3);
+export const MORE_SUGGESTED_QUESTIONS = SUGGESTED_QUESTIONS.slice(3);
+
 export function formatChatActionLabel(
   action: ChatAction,
   t: (key: TranslationKey) => string

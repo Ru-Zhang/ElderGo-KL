@@ -52,6 +52,7 @@ from app.services.ai_route_parse_service import (
     try_gemini_route_pair,
     try_rule_route_pair,
 )
+from app.services.departure_time_service import KL_TZ, format_departure_display_label
 from app.services.klang_valley_service import place_detail_in_kv, reject_outside_kv_message
 from app.services.locations_search_service import get_location_detail_by_id, search_station_locations
 from app.services.places_service import search_places_kv
@@ -125,16 +126,18 @@ ASK_DEPARTURE_TIME = {
     "en": (
         "When do you want to travel?\n"
         "- now\n"
-        "- morning\n"
-        "- afternoon\n"
-        "- evening"
+        "- morning_peak (morning rush)\n"
+        "- midday\n"
+        "- evening_peak (evening rush)\n"
+        "- night (before last trains)"
     ),
     "ms": (
         "Bila anda mahu bergerak?\n"
         "- sekarang (now)\n"
-        "- pagi (morning)\n"
-        "- petang (afternoon)\n"
-        "- malam (evening)"
+        "- morning_peak (waktu puncak pagi)\n"
+        "- midday (tengah hari)\n"
+        "- evening_peak (waktu puncak petang)\n"
+        "- night (sebelum kereta terakhir)"
     ),
     "zh": (
         "您打算什么时候出发？\n"
@@ -221,16 +224,38 @@ PLACE_NOT_FOUND = {
     "zh": "在巴生谷找不到该地点。\n请检查拼写或尝试附近地标（例如：KL Sentral、Petaling Jaya）。",
 }
 INVALID_DEPARTURE = {
-    "en": "Please choose: now, morning, afternoon, or evening.",
-    "ms": "Sila pilih: sekarang, pagi, petang, atau malam.",
-    "zh": "请选择：现在、早上、下午或晚上。",
+    "en": "Please choose: now, morning rush, midday, evening rush, or night.",
+    "ms": "Sila pilih: sekarang, puncak pagi, tengah hari, puncak petang, atau malam.",
+    "zh": "请选择：现在、早高峰、午间、晚高峰或夜间。",
 }
 
 DEPARTURE_MAP = {
     "now": ("now", "sekarang", "现在", "此刻"),
+    "morning_peak": (
+        "morning_peak",
+        "morning rush",
+        "rush hour morning",
+        "peak morning",
+        "puncak pagi",
+        "waktu puncak pagi",
+        "早高峰",
+        "早上高峰",
+    ),
+    "midday": ("midday", "mid day", "noon", "tengah hari", "中午", "午间"),
+    "evening_peak": (
+        "evening_peak",
+        "evening rush",
+        "rush hour evening",
+        "peak evening",
+        "puncak petang",
+        "waktu puncak petang",
+        "晚高峰",
+        "傍晚高峰",
+    ),
+    "night": ("night", "malam", "last train", "before last", "晚上", "夜间", "末班"),
     "morning": ("morning", "pagi", "早上", "上午"),
     "afternoon": ("afternoon", "petang", "下午"),
-    "evening": ("evening", "night", "malam", "晚上", "傍晚"),
+    "evening": ("evening", "傍晚"),
 }
 
 
@@ -361,34 +386,98 @@ def _starter_has_place(message: str) -> bool:
     return lowered not in bare and len(lowered) > 12
 
 
-_DEPARTURE_CHOICE_KEYS = ("now", "morning", "afternoon", "evening")
+_DEPARTURE_CHOICE_KEYS = ("now", "morning_peak", "midday", "evening_peak", "night")
+
+
+def _parse_custom_departure_iso(message: str) -> str | None:
+    """Parse 'tomorrow 6am' / 'today 3pm' into ISO departure for route API."""
+    from datetime import datetime, timedelta
+
+    lowered = message.lower().strip()
+    now = datetime.now(KL_TZ)
+    target_date = None
+    if re.search(r"\btomorrow\b|esok|明天", lowered):
+        target_date = (now + timedelta(days=1)).date()
+    elif re.search(r"\btoday\b|hari\s+ini|今天", lowered):
+        target_date = now.date()
+    if target_date is None:
+        return None
+
+    time_match = re.search(
+        r"(?<!\d)(\d{1,2})(?::(\d{2}))?\s*(am|pm)?(?!\d)",
+        lowered,
+    )
+    if not time_match:
+        return None
+
+    hour = int(time_match.group(1))
+    minute = int(time_match.group(2) or 0)
+    meridiem = time_match.group(3)
+    if meridiem == "pm" and hour < 12:
+        hour += 12
+    if meridiem == "am" and hour == 12:
+        hour = 0
+    if not meridiem and hour <= 12 and re.search(r"\b(?:pm|petang|malam|晚上)\b", lowered):
+        if hour < 12:
+            hour += 12
+
+    candidate = datetime(
+        target_date.year,
+        target_date.month,
+        target_date.day,
+        hour,
+        minute,
+        tzinfo=KL_TZ,
+    )
+    return candidate.isoformat()
 
 
 def _parse_departure_time(message: str) -> str | None:
+    from app.services.departure_time_service import LEGACY_KEY_MAP, normalize_departure_key
+
+    custom_iso = _parse_custom_departure_iso(message)
+    if custom_iso:
+        return custom_iso
+
     lowered = message.lower().strip()
     if re.match(r"^\d+$", lowered):
         idx = int(lowered) - 1
         if 0 <= idx < len(_DEPARTURE_CHOICE_KEYS):
             return _DEPARTURE_CHOICE_KEYS[idx]
+    if re.search(r"\b(?:rush|peak|puncak)\b.*\b(?:morning|pagi|am)\b", lowered) or re.search(
+        r"\b(?:morning|pagi)\b.*\b(?:rush|peak|puncak)\b", lowered
+    ):
+        return "morning_peak"
+    if re.search(r"\b(?:rush|peak|puncak)\b.*\b(?:evening|petang|pm)\b", lowered) or re.search(
+        r"\b(?:evening|petang)\b.*\b(?:rush|peak|puncak)\b", lowered
+    ):
+        return "evening_peak"
     if re.search(r"\b(?:12\s*pm|noon|midday|tengah\s+hari|中午|正午)\b", lowered):
-        return "afternoon"
+        return "midday"
     if re.search(r"\b(?:12\s*am|midnight|tengah\s+malam|午夜|凌晨)\b", lowered):
-        return "evening"
-    if re.search(r"\b(?:1[0-1]|1[0-1]\s*pm|[2-6]\s*pm|[2-6]pm|1[3-8]:[0-5]\d)\b", lowered):
-        return "afternoon"
-    if re.search(r"\b(?:[6-9]\s*am|[6-9]am|[1-9]:[0-5]\d\s*am)\b", lowered):
-        return "morning"
-    if re.search(r"下午|傍晚", message):
-        return "afternoon"
+        return "night"
+    if re.search(r"\b(?:1[0-1]|1[0-1]\s*pm|[2-4]\s*pm|[2-4]pm)\b", lowered):
+        return "midday"
+    if re.search(r"\b(?:5|6|7|8|9)\s*pm\b", lowered):
+        return "evening_peak"
+    if re.search(r"\b(?:9|10|11)\s*pm\b", lowered) or re.search(r"\blast\s+train\b", lowered):
+        return "night"
+    if re.search(r"\b(?:[6-9]\s*am|[6-9]am)\b", lowered):
+        return "morning_peak"
+    if re.search(r"下午|午间", message):
+        return "midday"
     if re.search(r"早上|上午", message):
-        return "morning"
-    if re.search(r"晚上|夜间", message):
-        return "evening"
+        return "morning_peak"
+    if re.search(r"晚上|夜间|末班", message):
+        return "night"
+    if re.search(r"傍晚", message):
+        return "evening_peak"
     if re.search(r"现在|马上|立刻", message):
         return "now"
     for value, keywords in DEPARTURE_MAP.items():
         if any(keyword in lowered for keyword in keywords):
-            return value
+            mapped = LEGACY_KEY_MAP.get(value, value)
+            return normalize_departure_key(mapped)
     return None
 
 
@@ -986,7 +1075,8 @@ async def _finish_plan_route(
     origin_label = _route_place_label(origin)
     destination_label = _route_place_label(destination)
 
-    ready_blocks = blocks_route_ready(origin_label, destination_label, departure, language)
+    departure_label = format_departure_display_label(departure, language)
+    ready_blocks = blocks_route_ready(origin_label, destination_label, departure_label, language)
 
     return _flow_result(
         blocks=ready_blocks,

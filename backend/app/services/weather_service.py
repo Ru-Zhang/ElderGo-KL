@@ -5,40 +5,51 @@ import httpx
 from fastapi import HTTPException
 
 from app.core.config import get_settings
-from app.schemas.weather import DepartureTime, WeatherForecastRequest, WeatherForecastResponse, WeatherRiskLevel
+from app.schemas.weather import (
+    DepartureTime,
+    WeatherForecastRequest,
+    WeatherForecastResponse,
+    WeatherHourlySlot,
+    WeatherRiskLevel,
+)
+from app.services.departure_time_service import (
+    is_departure_now,
+    normalize_departure_key,
+    resolve_departure_datetime,
+)
 from app.services.places_service import get_station_place_detail
 
 OPENWEATHER_FORECAST_URL = "https://api.openweathermap.org/data/2.5/forecast"
 OPENWEATHER_GEOCODING_URL = "https://api.openweathermap.org/geo/1.0/direct"
+RAIN_WEATHER_IDS = {500, 501, 502, 503, 504, 511, 520, 521, 522, 531}
+FORECAST_SLOT_HOURS = 3
 
 
-def _target_hour(departure_time: DepartureTime) -> int:
-    return {
-        "morning": 9,
-        "afternoon": 14,
-        "evening": 19,
-    }.get(departure_time, datetime.now().hour)
+def _format_departure_forecast_label(target_local: datetime) -> str:
+    weekday = target_local.strftime("%a")
+    time_part = target_local.strftime("%I:%M %p").lstrip("0")
+    return f"{weekday}, {time_part}"
 
 
-def _select_forecast_item(items: list[dict[str, Any]], departure_time: DepartureTime, timezone_offset: int) -> dict[str, Any]:
+def _select_forecast_item(
+    items: list[dict[str, Any]],
+    departure_time: str,
+    timezone_offset: int,
+) -> tuple[dict[str, Any], datetime | None]:
     if not items:
         raise HTTPException(status_code=502, detail="OpenWeatherMap did not return forecast items.")
-    if departure_time == "now":
-        return items[0]
-
-    # Forecast timestamps are UTC; convert using city offset so morning/afternoon/
-    # evening choices align with destination local time.
+    normalized = normalize_departure_key(departure_time)
     local_tz = timezone(timedelta(seconds=timezone_offset))
-    now_local = datetime.now(local_tz)
-    target_local = now_local.replace(hour=_target_hour(departure_time), minute=0, second=0, microsecond=0)
-    if target_local <= now_local:
-        target_local += timedelta(days=1)
+    if is_departure_now(normalized):
+        return items[0], None
+
+    target_local = resolve_departure_datetime(normalized).astimezone(local_tz)
 
     def distance_from_target(item: dict[str, Any]) -> float:
         forecast_local = datetime.fromtimestamp(item["dt"], tz=timezone.utc).astimezone(local_tz)
         return abs((forecast_local - target_local).total_seconds())
 
-    return min(items, key=distance_from_target)
+    return min(items, key=distance_from_target), target_local
 
 
 async def _geocode_destination(destination_name: str, api_key: str) -> tuple[float, float]:
@@ -91,6 +102,112 @@ async def _google_places_fallback_coordinates(destination_name: str) -> tuple[fl
         return None
 
     return float(detail.lat), float(detail.lon)
+
+
+def _is_wet_forecast(item: dict[str, Any]) -> bool:
+    pop = float(item.get("pop") or 0)
+    rain_mm = float((item.get("rain") or {}).get("3h") or 0)
+    weather_id = int((item.get("weather") or [{}])[0].get("id") or 0)
+    return pop >= 0.35 or rain_mm > 0 or weather_id in RAIN_WEATHER_IDS
+
+
+def _build_hourly_outlook(
+    items: list[dict[str, Any]],
+    selected: dict[str, Any],
+    target_local: datetime | None,
+    timezone_offset: int,
+    *,
+    max_slots: int = 4,
+) -> list[WeatherHourlySlot]:
+    if not items:
+        return []
+
+    local_tz = timezone(timedelta(seconds=timezone_offset))
+    slots: list[tuple[datetime, dict[str, Any]]] = []
+    for item in items:
+        forecast_local = datetime.fromtimestamp(item["dt"], tz=timezone.utc).astimezone(local_tz)
+        slots.append((forecast_local, item))
+    slots.sort(key=lambda entry: entry[0])
+
+    selected_local = datetime.fromtimestamp(selected["dt"], tz=timezone.utc).astimezone(local_tz)
+    anchor = target_local or selected_local
+    anchor_idx = min(range(len(slots)), key=lambda i: abs((slots[i][0] - anchor).total_seconds()))
+
+    start_idx = anchor_idx
+    end_idx = min(len(slots) - 1, anchor_idx + max_slots - 1)
+    outlook: list[WeatherHourlySlot] = []
+    for idx in range(start_idx, end_idx + 1):
+        forecast_local, item = slots[idx]
+        if idx != anchor_idx and forecast_local < anchor:
+            continue
+        main = item.get("main") or {}
+        weather = (item.get("weather") or [{}])[0]
+        pop = int(round(float(item.get("pop") or 0) * 100))
+        outlook.append(
+            WeatherHourlySlot(
+                forecast_time=forecast_local.isoformat(),
+                temperature_c=round(float(main.get("temp") or 0), 1),
+                feels_like_c=round(float(main.get("feels_like") or main.get("temp") or 0), 1),
+                weather_description=weather.get("description") or "forecast unavailable",
+                precipitation_probability_percent=pop or None,
+                is_departure_window=idx == anchor_idx,
+            )
+        )
+    return outlook
+
+
+def _analyze_rain_window(
+    items: list[dict[str, Any]],
+    selected: dict[str, Any],
+    target_local: datetime | None,
+    timezone_offset: int,
+) -> tuple[str | None, str | None, int | None, int | None]:
+    """Summarize likely rain timing from nearby 3-hour OpenWeather slots (ISO local times)."""
+    if not items:
+        return None, None, None, None
+
+    local_tz = timezone(timedelta(seconds=timezone_offset))
+    slots: list[tuple[datetime, dict[str, Any]]] = []
+    for item in items:
+        forecast_local = datetime.fromtimestamp(item["dt"], tz=timezone.utc).astimezone(local_tz)
+        slots.append((forecast_local, item))
+    slots.sort(key=lambda entry: entry[0])
+
+    selected_local = datetime.fromtimestamp(selected["dt"], tz=timezone.utc).astimezone(local_tz)
+    anchor = target_local or selected_local
+    anchor_idx = min(range(len(slots)), key=lambda i: abs((slots[i][0] - anchor).total_seconds()))
+
+    wet_flags = [_is_wet_forecast(item) for _, item in slots]
+    selected_pop = int(round(float(selected.get("pop") or 0) * 100))
+
+    if not any(wet_flags):
+        if selected_pop < 40:
+            return None, None, None, selected_pop or None
+        start = slots[anchor_idx][0]
+        end = start + timedelta(hours=FORECAST_SLOT_HOURS)
+        return start.isoformat(), end.isoformat(), FORECAST_SLOT_HOURS, selected_pop
+
+    if not wet_flags[anchor_idx]:
+        nearest_wet = min(
+            (i for i, wet in enumerate(wet_flags) if wet),
+            key=lambda i: abs((slots[i][0] - anchor).total_seconds()),
+            default=anchor_idx,
+        )
+        anchor_idx = nearest_wet
+
+    start_idx = end_idx = anchor_idx
+    while start_idx > 0 and wet_flags[start_idx - 1]:
+        start_idx -= 1
+    while end_idx < len(wet_flags) - 1 and wet_flags[end_idx + 1]:
+        end_idx += 1
+
+    start_dt = slots[start_idx][0]
+    end_dt = slots[end_idx][0] + timedelta(hours=FORECAST_SLOT_HOURS)
+    duration_h = (end_idx - start_idx + 1) * FORECAST_SLOT_HOURS
+    peak_pop = max(
+        int(round(float(slots[i][1].get("pop") or 0) * 100)) for i in range(start_idx, end_idx + 1)
+    )
+    return start_dt.isoformat(), end_dt.isoformat(), duration_h, peak_pop
 
 
 def _risk_level(item: dict[str, Any], rain_mm: float, wind_kmh: float) -> WeatherRiskLevel:
@@ -167,7 +284,10 @@ async def get_weather_forecast(payload: WeatherForecastRequest) -> WeatherForeca
 
     items = body.get("list") or []
     city = body.get("city") or {}
-    selected = _select_forecast_item(items, payload.departure_time, int(city.get("timezone") or 0))
+    normalized_departure = normalize_departure_key(payload.departure_time)
+    timezone_offset = int(city.get("timezone") or 0)
+    selected, target_local = _select_forecast_item(items, normalized_departure, timezone_offset)
+    departure_forecast_label = _format_departure_forecast_label(target_local) if target_local else None
     main = selected.get("main") or {}
     weather = (selected.get("weather") or [{}])[0]
     wind = selected.get("wind") or {}
@@ -175,11 +295,16 @@ async def get_weather_forecast(payload: WeatherForecastRequest) -> WeatherForeca
     rain_mm = float(rain.get("3h") or 0)
     wind_kmh = round(float(wind.get("speed") or 0) * 3.6, 1)
     risk_level = _risk_level(selected, rain_mm, wind_kmh)
+    rain_start, rain_end, rain_hours, peak_pop = _analyze_rain_window(
+        items, selected, target_local, timezone_offset
+    )
+    hourly_outlook = _build_hourly_outlook(items, selected, target_local, timezone_offset)
 
     return WeatherForecastResponse(
         destination_name=city.get("name") or payload.destination_name,
         forecast_time=selected.get("dt_txt") or datetime.fromtimestamp(selected["dt"], tz=timezone.utc).isoformat(),
-        period_label=payload.departure_time,
+        period_label=normalized_departure,
+        departure_forecast_label=departure_forecast_label,
         temperature_c=round(float(main.get("temp") or 0), 1),
         feels_like_c=round(float(main.get("feels_like") or main.get("temp") or 0), 1),
         humidity_percent=main.get("humidity"),
@@ -191,4 +316,9 @@ async def get_weather_forecast(payload: WeatherForecastRequest) -> WeatherForeca
         weather_icon=weather.get("icon"),
         risk_level=risk_level,
         senior_advice=_senior_advice(risk_level),
+        rain_period_start=rain_start,
+        rain_period_end=rain_end,
+        rain_window_hours=rain_hours,
+        peak_pop_percent=peak_pop,
+        hourly_outlook=hourly_outlook,
     )

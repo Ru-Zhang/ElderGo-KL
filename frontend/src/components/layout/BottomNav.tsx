@@ -21,6 +21,8 @@ export default function BottomNav({
 }: BottomNavProps) {
   const { language } = useAppContext();
   const t = (key: string) => getTranslation(language, key as any);
+  const navLabelClass =
+    'max-w-full text-center text-[12px] font-medium leading-tight line-clamp-2 min-h-[2.5rem] sm:text-[13px]';
 
   return (
     // Fixed bottom nav keeps primary actions reachable with one tap.
@@ -33,7 +35,9 @@ export default function BottomNav({
           }`}
         >
           <Map size={26} strokeWidth={activeTab === 'planning' ? 2.5 : 2} />
-          <span className="text-[13px] font-medium" style={{ fontFamily: 'Poppins' }}>{t('planning')}</span>
+          <span className={navLabelClass} style={{ fontFamily: 'Poppins' }}>
+            {t('planning')}
+          </span>
         </button>
 
         <button
@@ -43,7 +47,9 @@ export default function BottomNav({
           }`}
         >
           <Train size={26} strokeWidth={activeTab === 'station' ? 2.5 : 2} />
-          <span className="text-[13px] font-medium" style={{ fontFamily: 'Poppins' }}>{t('stations')}</span>
+          <span className={navLabelClass} style={{ fontFamily: 'Poppins' }}>
+            {t('stations')}
+          </span>
         </button>
 
         <button
@@ -62,7 +68,9 @@ export default function BottomNav({
           }`}
         >
           <Sliders size={26} strokeWidth={activeTab === 'preference' ? 2.5 : 2} />
-          <span className="text-[13px] font-medium whitespace-nowrap" style={{ fontFamily: 'Poppins' }}>{t('preference')}</span>
+          <span className={navLabelClass} style={{ fontFamily: 'Poppins' }}>
+            {t('preference')}
+          </span>
         </button>
 
         <button
@@ -72,7 +80,9 @@ export default function BottomNav({
           }`}
         >
           <HelpCircle size={26} strokeWidth={activeTab === 'help' ? 2.5 : 2} />
-          <span className="text-[13px] font-medium" style={{ fontFamily: 'Poppins' }}>{t('help')}</span>
+          <span className={navLabelClass} style={{ fontFamily: 'Poppins' }}>
+            {t('help')}
+          </span>
         </button>
       </div>
     </div>

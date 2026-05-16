@@ -1,6 +1,7 @@
 import { ReactNode, RefObject } from 'react';
 import { AlertCircle, X } from 'lucide-react';
 import { PlaceSelection } from '../../types/locations';
+import { formatPlaceDisplayName } from '../../utils/placeDisplay';
 
 interface PlanningPlaceFieldProps {
   fieldRef?: RefObject<HTMLDivElement | null>;
@@ -12,12 +13,13 @@ interface PlanningPlaceFieldProps {
   showDropdown: boolean;
   suggestions: PlaceSelection[];
   baseFontSize: number;
+  resolving?: boolean;
   onValueChange: (value: string) => void;
   onClear: () => void;
   onInputClick: () => void;
   onFocus: () => void;
+  onBlur?: () => void;
   onSelectSuggestion: (suggestion: PlaceSelection, label: string) => void;
-  toSuggestionLabel: (value: string) => string;
 }
 
 export default function PlanningPlaceField({
@@ -30,12 +32,13 @@ export default function PlanningPlaceField({
   showDropdown,
   suggestions,
   baseFontSize,
+  resolving = false,
   onValueChange,
   onClear,
   onInputClick,
   onFocus,
+  onBlur,
   onSelectSuggestion,
-  toSuggestionLabel
 }: PlanningPlaceFieldProps) {
   const hasValue = Boolean(value.trim());
   const inputBorderClass = fieldError
@@ -55,12 +58,17 @@ export default function PlanningPlaceField({
           onChange={(e) => onValueChange(e.target.value)}
           onClick={onInputClick}
           onFocus={onFocus}
-          className={`w-full pl-16 py-5 bg-white border-2 rounded-xl font-medium text-eldergo-navy placeholder:text-eldergo-muted focus:outline-none shadow-md relative z-10 ${hasValue ? 'pr-14' : 'pr-6'} ${inputBorderClass}`}
+          onBlur={onBlur}
+          autoCapitalize="words"
+          autoCorrect="off"
+          spellCheck={false}
+          className={`w-full pl-16 py-5 bg-white border-2 rounded-xl font-medium text-eldergo-navy placeholder:text-eldergo-muted focus:outline-none shadow-md relative z-10 ${hasValue ? 'pr-14' : 'pr-6'} ${inputBorderClass} ${resolving ? 'opacity-80' : ''}`}
           style={{ fontSize: `${18 * baseFontSize}px` }}
         />
         {hasValue && (
           <button
             type="button"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={onClear}
             aria-label={clearAriaLabel}
             className="absolute right-2 top-1/2 -translate-y-1/2 z-30 flex items-center justify-center w-11 h-11 min-w-[44px] min-h-[44px] rounded-full text-eldergo-muted hover:text-eldergo-navy hover:bg-eldergo-bg transition-colors"
@@ -71,11 +79,12 @@ export default function PlanningPlaceField({
         {showDropdown && suggestions.length > 0 && (
           <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-eldergo-border rounded-xl shadow-lg z-40 max-h-60 overflow-y-auto">
             {suggestions.map((suggestion, index) => {
-              const label = toSuggestionLabel(suggestion.displayName);
+              const label = formatPlaceDisplayName(suggestion.displayName);
               return (
                 <button
                   key={`${suggestion.googlePlaceId}-${index}`}
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => onSelectSuggestion(suggestion, label)}
                   className="w-full px-6 py-4 text-left font-medium text-eldergo-navy hover:bg-eldergo-bg transition-colors border-b border-eldergo-border last:border-b-0"
                   style={{ fontSize: `${18 * baseFontSize}px` }}
@@ -95,7 +104,9 @@ export default function PlanningPlaceField({
             className="text-eldergo-warning flex-shrink-0 mt-0.5"
             aria-hidden
           />
-          <p style={{ fontSize: `${16 * baseFontSize}px` }}>{fieldError}</p>
+          <p className="break-words leading-snug" style={{ fontSize: `${16 * baseFontSize}px` }}>
+            {fieldError}
+          </p>
         </div>
       )}
     </div>
