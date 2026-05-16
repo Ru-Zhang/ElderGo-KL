@@ -11,6 +11,7 @@ import {
   updateTravelPreferences,
   updateUISettings
 } from '../services/usersApi';
+import { clearRouteCache } from '../services/routesApi';
 
 const LOCAL_SETTINGS_KEY = 'eldergo_ui_settings';
 const LOCAL_PREFERENCES_KEY = 'eldergo_travel_preferences';
@@ -45,9 +46,9 @@ interface AppContextType {
 }
 
 const defaultPreferences: TravelPreferences = {
-  accessibilityFirst: false,
-  leastWalk: false,
-  fewestTransfers: false
+  accessibilityFirst: true,
+  leastWalk: true,
+  fewestTransfers: false,
 };
 
 const defaultSettings: UISettings = {
@@ -174,6 +175,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     preferencesChangedDuringRestoreRef.current = true;
     setPreferences(prefs);
     localStorage.setItem(LOCAL_PREFERENCES_KEY, JSON.stringify(prefs));
+    // Route ranking depends on prefs; invalidate client cache synchronously before next plan.
+    clearRouteCache();
+    setCurrentRoute(null);
     if (anonymousUserId) {
       updateTravelPreferences(anonymousUserId, prefs).catch(() => undefined);
     }

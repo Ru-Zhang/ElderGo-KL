@@ -17,13 +17,19 @@ from app.schemas.routes import (
     RouteStep,
 )
 from app.services.database import get_connection
-from app.services.google_maps_service import CandidateRoute, fetch_transit_candidates
+from app.services.google_maps_service import CandidateRoute
 from app.services.klcc_monash_route_service import (
     fetch_klcc_monash_brt_candidate,
     is_monash_brt_route,
+    uses_monash_corridor,
 )
 from app.exceptions.route_errors import RouteUnavailableError
-from app.services.route_scoring_service import choose_best_with_summary
+from app.services.elder_route_ranking_service import (
+    align_composed_duration,
+    dedupe_candidates,
+    rank_candidates_for_elders,
+)
+from app.services.google_maps_service import fetch_transit_candidates_lenient
 from app.services.route_segment_image_matcher import resolve_route_step_images
 from app.services.accessibility_annotation_service import (
     AccessibilityAnnotationResult,
@@ -35,26 +41,30 @@ from app.services.route_cache_service import build_route_cache_key, get_route_ca
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
-_DEBUG_LOG = Path(__file__).resolve().parents[3] / ".cursor" / "debug-ce83c2.log"
 
 
-def _agent_log(hypothesis_id: str, message: str, data: dict) -> None:
-    # #region agent log
-    try:
-        payload = {
-            "sessionId": "ce83c2",
-            "hypothesisId": hypothesis_id,
-            "location": "route_service.py",
-            "message": message,
-            "data": data,
-            "timestamp": int(time.time() * 1000),
-        }
-        _DEBUG_LOG.parent.mkdir(parents=True, exist_ok=True)
-        with _DEBUG_LOG.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
-    except OSError:
-        pass
-    # #endregion
+async def _gather_route_candidates(
+    payload: RouteRecommendationRequest,
+    *,
+    monash_brt: bool,
+) -> list[CandidateRoute]:
+    candidates: list[CandidateRoute] = []
+    if monash_brt:
+        composed = await fetch_klcc_monash_brt_candidate(
+            payload.origin,
+            payload.destination,
+            payload.departure_time,
+        )
+        if composed is not None:
+            candidates.append(composed)
+    direct = await fetch_transit_candidates_lenient(
+        payload.origin,
+        payload.destination,
+        payload.departure_time,
+    )
+    candidates.extend(direct)
+    unique = dedupe_candidates(candidates)
+    return unique
 
 
 @dataclass
@@ -177,6 +187,8 @@ def _route_from_candidate(
     candidate: CandidateRoute,
     *,
     preference_summary_key: str | None = None,
+    ranking_primary_factor: str | None = None,
+    ranking_secondary_factor: str | None = None,
 ) -> PreparedRecommendation:
     annotation_results = annotate_all_route_steps(candidate.steps)
     step_images = resolve_route_step_images(
@@ -210,6 +222,8 @@ def _route_from_candidate(
         walking_distance_meters=candidate.walking_distance_meters,
         recommendation_reason="Best route for your departure time, balanced for your travel preferences.",
         preference_summary_key=preference_summary_key,
+        ranking_primary_factor=ranking_primary_factor,
+        ranking_secondary_factor=ranking_secondary_factor,
         map_polyline=candidate.polyline,
         steps=[prepared.step for prepared in prepared_steps],
         navigation_waypoints=build_navigation_waypoints(candidate.steps),
@@ -458,26 +472,10 @@ async def recommend_route(
 
     started = time.perf_counter()
     payload.departure_time = normalize_departure_key(payload.departure_time)
-    prefs = payload.preferences
-    _agent_log(
-        "H5",
-        "recommend_start",
-        {
-            "departure": payload.departure_time,
-            "origin": payload.origin.display_name[:40],
-            "destination": payload.destination.display_name[:40],
-            "accessibility_first": prefs.accessibility_first,
-            "least_walk": prefs.least_walk,
-            "fewest_transfers": prefs.fewest_transfers,
-            "demo_mode": settings.demo_mode,
-            "persist_snapshots": settings.persist_route_snapshots,
-        },
-    )
     cache_key = build_route_cache_key(payload)
     route_cache = get_route_cache()
     cached = await route_cache.get(cache_key, payload.departure_time)
     if cached is not None:
-        _agent_log("H5", "cache_hit", {"ms": round((time.perf_counter() - started) * 1000, 1)})
         logger.info(
             "route_recommend cache_hit ms=%.1f key=%s",
             (time.perf_counter() - started) * 1000,
@@ -486,59 +484,44 @@ async def recommend_route(
         return cached
 
     google_started = time.perf_counter()
-    preference_summary_key: str | None = None
-    transit_candidates: list[CandidateRoute] = []
-
     monash_brt = is_monash_brt_route(payload.origin, payload.destination)
-    _agent_log("H1", "google_phase_start", {"monash_brt": monash_brt})
-    if monash_brt:
-        composed = await fetch_klcc_monash_brt_candidate(
-            payload.origin,
-            payload.destination,
-            payload.departure_time,
-        )
-        if composed is not None:
-            transit_candidates.append(composed)
-            _agent_log(
-                "H1",
-                "monash_compose_ok",
-                {
-                    "transfers": composed.transfers,
-                    "duration_minutes": composed.duration_minutes,
-                },
-            )
-
+    transit_candidates = await _gather_route_candidates(payload, monash_brt=monash_brt)
     if not transit_candidates:
-        transit_candidates = await fetch_transit_candidates(
-            payload.origin,
-            payload.destination,
-            payload.departure_time,
+        raise RouteUnavailableError(
+            "no_transit_route",
+            "No public transport route was found for this departure time. Try Leave now or a different time.",
+            departure_time=payload.departure_time,
         )
 
-    choice = choose_best_with_summary(transit_candidates, payload.preferences)
+    from app.services.elder_route_ranking_service import uses_exclusive_preference_focus
+
+    corridor_filter = None
+    if monash_brt and not uses_exclusive_preference_focus(payload.preferences):
+        corridor_filter = uses_monash_corridor
+    choice = rank_candidates_for_elders(
+        transit_candidates,
+        payload.preferences,
+        corridor_filter=corridor_filter,
+    )
     if choice is None:
         raise RouteUnavailableError(
             "no_transit_route",
             "No public transport route was found for this departure time. Try Leave now or a different time.",
             departure_time=payload.departure_time,
         )
-    best = choice.candidate
+    best = align_composed_duration(choice.candidate, transit_candidates)
     preference_summary_key = choice.preference_summary_key
     google_ms = (time.perf_counter() - google_started) * 1000
-    _agent_log(
-        "H1",
-        "google_phase_done",
-        {
-            "google_ms": round(google_ms, 1),
-            "step_count": len(best.steps) if best else 0,
-        },
-    )
 
     annotate_started = time.perf_counter()
-    _agent_log("H2", "annotate_phase_start", {"step_count": len(best.steps) if best else 0})
-    prepared = _route_from_candidate(payload, best, preference_summary_key=preference_summary_key)
+    prepared = _route_from_candidate(
+        payload,
+        best,
+        preference_summary_key=preference_summary_key,
+        ranking_primary_factor=choice.ranking_primary_factor,
+        ranking_secondary_factor=choice.ranking_secondary_factor,
+    )
     annotate_ms = (time.perf_counter() - annotate_started) * 1000
-    _agent_log("H2", "annotate_phase_done", {"annotate_ms": round(annotate_ms, 1)})
     recommendation = prepared.route
 
     # In local/demo runs, route persistence can be unavailable; keep route planning usable.

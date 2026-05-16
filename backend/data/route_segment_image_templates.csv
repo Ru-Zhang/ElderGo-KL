@@ -1,6 +1,6 @@
 segment_id,source_route_key,source_step_number,from_station_pattern,to_station_pattern,transit_line_pattern,vehicle_type,instruction_pattern,expected_direction_from,expected_direction_to
-klcc_entrance,klcc|monash university malaysia,1,klcc|suria,,,,"entrance|mall|tap",,
+klcc_entrance,klcc|monash university malaysia,1,klcc|suria,,,,"entrance|mall|tap|walk|kj10|station",,
 lrt_klcc_board_usj7,klcc|monash university malaysia,2,klcc|suria,usj|kelana|kj,KJ|Kelana|LRT,SUBWAY,platform|board|train|usj 7,Gombak|KLCC,Putra Heights|USJ 7
 usj7_alight_transfer,klcc|monash university malaysia,3,,usj 7|usj7|usj,,SUBWAY,alight|arrive|leave|transfer,Gombak|KLCC,Putra Heights|USJ 7
 brt_usj7_board,klcc|monash university malaysia,4,usj 7|usj7,sunu|monash|brt,BRT|Sunway|SBK,BUS,bus|brt|platform|board,USJ 7,Sunway-Setia Jaya|SunU-Monash|Setia Jaya
-monash_arrival,klcc|monash university malaysia,5,,monash,,,campus|arrive|destination,,
+monash_arrival,klcc|monash university malaysia,5,,monash,,,monash|university|campus|arrive|destination,,

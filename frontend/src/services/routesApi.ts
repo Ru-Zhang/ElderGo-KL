@@ -44,6 +44,11 @@ export function setCachedRoute(request: RouteRecommendationRequest, route: Recom
   pruneRouteCache();
 }
 
+/** Preferences changed — drop cached routes so the next plan uses fresh prefs. */
+export function clearRouteCache(): void {
+  routeCache.clear();
+}
+
 export async function recommendRoute(
   request: RouteRecommendationRequest,
   signal?: AbortSignal,

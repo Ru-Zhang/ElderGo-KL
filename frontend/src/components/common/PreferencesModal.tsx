@@ -103,7 +103,7 @@ export default function PreferencesModal({ isOpen, onClose }: PreferencesModalPr
           {t('save')}
         </button>
         {showSavedHint && (
-          <div className="mt-4 rounded-lg bg-eldergo-green/15 text-eldergo-green px-4 py-3 text-[16px] font-medium">
+          <div className="mt-4 rounded-lg bg-eldergo-navy px-4 py-3 text-center text-[16px] font-semibold text-white">
             {t('preferenceSavedWeakHint')}
           </div>
         )}

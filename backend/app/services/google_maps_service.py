@@ -1,7 +1,4 @@
-import json
-import time
 from dataclasses import dataclass
-from pathlib import Path
 
 import httpx
 from fastapi import HTTPException
@@ -14,30 +11,10 @@ from app.services.departure_time_service import is_departure_now, resolve_depart
 DIRECTIONS_URL = "https://maps.googleapis.com/maps/api/directions/json"
 _DIRECTIONS_TIMEOUT = httpx.Timeout(25.0, connect=8.0)
 _directions_client: httpx.AsyncClient | None = None
-_DEBUG_LOG = Path(__file__).resolve().parents[3] / ".cursor" / "debug-ce83c2.log"
 
 _NO_TRANSIT_MESSAGE = (
     "No public transport route was found for this departure time. Try Leave now or a different time."
 )
-
-
-def _agent_log(hypothesis_id: str, message: str, data: dict) -> None:
-    # #region agent log
-    try:
-        payload = {
-            "sessionId": "ce83c2",
-            "hypothesisId": hypothesis_id,
-            "location": "google_maps_service.py",
-            "message": message,
-            "data": data,
-            "timestamp": int(time.time() * 1000),
-        }
-        _DEBUG_LOG.parent.mkdir(parents=True, exist_ok=True)
-        with _DEBUG_LOG.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
-    except OSError:
-        pass
-    # #endregion
 
 
 def _get_directions_client() -> httpx.AsyncClient:
@@ -133,30 +110,10 @@ async def _fetch_directions_candidates(
     else:
         params["departure_time"] = resolve_departure_epoch_seconds(departure_time)
 
-    _agent_log(
-        "H1",
-        "directions_request_start",
-        {
-            "alternatives": True,
-            "origin": params["origin"][:60],
-            "destination": params["destination"][:60],
-            "departure_epoch": params.get("departure_time"),
-        },
-    )
-    req_started = time.perf_counter()
     client = _get_directions_client()
     response = await client.get(DIRECTIONS_URL, params=params)
     response.raise_for_status()
     body = response.json()
-    _agent_log(
-        "H1",
-        "directions_request_done",
-        {
-            "ms": round((time.perf_counter() - req_started) * 1000, 1),
-            "status": body.get("status"),
-            "route_count": len(body.get("routes") or []),
-        },
-    )
 
     status = body.get("status")
     if status in {"ZERO_RESULTS", "NOT_FOUND"}:

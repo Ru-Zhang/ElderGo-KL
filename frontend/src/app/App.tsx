@@ -13,10 +13,9 @@ import PrivacyInfoPage from '../pages/PrivacyInfoPage';
 import PreferencePage from '../pages/PreferencePage';
 import ChatbotLoadingShell from '../components/chatbot/ChatbotLoadingShell';
 import { getTranslation } from '../i18n/translations';
-import { debugLog } from '../utils/debugLog';
 import { getLocationDetail } from '../services/locationsApi';
 import { ChatAction } from '../types/ai';
-import { API_BASE_URL } from '../services/api';
+import { buildRouteCacheKey } from '../utils/routeCacheKey';
 import { getCachedRoute, recommendRoute } from '../services/routesApi';
 import { ApiError } from '../services/api';
 import { placeSelectionFromChatAction } from '../utils/placeSelection';
@@ -62,6 +61,8 @@ function AppContent() {
   const [stationsSearchQuery, setStationsSearchQuery] = useState('');
   const routeAbortRef = useRef<AbortController | null>(null);
   const routeRequestIdRef = useRef(0);
+  const preferencesRef = useRef(preferences);
+  preferencesRef.current = preferences;
 
   const requestRecommendedRoute = async (
     routeOrigin: PlaceSelection,
@@ -77,22 +78,17 @@ function AppContent() {
     setRouteError(null);
     setRouteErrorCode(null);
 
+    const activePreferences = preferencesRef.current;
     const routeRequest = {
       anonymousUserId,
       origin: routeOrigin,
       destination: routeDestination,
       departureTime: apiDepartureTime,
-      preferences,
+      preferences: activePreferences,
     };
 
     const cachedRoute = getCachedRoute(routeRequest);
     if (cachedRoute) {
-      debugLog(
-        `${logSource}`,
-        'frontend_cache_hit',
-        { apiDepartureTime, requestId, runId: 'post-fix' },
-        'H6',
-      );
       setCurrentRoute(cachedRoute);
       setRouteLoading(false);
       setRouteInitialViewMode('text');
@@ -105,47 +101,17 @@ function AppContent() {
     setRouteInitialViewMode('text');
     setCurrentPage('routeResult');
 
-    const apiStarted = performance.now();
-    debugLog(
-      `${logSource}`,
-      'recommend_start',
-      { apiDepartureTime, requestId, apiBaseUrl: API_BASE_URL, runId: 'post-fix' },
-      'H6',
-    );
-
     try {
       const route = await recommendRoute(routeRequest, controller.signal);
       if (requestId !== routeRequestIdRef.current) return;
       if (controller.signal.aborted) return;
-      debugLog(
-        `${logSource}`,
-        'recommend_done',
-        { ms: Math.round(performance.now() - apiStarted), requestId, runId: 'post-fix' },
-        'H6',
-      );
       setCurrentRoute(route);
     } catch (error) {
       if (requestId !== routeRequestIdRef.current) return;
       if (controller.signal.aborted) {
-        debugLog(
-          `${logSource}`,
-          'recommend_aborted',
-          { ms: Math.round(performance.now() - apiStarted), requestId, runId: 'post-fix' },
-          'H6',
-        );
         return;
       }
       const t = (key: Parameters<typeof getTranslation>[1]) => getTranslation(language, key);
-      debugLog(
-        `${logSource}`,
-        'recommend_error',
-        {
-          ms: Math.round(performance.now() - apiStarted),
-          error: error instanceof Error ? error.message : String(error),
-          runId: 'post-fix',
-        },
-        'H5',
-      );
       setRouteErrorCode(error instanceof ApiError ? error.code ?? null : null);
       setRouteError(resolveRouteErrorMessage(error, t, 'planTimeUnableToRoute'));
     } finally {
@@ -184,9 +150,6 @@ function AppContent() {
     onNavigateToHelp: () => setCurrentPage('help'),
     onNavigateToPreference: () => setCurrentPage('preference'),
     onShowChatbot: () => {
-      // #region agent log
-      debugLog('App.tsx:onShowChatbot', 'opening chatbot', { showChatbot: true }, 'C');
-      // #endregion
       setShowChatbot(true);
     }
   };

@@ -1,3 +1,4 @@
+import re
 import time
 
 import httpx
@@ -24,8 +25,154 @@ PLACE_TEXT_SEARCH_URL = "https://maps.googleapis.com/maps/api/place/textsearch/j
 PLACE_PHOTO_URL = "https://maps.googleapis.com/maps/api/place/photo"
 STATIC_MAP_URL = "https://maps.googleapis.com/maps/api/staticmap"
 
+# Google Place types for rail/BRT/LRT/bus stops — exclude generic POIs (restaurants, etc.).
+_TRANSIT_STATION_TYPES = frozenset(
+    {
+        "transit_station",
+        "train_station",
+        "subway_station",
+        "bus_station",
+        "light_rail_station",
+    }
+)
 
-async def autocomplete_places(query: str) -> list[PlaceSuggestion]:
+_TRANSIT_TYPE_PRIORITY = (
+    "train_station",
+    "subway_station",
+    "light_rail_station",
+    "transit_station",
+    "bus_station",
+)
+
+_AUTOCOMPLETE_TRANSIT_TYPES = (
+    "train_station",
+    "transit_station",
+    "subway_station",
+    "bus_station",
+    "light_rail_station",
+)
+
+
+def _normalize_place_text(value: str) -> str:
+    return re.sub(r"\s+", " ", value.strip()).lower()
+
+
+def _format_place_display_name(value: str | None) -> str:
+    if not value:
+        return ""
+    without_brackets = re.sub(r"\s*\([^)]*\)\s*", " ", value)
+    without_brackets = re.sub(r"\s{2,}", " ", without_brackets).strip()
+    parts = [part.strip() for part in without_brackets.split(",") if part.strip()]
+    if not parts:
+        return without_brackets
+    if len(parts) == 1:
+        return parts[0]
+    first_part = parts[0]
+    if re.search(r"[A-Za-z]", first_part) and not re.fullmatch(r"\d+", first_part):
+        return first_part
+    second_part = parts[1]
+    if second_part and re.search(r"[A-Za-z]", second_part):
+        return second_part
+    return first_part
+
+
+def _place_texts_match(a: str, b: str) -> bool:
+    return _normalize_place_text(a) == _normalize_place_text(b)
+
+
+def is_transit_station_types(types: list[str] | None) -> bool:
+    if not types:
+        return False
+    return bool(_TRANSIT_STATION_TYPES.intersection(t.lower() for t in types))
+
+
+def _transit_type_rank(types: list[str]) -> int:
+    normalized = {t.lower() for t in types}
+    if not normalized & _TRANSIT_STATION_TYPES:
+        return 999
+    for index, preferred in enumerate(_TRANSIT_TYPE_PRIORITY):
+        if preferred in normalized:
+            return index
+    return len(_TRANSIT_TYPE_PRIORITY)
+
+
+def _station_name_loose_match(query: str, display_name: str) -> bool:
+    """Allow step labels like USJ7 to match USJ7 LRT Station when resolving transit photos."""
+    normalized_query = _normalize_place_text(query)
+    normalized_name = _normalize_place_text(display_name)
+    if not normalized_query or not normalized_name:
+        return False
+    if normalized_query == normalized_name:
+        return True
+    if normalized_name.startswith(f"{normalized_query} "):
+        return True
+    query_compact = normalized_query.replace(" ", "")
+    name_compact = normalized_name.replace(" ", "")
+    return bool(query_compact and query_compact in name_compact)
+
+
+def _suggestion_name_matches(
+    query: str,
+    suggestion: PlaceSuggestion,
+    *,
+    loose: bool = False,
+) -> bool:
+    short = _format_place_display_name(suggestion.main_text or suggestion.description)
+    normalized_query = _normalize_place_text(query)
+    exact = (
+        _place_texts_match(short, query)
+        or _place_texts_match(suggestion.description, query)
+        or _normalize_place_text(short) == normalized_query
+    )
+    if exact:
+        return True
+    if loose:
+        return _station_name_loose_match(query, short) or _station_name_loose_match(
+            query, suggestion.description
+        )
+    return False
+
+
+def pick_autocomplete_place_id(
+    name: str,
+    suggestions: list[PlaceSuggestion],
+    *,
+    transit_only: bool = False,
+) -> str | None:
+    """Match autocomplete results; for stations prefer train/LRT/BRT types over generic POIs."""
+    query = name.strip()
+    if not query or not suggestions:
+        return None
+
+    matches: list[PlaceSuggestion] = []
+    for suggestion in suggestions:
+        if not _suggestion_name_matches(query, suggestion, loose=transit_only):
+            continue
+        if transit_only and not is_transit_station_types(suggestion.types):
+            continue
+        matches.append(suggestion)
+
+    if not matches:
+        return None
+
+    matches.sort(key=lambda item: _transit_type_rank(item.types))
+    return matches[0].place_id
+
+
+def _parse_autocomplete_predictions(predictions: list[dict]) -> list[PlaceSuggestion]:
+    return [
+        PlaceSuggestion(
+            description=item["description"],
+            place_id=item["place_id"],
+            main_text=item.get("structured_formatting", {}).get("main_text"),
+            secondary_text=item.get("structured_formatting", {}).get("secondary_text"),
+            types=list(item.get("types") or []),
+        )
+        for item in predictions
+    ]
+
+
+async def _autocomplete_request(query: str, *, place_type: str | None = None) -> list[PlaceSuggestion]:
     settings = get_settings()
     if not settings.google_maps_api_key:
         raise HTTPException(status_code=503, detail="Google Maps API key is not configured.")
@@ -35,10 +182,11 @@ async def autocomplete_places(query: str) -> list[PlaceSuggestion]:
         "key": settings.google_maps_api_key,
         "components": "country:my",
         "language": "en",
-        # Bias autocomplete near KL to reduce irrelevant out-of-region suggestions.
         "location": "3.1390,101.6869",
         "radius": 70000,
     }
+    if place_type:
+        params["types"] = place_type
 
     client = _places_http_client()
     response = await client.get(PLACES_AUTOCOMPLETE_URL, params=params)
@@ -49,15 +197,19 @@ async def autocomplete_places(query: str) -> list[PlaceSuggestion]:
     if status not in {"OK", "ZERO_RESULTS"}:
         raise HTTPException(status_code=502, detail=f"Google Places error: {status}")
 
-    return [
-        PlaceSuggestion(
-            description=item["description"],
-            place_id=item["place_id"],
-            main_text=item.get("structured_formatting", {}).get("main_text"),
-            secondary_text=item.get("structured_formatting", {}).get("secondary_text"),
-        )
-        for item in body.get("predictions", [])
-    ]
+    return _parse_autocomplete_predictions(body.get("predictions", []))
+
+
+async def autocomplete_places(query: str, *, transit_only: bool = False) -> list[PlaceSuggestion]:
+    if not transit_only:
+        return await _autocomplete_request(query)
+
+    merged: dict[str, PlaceSuggestion] = {}
+    for place_type in _AUTOCOMPLETE_TRANSIT_TYPES:
+        for suggestion in await _autocomplete_request(query, place_type=place_type):
+            if suggestion.place_id not in merged:
+                merged[suggestion.place_id] = suggestion
+    return list(merged.values())
 
 
 async def get_place_detail(place_id: str) -> PlaceDetail:
@@ -154,11 +306,8 @@ async def search_places_kv(query: str, limit: int = 5) -> list[PlaceDetail]:
     return places
 
 
-async def _search_station_place_id(name: str, lat: float | None = None, lon: float | None = None) -> str:
+async def _search_station_place_id_text(name: str, lat: float | None = None, lon: float | None = None) -> str:
     settings = get_settings()
-    if not settings.google_maps_api_key:
-        raise HTTPException(status_code=503, detail="Google Maps API key is not configured.")
-
     params = {
         "query": f"{name} station Kuala Lumpur Malaysia",
         "key": settings.google_maps_api_key,
@@ -166,7 +315,6 @@ async def _search_station_place_id(name: str, lat: float | None = None, lon: flo
         "region": "my",
     }
     if lat is not None and lon is not None:
-        # Tight radius improves disambiguation for station names with duplicates.
         params["location"] = f"{lat},{lon}"
         params["radius"] = 500
 
@@ -181,10 +329,36 @@ async def _search_station_place_id(name: str, lat: float | None = None, lon: flo
     if status == "ZERO_RESULTS" or not body.get("results"):
         raise HTTPException(status_code=404, detail="Google place details were not found for this station.")
 
-    place_id = body["results"][0].get("place_id")
+    transit_results = [
+        item
+        for item in body.get("results", [])
+        if is_transit_station_types(item.get("types"))
+    ]
+    if not transit_results:
+        raise HTTPException(status_code=404, detail="Google place details were not found for this station.")
+
+    transit_results.sort(key=lambda item: _transit_type_rank(list(item.get("types") or [])))
+    place_id = transit_results[0].get("place_id")
     if not place_id:
         raise HTTPException(status_code=404, detail="Google place details were not found for this station.")
     return place_id
+
+
+async def _search_station_place_id(name: str, lat: float | None = None, lon: float | None = None) -> str:
+    settings = get_settings()
+    if not settings.google_maps_api_key:
+        raise HTTPException(status_code=503, detail="Google Maps API key is not configured.")
+
+    # Station images: restrict to train/LRT/BRT/bus stop place types only.
+    try:
+        suggestions = await autocomplete_places(name.strip(), transit_only=True)
+        place_id = pick_autocomplete_place_id(name, suggestions, transit_only=True)
+        if place_id:
+            return place_id
+    except HTTPException:
+        pass
+
+    return await _search_station_place_id_text(name, lat, lon)
 
 
 async def get_station_place_detail(name: str, lat: float | None = None, lon: float | None = None) -> PlaceDetail:
@@ -233,7 +407,7 @@ async def get_station_photo_image(
     detail_params = {
         "place_id": place_id,
         "key": settings.google_maps_api_key,
-        "fields": "photos",
+        "fields": "photos,types,name",
     }
 
     async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
@@ -246,8 +420,13 @@ async def get_station_photo_image(
                 status_code=502, detail=f"Google Place Details error: {detail_body.get('status')}"
             )
 
+        result = detail_body.get("result", {})
+        place_types = list(result.get("types") or [])
+        if not is_transit_station_types(place_types):
+            return await get_station_static_map_image(name, lat, lon)
+
         # Google details may not include photos for every station/place.
-        photos = detail_body.get("result", {}).get("photos", [])
+        photos = result.get("photos", [])
         if photos:
             photo_reference = photos[0].get("photo_reference")
             if photo_reference:

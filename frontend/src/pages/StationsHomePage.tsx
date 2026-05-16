@@ -116,36 +116,8 @@ export default function StationsHomePage({
       .then((locations) => {
         setPopularStations(dedupeLocations(locations));
         setError(null);
-        // #region agent log
-        fetch('http://127.0.0.1:7267/ingest/af3fa6c2-77fe-4e06-a79f-1e670577b9b2', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'ce83c2' },
-          body: JSON.stringify({
-            sessionId: 'ce83c2',
-            hypothesisId: 'H1',
-            location: 'StationsHomePage.tsx:popular',
-            message: 'popular_loaded',
-            data: { count: locations.length },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
       })
-      .catch((err) => {
-        // #region agent log
-        fetch('http://127.0.0.1:7267/ingest/af3fa6c2-77fe-4e06-a79f-1e670577b9b2', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'ce83c2' },
-          body: JSON.stringify({
-            sessionId: 'ce83c2',
-            hypothesisId: 'H1',
-            location: 'StationsHomePage.tsx:popular',
-            message: 'popular_failed',
-            data: { error: err instanceof Error ? err.message : String(err) },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
+      .catch(() => {
         setError(t('stationDatabaseNotReady'));
       });
   }, [language]);
@@ -158,27 +130,12 @@ export default function StationsHomePage({
 
   const runStationSearch = async (query: string) => {
     const requestId = ++searchRequestIdRef.current;
-    const started = performance.now();
     setIsSearching(true);
     try {
       const locations = await searchLocations(query);
       if (requestId !== searchRequestIdRef.current) return;
       setSearchResults(dedupeLocations(locations));
       setError(null);
-      // #region agent log
-      fetch('http://127.0.0.1:7267/ingest/af3fa6c2-77fe-4e06-a79f-1e670577b9b2', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'ce83c2' },
-        body: JSON.stringify({
-          sessionId: 'ce83c2',
-          hypothesisId: 'H6-H8',
-          location: 'StationsHomePage.tsx:runStationSearch',
-          message: 'station_search_done',
-          data: { queryLen: query.length, count: locations.length, ms: Math.round(performance.now() - started) },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
     } catch {
       if (requestId !== searchRequestIdRef.current) return;
       setSearchResults([]);

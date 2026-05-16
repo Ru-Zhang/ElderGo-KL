@@ -25,21 +25,21 @@ export default function PreferencePage({
   // Keep a local editable copy so users can review/toggle multiple options
   // before committing changes to shared app state.
   const [localPreferences, setLocalPreferences] = useState(preferences);
-  const [showSavedHint, setShowSavedHint] = useState(false);
+  const [statusHint, setStatusHint] = useState<'saved' | 'cancelled' | null>(null);
 
   const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
   const t = (key: string) => getTranslation(language, key as any);
 
   const handleSave = () => {
     updatePreferences(localPreferences);
-    // Lightweight non-blocking confirmation; avoids modal interruption.
-    setShowSavedHint(true);
-    window.setTimeout(() => setShowSavedHint(false), 2000);
+    setStatusHint('saved');
+    window.setTimeout(() => setStatusHint(null), 3000);
   };
 
   const handleCancel = () => {
-    // Revert unsaved local edits back to persisted preference values.
     setLocalPreferences(preferences);
+    setStatusHint('cancelled');
+    window.setTimeout(() => setStatusHint(null), 3000);
   };
 
   return (
@@ -66,15 +66,26 @@ export default function PreferencePage({
 
       <main className="pt-20 pb-32 px-6">
         <div className="max-w-2xl mx-auto mt-8">
-          <h2 className="font-semibold text-eldergo-navy mb-8" style={{ fontSize: `${24 * baseFontSize}px` }}>
+          <h2 className="font-semibold text-eldergo-navy mb-4" style={{ fontSize: `${24 * baseFontSize}px` }}>
             {t('travelPreferences')}
           </h2>
+          <p
+            className="text-eldergo-muted mb-8 leading-relaxed"
+            style={{ fontSize: `${16 * baseFontSize}px` }}
+          >
+            {t('travelPreferencesElderNote')}
+          </p>
 
           <div className="space-y-4 mb-8">
             <div className="flex items-center justify-between p-6 bg-white rounded-xl border-2 border-eldergo-border shadow-sm">
-              <span className="font-medium text-eldergo-navy pr-4 flex-1 leading-tight" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                {t('accessibilityFirst')}
-              </span>
+              <div className="pr-4 flex-1">
+                <span className="font-medium text-eldergo-navy leading-tight block" style={{ fontSize: `${18 * baseFontSize}px` }}>
+                  {t('accessibilityFirst')}
+                </span>
+                <span className="text-eldergo-muted mt-1 block" style={{ fontSize: `${14 * baseFontSize}px` }}>
+                  {t('accessibilityFirstHint')}
+                </span>
+              </div>
               <Switch.Root
                 className="w-16 h-8 min-w-16 flex-shrink-0 bg-gray-300 rounded-full relative data-[state=checked]:bg-eldergo-green transition-colors"
                 checked={localPreferences.accessibilityFirst}
@@ -85,9 +96,14 @@ export default function PreferencePage({
             </div>
 
             <div className="flex items-center justify-between p-6 bg-white rounded-xl border-2 border-eldergo-border shadow-sm">
-              <span className="font-medium text-eldergo-navy pr-4 flex-1 leading-tight" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                {t('leastWalk')}
-              </span>
+              <div className="pr-4 flex-1">
+                <span className="font-medium text-eldergo-navy leading-tight block" style={{ fontSize: `${18 * baseFontSize}px` }}>
+                  {t('leastWalk')}
+                </span>
+                <span className="text-eldergo-muted mt-1 block" style={{ fontSize: `${14 * baseFontSize}px` }}>
+                  {t('leastWalkHint')}
+                </span>
+              </div>
               <Switch.Root
                 className="w-16 h-8 min-w-16 flex-shrink-0 bg-gray-300 rounded-full relative data-[state=checked]:bg-eldergo-green transition-colors"
                 checked={localPreferences.leastWalk}
@@ -98,9 +114,14 @@ export default function PreferencePage({
             </div>
 
             <div className="flex items-center justify-between p-6 bg-white rounded-xl border-2 border-eldergo-border shadow-sm">
-              <span className="font-medium text-eldergo-navy pr-4 flex-1 leading-tight" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                {t('fewestTransfers')}
-              </span>
+              <div className="pr-4 flex-1">
+                <span className="font-medium text-eldergo-navy leading-tight block" style={{ fontSize: `${18 * baseFontSize}px` }}>
+                  {t('fewestTransfers')}
+                </span>
+                <span className="text-eldergo-muted mt-1 block" style={{ fontSize: `${14 * baseFontSize}px` }}>
+                  {t('fewestTransfersHint')}
+                </span>
+              </div>
               <Switch.Root
                 className="w-16 h-8 min-w-16 flex-shrink-0 bg-gray-300 rounded-full relative data-[state=checked]:bg-eldergo-green transition-colors"
                 checked={localPreferences.fewestTransfers}
@@ -128,9 +149,17 @@ export default function PreferencePage({
               {t('cancel')}
             </button>
           </div>
-          {showSavedHint && (
-            <div className="mt-4 rounded-lg bg-eldergo-green/15 text-eldergo-green px-4 py-3 text-[16px] font-medium">
-              {t('preferenceSavedWeakHint')}
+          {statusHint && (
+            <div
+              className="fixed left-4 right-4 bottom-28 z-50 mx-auto max-w-2xl rounded-xl px-5 py-4 text-center font-semibold shadow-lg"
+              style={{
+                backgroundColor: statusHint === 'saved' ? '#1B7F4A' : '#334155',
+                color: '#ffffff',
+                fontSize: `${17 * baseFontSize}px`,
+              }}
+              role="status"
+            >
+              {statusHint === 'saved' ? t('preferenceSavedWeakHint') : t('preferenceCancelledHint')}
             </div>
           )}
         </div>

@@ -3,8 +3,6 @@ import { ChatBlock, KeyValueEmphasis } from '../../types/ai';
 import { LanguageCode } from '../../types/settings';
 import { HoursDisplay } from '../common/HoursDisplay';
 import { parseHoursSummary } from '../../utils/hoursParser';
-import { debugLog } from '../../utils/debugLog';
-
 interface ChatMessageBlocksProps {
   blocks: ChatBlock[];
   bodyFontPx: number;
@@ -138,12 +136,6 @@ export default function ChatMessageBlocks({
   language,
   t
 }: ChatMessageBlocksProps) {
-  // #region agent log
-  debugLog('ChatMessageBlocks.tsx:render', 'render blocks', {
-    count: blocks.length,
-    types: blocks.map((b) => b.type)
-  }, 'B');
-  // #endregion
   return (
     <div className="space-y-3 min-w-0">
       {blocks.map((block, blockIndex) => {

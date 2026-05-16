@@ -1,33 +1,8 @@
-import json
-import time
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 from app.schemas.routes import RouteAccessibilityAnnotation, RouteAccessibilityPoint
 from app.services.database import get_connection
-
-_DEBUG_LOG = Path(__file__).resolve().parents[3] / ".cursor" / "debug-ce83c2.log"
-
-
-def _agent_log(hypothesis_id: str, message: str, data: dict) -> None:
-    # #region agent log
-    try:
-        payload = {
-            "sessionId": "ce83c2",
-            "hypothesisId": hypothesis_id,
-            "location": "accessibility_annotation_service.py",
-            "message": message,
-            "data": data,
-            "timestamp": int(time.time() * 1000),
-        }
-        _DEBUG_LOG.parent.mkdir(parents=True, exist_ok=True)
-        with _DEBUG_LOG.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
-    except OSError:
-        pass
-    # #endregion
-
 
 SUPPORTED_GOOGLE_ACCESSIBILITY_KEYS = {
     "wheelchair_accessible",
@@ -332,25 +307,11 @@ def prefetch_station_matches(steps: list[dict[str, Any]]) -> dict[str, StationMa
     if not pending:
         return cache
 
-    prefetch_started = time.perf_counter()
-    _agent_log("H2", "prefetch_stations_start", {"stop_count": len(pending)})
     try:
         with get_connection() as conn:
             _prefetch_stations_with_conn(conn, pending, cache)
-        _agent_log(
-            "H2",
-            "prefetch_stations_done",
-            {"ms": round((time.perf_counter() - prefetch_started) * 1000, 1)},
-        )
-    except Exception as exc:
-        _agent_log(
-            "H2",
-            "prefetch_stations_failed",
-            {
-                "ms": round((time.perf_counter() - prefetch_started) * 1000, 1),
-                "error": type(exc).__name__,
-            },
-        )
+    except Exception:
+        pass
     return cache
 
 
@@ -381,7 +342,6 @@ def _find_station(
 
 
 def _walking_accessibility_result_with_conn(conn, path_wkt: str) -> dict[str, Any] | None:
-    walk_started = time.perf_counter()
     row = conn.execute(
             """
             SELECT
@@ -419,9 +379,6 @@ def _walking_accessibility_result_with_conn(conn, path_wkt: str) -> dict[str, An
             """,
             {"path_wkt": path_wkt, "support_types": list(ACCESSIBILITY_SUPPORT_TYPES)},
         ).fetchone()
-    walk_ms = round((time.perf_counter() - walk_started) * 1000, 1)
-    if walk_ms > 500:
-        _agent_log("H3", "walking_query_slow", {"ms": walk_ms})
     if not row:
         return None
 
@@ -471,31 +428,13 @@ def _walking_accessibility_result(path_wkt: str) -> dict[str, Any] | None:
 
 def annotate_all_route_steps(steps: list[dict[str, Any]]) -> list[AccessibilityAnnotationResult]:
     """Prefetch stations and annotate every step using one DB connection."""
-    annotate_started = time.perf_counter()
     try:
         with get_connection() as conn:
             cache = prefetch_station_matches_with_conn(conn, steps)
-            results = [
+            return [
                 annotate_google_step(step, station_cache=cache, db_conn=conn) for step in steps
             ]
-        _agent_log(
-            "H2",
-            "annotate_all_route_steps_done",
-            {
-                "ms": round((time.perf_counter() - annotate_started) * 1000, 1),
-                "step_count": len(steps),
-            },
-        )
-        return results
-    except Exception as exc:
-        _agent_log(
-            "H2",
-            "annotate_all_route_steps_failed",
-            {
-                "ms": round((time.perf_counter() - annotate_started) * 1000, 1),
-                "error": type(exc).__name__,
-            },
-        )
+    except Exception:
         return [annotate_google_step(step) for step in steps]
 
 

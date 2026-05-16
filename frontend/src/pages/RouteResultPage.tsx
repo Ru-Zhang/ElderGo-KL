@@ -8,6 +8,8 @@ import { useAppContext } from '../app/AppProvider';
 import { getTranslation } from '../i18n/translations';
 import { DestinationWeather, getDestinationWeather } from '../services/weatherApi';
 import { getStationStaticImageUrl } from '../services/googlePlaces';
+import { rankingFactorTranslationKey } from '../utils/rankingDisplay';
+import { isCuratedCorridorRoute } from '../utils/curatedRouteImages';
 import { fetchRouteStationImageMap, type RouteStationImage } from '../services/routeStationImages';
 import GoogleMapsInstallModal from '../components/common/GoogleMapsInstallModal';
 import RouteLoadingPanel from '../components/route/RouteLoadingPanel';
@@ -320,6 +322,10 @@ export default function RouteResultPage({
       toLocationLabel(currentRoute.origin_name),
       toLocationLabel(currentRoute.destination_name),
     );
+    if (!isCuratedCorridorRoute(currentRoute.origin_name, currentRoute.destination_name)) {
+      setRouteImageMap({});
+      return;
+    }
     let cancelled = false;
     fetchRouteStationImageMap(routeKey)
       .then((map) => {
@@ -344,16 +350,22 @@ export default function RouteResultPage({
     },
     stepIndex: number,
   ): RouteStationImage[] => {
-    const curated = currentRoute?.steps[stepIndex]?.curated_images;
-    if (curated && curated.length > 0) {
-      return curated.map((image) => ({
-        path: image.path,
-        caption: image.caption || '',
-      }));
-    }
+    const useCuratedCsv =
+      currentRoute &&
+      isCuratedCorridorRoute(currentRoute.origin_name, currentRoute.destination_name);
 
-    const stepImages = getCustomRouteStepImages(routeImageMap, stepIndex);
-    if (stepImages.length > 0) return stepImages;
+    if (useCuratedCsv) {
+      const curated = currentRoute.steps[stepIndex]?.curated_images;
+      if (curated && curated.length > 0) {
+        return curated.map((image) => ({
+          path: image.path,
+          caption: image.caption || '',
+        }));
+      }
+
+      const stepImages = getCustomRouteStepImages(routeImageMap, stepIndex);
+      if (stepImages.length > 0) return stepImages;
+    }
 
     const isLastStep = stepIndex === routeSteps.length - 1;
     const showPlaceImageOnly = Boolean(step.isWalking && isLastStep && !step.stationForPopup);
@@ -377,8 +389,10 @@ export default function RouteResultPage({
     }
 
     if (step.stationForPopup) {
-      const custom = getCustomStationImages(routeImageMap, step.stationForPopup);
-      if (custom.length > 0) return custom;
+      if (useCuratedCsv) {
+        const custom = getCustomStationImages(routeImageMap, step.stationForPopup);
+        if (custom.length > 0) return custom;
+      }
       if (detail?.name) {
         return [
           {
@@ -387,9 +401,8 @@ export default function RouteResultPage({
           },
         ];
       }
-      return [
-        { path: getStationStaticImageUrl(cleanStationQuery(step.stationForPopup)), caption: '' },
-      ];
+      const googlePath = getStationStaticImageUrl(cleanStationQuery(step.stationForPopup));
+      return [{ path: googlePath, caption: '' }];
     }
 
     return [];
@@ -423,33 +436,6 @@ export default function RouteResultPage({
     })
       .then((nextWeather) => {
         if (cancelled) return;
-        // #region agent log
-        fetch('http://127.0.0.1:7267/ingest/af3fa6c2-77fe-4e06-a79f-1e670577b9b2', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'ce83c2' },
-          body: JSON.stringify({
-            sessionId: 'ce83c2',
-            hypothesisId: 'H4-H5',
-            location: 'RouteResultPage.tsx:weather-loaded',
-            message: 'weather vs departure',
-            data: {
-              departureTime,
-              periodLabel: nextWeather.periodLabel,
-              departureForecastLabel: nextWeather.departureForecastLabel,
-              riskLevel: nextWeather.riskLevel,
-              weatherMain: nextWeather.weatherMain,
-              precipPct: nextWeather.precipitationProbabilityPercent,
-              peakPop: nextWeather.peakPopPercent,
-              rainPeriodStart: nextWeather.rainPeriodStart,
-              rainPeriodEnd: nextWeather.rainPeriodEnd,
-              rainWindowHours: nextWeather.rainWindowHours,
-              tempC: nextWeather.temperatureC,
-              runId: 'weather-rain-v2',
-            },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
         setWeather(nextWeather);
         setWeatherStatus('ready');
       })
@@ -1280,9 +1266,19 @@ export default function RouteResultPage({
               )}
             </div>
             {currentRoute?.preference_summary_key ? (
-              <p className="mb-4 rounded-xl bg-eldergo-bg px-4 py-3 text-center text-[14px] leading-relaxed text-eldergo-muted">
-                {t(currentRoute.preference_summary_key as any)}
-              </p>
+              <div className="mb-4 space-y-2 rounded-xl bg-eldergo-bg px-4 py-3 text-center text-[14px] leading-relaxed text-eldergo-muted">
+                <p>{t(currentRoute.preference_summary_key as any)}</p>
+                {rankingFactorTranslationKey(currentRoute.ranking_primary_factor, 'primary') ? (
+                  <p className="font-semibold text-eldergo-navy">
+                    {t(rankingFactorTranslationKey(currentRoute.ranking_primary_factor, 'primary') as any)}
+                  </p>
+                ) : null}
+                {rankingFactorTranslationKey(currentRoute.ranking_secondary_factor, 'secondary') ? (
+                  <p className="text-[13px]">
+                    {t(rankingFactorTranslationKey(currentRoute.ranking_secondary_factor, 'secondary') as any)}
+                  </p>
+                ) : null}
+              </div>
             ) : null}
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>

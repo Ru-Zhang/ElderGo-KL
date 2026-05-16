@@ -118,9 +118,7 @@ export default function PlanningPage({
   const startRequestIdRef = useRef(0);
   const destRequestIdRef = useRef(0);
 
-  const hasAnyPreferenceEnabled =
-    preferences.accessibilityFirst || preferences.leastWalk || preferences.fewestTransfers;
-  const shouldPromptPreferences = !onboardingCompleted && !hasAnyPreferenceEnabled;
+  const shouldPromptPreferences = !onboardingCompleted;
   const showChatConfirmBanner =
     (placeSelectionNeedsUserPick(selectedOrigin) || placeSelectionNeedsUserPick(selectedDestination)) &&
     !(resolvingStart || resolvingDest);
@@ -392,20 +390,6 @@ export default function PlanningPage({
     if (!suggestion.googlePlaceId) return;
     try {
       const detail = await getPlaceDetail(suggestion.googlePlaceId, shortLabel);
-      // #region agent log
-      fetch('http://127.0.0.1:7267/ingest/af3fa6c2-77fe-4e06-a79f-1e670577b9b2', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'ce83c2' },
-        body: JSON.stringify({
-          sessionId: 'ce83c2',
-          hypothesisId: 'H-A',
-          location: 'PlanningPage.tsx:handleDestSelect',
-          message: 'dest_selected',
-          data: { pickedLabel: shortLabel, storedLabel: detail.displayName },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
       setSelectedDestination(detail);
       setRouteDestination(detail);
     } catch {

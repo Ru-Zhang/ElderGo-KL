@@ -80,6 +80,8 @@ class RecommendedRoute(BaseModel):
     walking_distance_meters: int
     recommendation_reason: str
     preference_summary_key: str | None = None
+    ranking_primary_factor: str | None = None
+    ranking_secondary_factor: str | None = None
     map_polyline: str | None = None
     steps: list[RouteStep]
     navigation_waypoints: list[NavigationWaypoint] = Field(default_factory=list)

@@ -88,6 +88,8 @@ export interface RecommendedRoute {
   walking_distance_meters: number;
   recommendation_reason: string;
   preference_summary_key?: string | null;
+  ranking_primary_factor?: string | null;
+  ranking_secondary_factor?: string | null;
   map_polyline?: string | null;
   steps: RouteStep[];
   navigation_waypoints?: NavigationWaypoint[];

@@ -2,7 +2,7 @@ from pydantic import BaseModel
 
 
 class TravelPreferences(BaseModel):
-    # Defaults represent neutral scoring (no strict priority selected).
-    accessibility_first: bool = False
-    least_walk: bool = False
+    # ElderGo defaults: less walking and accessibility; transfers are lowest priority.
+    accessibility_first: bool = True
+    least_walk: bool = True
     fewest_transfers: bool = False

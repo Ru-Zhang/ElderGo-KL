@@ -196,39 +196,6 @@ export default function PlanYourTimePage({
 
   const customParts = splitDatetimeLocal(customDatetimeLocal);
 
-  // #region agent log
-  useEffect(() => {
-    const presetLabels = DEPARTURE_PRESETS.map((preset) => {
-      const resolved = resolveDepartureDate(preset).toISOString();
-      return {
-        preset,
-        context: formatDepartureContextLabel(preset, language),
-        full: formatDeparturePreview(preset, language),
-        resolvedIso: resolved,
-      };
-    });
-    fetch('http://127.0.0.1:7267/ingest/af3fa6c2-77fe-4e06-a79f-1e670577b9b2', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'ce83c2' },
-      body: JSON.stringify({
-        sessionId: 'ce83c2',
-        hypothesisId: 'H1-H2',
-        location: 'PlanYourTimePage.tsx:preset-labels',
-        message: 'preset short vs full labels',
-        data: {
-          presetLabels,
-          selectedTime,
-          summaryTime,
-          customDatetimeLocal,
-          customPreview,
-          customIso: datetimeLocalToIso(customDatetimeLocal),
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-  }, [language, selectedTime, summaryTime, customDatetimeLocal, customPreview]);
-  // #endregion
-
   const normalizeCustom = (value: string) => clampDatetimeLocal(value);
   const outsideServiceHours =
     selectedTime === 'custom' && isOutsideTransitServiceHours(committedCustomDatetime);
@@ -250,40 +217,12 @@ export default function PlanYourTimePage({
     setSelectedTime('custom');
     setCustomPickerOpen(true);
     setCustomTimeError(isDatetimeLocalInPast(clamped) ? t('planTimeCustomMustBeFuture') : null);
-    // #region agent log
-    fetch('http://127.0.0.1:7267/ingest/af3fa6c2-77fe-4e06-a79f-1e670577b9b2', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'ce83c2' },
-      body: JSON.stringify({
-        sessionId: 'ce83c2',
-        hypothesisId: 'H3',
-        location: 'PlanYourTimePage.tsx:handleSelectCustom',
-        message: 'custom departure selected',
-        data: { customDatetimeLocal: clamped, customPreview, runId: 'custom-select-fix' },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
   };
 
   const handleCancelCustom = () => {
     setSelectedTime(lastPreset);
     setCustomPickerOpen(false);
     setCustomTimeError(null);
-    // #region agent log
-    fetch('http://127.0.0.1:7267/ingest/af3fa6c2-77fe-4e06-a79f-1e670577b9b2', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'ce83c2' },
-      body: JSON.stringify({
-        sessionId: 'ce83c2',
-        hypothesisId: 'H3',
-        location: 'PlanYourTimePage.tsx:handleCancelCustom',
-        message: 'custom departure cancelled',
-        data: { lastPreset, runId: 'custom-select-fix' },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
   };
 
   const handleCustomChange = (value: string) => {
@@ -299,25 +238,6 @@ export default function PlanYourTimePage({
     setSelectedTime('custom');
     setCustomPickerOpen(false);
     setCustomTimeError(isDatetimeLocalInPast(clamped) ? t('planTimeCustomMustBeFuture') : null);
-    // #region agent log
-    fetch('http://127.0.0.1:7267/ingest/af3fa6c2-77fe-4e06-a79f-1e670577b9b2', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'ce83c2' },
-      body: JSON.stringify({
-        sessionId: 'ce83c2',
-        hypothesisId: 'H5',
-        location: 'PlanYourTimePage.tsx:handleCustomDone',
-        message: 'custom time committed on Done',
-        data: {
-          draft: customDatetimeLocal,
-          committed: clamped,
-          summaryAfterDone: formatDepartureContextLabel('custom', language, datetimeLocalToIso(clamped)),
-          runId: 'custom-done-fix',
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
   };
 
   const handleShowRoute = () => {
@@ -336,26 +256,6 @@ export default function PlanYourTimePage({
       selectedTime,
       selectedTime === 'custom' ? committedCustomDatetime : undefined,
     );
-    // #region agent log
-    fetch('http://127.0.0.1:7267/ingest/af3fa6c2-77fe-4e06-a79f-1e670577b9b2', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'ce83c2' },
-      body: JSON.stringify({
-        sessionId: 'ce83c2',
-        hypothesisId: 'H4',
-        location: 'PlanYourTimePage.tsx:handleShowRoute',
-        message: 'departure sent to App route handler',
-        data: {
-          selectedTime,
-          apiDepartureTime,
-          summaryTime,
-          customDatetimeLocal,
-          runId: 'custom-select-fix',
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     setRouteError(null);
     onRequestRoute(apiDepartureTime);
   };

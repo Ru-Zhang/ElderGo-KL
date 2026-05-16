@@ -60,6 +60,11 @@ def _is_canonical_corridor_od(origin_name: str, destination_name: str) -> bool:
     return route_key == CANONICAL_CORRIDOR_ROUTE_KEY
 
 
+def is_curated_corridor_route(origin_name: str, destination_name: str) -> bool:
+    """Only klcc|monash university malaysia uses backend/data route CSV images."""
+    return _is_canonical_corridor_od(origin_name, destination_name)
+
+
 def _read_templates(csv_path) -> list[SegmentTemplate]:
     if not csv_path.is_file():
         return []
@@ -182,6 +187,10 @@ def _score_template(template: SegmentTemplate, step: dict) -> int:
     to_hits = _pattern_hits(template.to_patterns, to_station, instruction)
     line_hits = _pattern_hits(template.line_patterns, line_name, instruction)
 
+    if template.from_patterns and from_hits == 0:
+        return 0
+    if template.to_patterns and to_hits == 0:
+        return 0
     if template.from_patterns or template.to_patterns:
         if from_hits == 0 and to_hits == 0:
             return 0
@@ -203,24 +212,16 @@ def _to_refs(images: list[RouteStationImage]) -> list[RouteStationImageRef]:
     return [{"path": image["path"], "caption": image["caption"]} for image in images]
 
 
-def _exact_od_images(origin_name: str, destination_name: str, step_number: int) -> list[RouteStationImage]:
-    if not _is_canonical_corridor_od(origin_name, destination_name):
-        return []
-    return get_route_step_images(CANONICAL_CORRIDOR_ROUTE_KEY, step_number)
-
-
 def match_step_images(
     step: dict,
     step_number: int,
     origin_name: str,
     destination_name: str,
 ) -> list[RouteStationImageRef]:
-    if not is_monash_corridor_destination(destination_name):
+    # Only the canonical KLCC→Monash corridor uses backend CSV / templates.
+    # All other ODs (including KL Sentral→Monash, USJ7→Monash) use Google on the client.
+    if not _is_canonical_corridor_od(origin_name, destination_name):
         return []
-
-    exact = _exact_od_images(origin_name, destination_name, step_number)
-    if exact:
-        return _to_refs(exact)
 
     best_template: SegmentTemplate | None = None
     best_score = 0

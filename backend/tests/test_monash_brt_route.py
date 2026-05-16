@@ -13,6 +13,7 @@ from app.services.klcc_monash_route_service import (
     fetch_klcc_monash_brt_candidate,
     is_klcc_to_monash_route,
     is_monash_brt_route,
+    is_monash_to_kv_route,
 )
 
 
@@ -27,6 +28,14 @@ def test_monash_brt_route_false_for_non_monash() -> None:
     origin = PlaceInput(display_name="USJ 1")
     destination = PlaceInput(display_name="KLCC")
     assert not is_monash_brt_route(origin, destination)
+
+
+def test_monash_brt_route_for_monash_to_kl_sentral() -> None:
+    origin = PlaceInput(display_name="Monash University Malaysia")
+    destination = PlaceInput(display_name="KL Sentral")
+    assert is_monash_brt_route(origin, destination)
+    assert is_monash_to_kv_route(origin, destination)
+    assert not is_klcc_to_monash_route(origin, destination)
 
 
 def test_origin_near_usj7_by_name_and_coords() -> None:
@@ -92,3 +101,70 @@ async def _test_compose_skips_leg1_when_origin_at_usj7() -> None:
 
 def test_compose_skips_leg1_when_origin_at_usj7() -> None:
     asyncio.run(_test_compose_skips_leg1_when_origin_at_usj7())
+
+
+async def _test_compose_from_monash_to_kl_sentral() -> None:
+    brt_leg = CandidateRoute(
+        duration_minutes=18,
+        walking_distance_meters=400,
+        transfers=0,
+        steps=[
+            {"travel_mode": "WALKING", "duration": {"value": 300}},
+            {
+                "travel_mode": "TRANSIT",
+                "duration": {"value": 900},
+                "transit_details": {
+                    "departure_stop": {"name": "Stesen BRT Sunu-Monash"},
+                    "arrival_stop": {"name": "Stesen BRT USJ 7"},
+                    "line": {"short_name": "BRT", "name": "BRT Sunway Line", "vehicle": {"type": "BUS"}},
+                },
+            },
+        ],
+        polyline="brt",
+        raw={},
+    )
+    lrt_leg = CandidateRoute(
+        duration_minutes=45,
+        walking_distance_meters=150,
+        transfers=0,
+        steps=[
+            {
+                "travel_mode": "TRANSIT",
+                "duration": {"value": 2400},
+                "transit_details": {
+                    "departure_stop": {"name": "Stesen LRT USJ 7"},
+                    "arrival_stop": {"name": "KL Sentral"},
+                    "line": {"short_name": "KJ", "name": "Kelana Jaya Line", "vehicle": {"type": "SUBWAY"}},
+                },
+            },
+        ],
+        polyline="lrt",
+        raw={},
+    )
+
+    async def lenient_side_effect(origin, destination, departure_time):
+        del departure_time
+        if destination.display_name in {"USJ 7", "Stesen BRT USJ 7"}:
+            return [brt_leg]
+        if destination.display_name == "KL Sentral":
+            return [lrt_leg]
+        return []
+
+    with patch(
+        "app.services.klcc_monash_route_service.fetch_transit_candidates_lenient",
+        new=AsyncMock(side_effect=lenient_side_effect),
+    ) as mock_lenient:
+        composed = await fetch_klcc_monash_brt_candidate(
+            PlaceInput(display_name="Monash University Malaysia", lat=3.065, lon=101.601),
+            PlaceInput(display_name="KL Sentral", lat=3.134, lon=101.686),
+            "2026-05-16T20:00:00+08:00",
+        )
+
+    assert composed is not None
+    assert mock_lenient.await_count == 2
+    assert "SS18" not in str(composed.raw).upper()
+    assert "SS 18" not in str(composed.steps)
+
+
+def test_compose_from_monash_to_kl_sentral() -> None:
+    asyncio.run(_test_compose_from_monash_to_kl_sentral())

@@ -20,13 +20,21 @@ SUNU_MONASH_BRT = PlaceInput(display_name="Stesen BRT Sunu-Monash", lat=3.0654, 
 _NEAR_USJ7_METERS = 500
 
 
+def _mentions_monash(place: PlaceInput) -> bool:
+    return "monash" in place.display_name.lower()
+
+
 def is_monash_brt_route(origin: PlaceInput, destination: PlaceInput) -> bool:
-    """Monash University trips need USJ7 LRT + Sunway BRT — Google omits BRT on one request."""
-    return "monash" in destination.display_name.lower()
+    """Trips involving Monash need USJ7 LRT + Sunway BRT — Google often routes via SS18 instead."""
+    return _mentions_monash(origin) or _mentions_monash(destination)
 
 
 def is_klcc_to_monash_route(origin: PlaceInput, destination: PlaceInput) -> bool:
-    return is_monash_brt_route(origin, destination)
+    return _mentions_monash(destination)
+
+
+def is_monash_to_kv_route(origin: PlaceInput, destination: PlaceInput) -> bool:
+    return _mentions_monash(origin) and not _mentions_monash(destination)
 
 
 def _haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -149,6 +157,32 @@ def _candidate_brt_usj7_to_sunu(candidate: CandidateRoute) -> bool:
     return False
 
 
+def _candidate_brt_sunu_to_usj7(candidate: CandidateRoute) -> bool:
+    for step in _transit_steps(candidate):
+        if not _is_brt_step(step):
+            continue
+        departure, arrival = _transit_stop_names(step)
+        if is_sunu_monash_stop(departure) and is_usj7_stop(arrival):
+            return True
+    return False
+
+
+def _candidate_departs_usj7_lrt(candidate: CandidateRoute) -> bool:
+    transit_steps = _transit_steps(candidate)
+    if not transit_steps:
+        return False
+    first_departure = _transit_stop_names(transit_steps[0])[0]
+    if not is_usj7_stop(first_departure):
+        return False
+    for step in transit_steps:
+        departure, arrival = _transit_stop_names(step)
+        if is_ss18_stop(departure) and not is_usj7_stop(departure):
+            return False
+        if is_ss18_stop(arrival) and not is_usj7_stop(arrival):
+            return False
+    return True
+
+
 def _pick_brt_candidate(candidates: list[CandidateRoute]) -> CandidateRoute | None:
     corridor = [c for c in candidates if _candidate_brt_usj7_to_sunu(c)]
     pool = corridor or candidates
@@ -163,6 +197,16 @@ def _pick_brt_candidate(candidates: list[CandidateRoute]) -> CandidateRoute | No
     return None
 
 
+def _candidate_boards_brt_at_ss18(candidate: CandidateRoute) -> bool:
+    for step in _transit_steps(candidate):
+        if not _is_brt_step(step):
+            continue
+        departure, _ = _transit_stop_names(step)
+        if is_ss18_stop(departure):
+            return True
+    return False
+
+
 def _pick_klcc_to_usj7_lrt(candidates: list[CandidateRoute]) -> CandidateRoute | None:
     matching = [c for c in candidates if _candidate_arrives_at_usj7_lrt(c)]
     if not matching:
@@ -173,6 +217,51 @@ def _pick_klcc_to_usj7_lrt(candidates: list[CandidateRoute]) -> CandidateRoute |
         least_walk=False,
         fewest_transfers=True,
     )
+
+
+def _pick_inbound_lrt_to_usj7(candidates: list[CandidateRoute]) -> CandidateRoute | None:
+    """KV → USJ7 on Kelana Jaya; reject SS18 alight + SS18 BRT shortcuts."""
+    strict = _pick_klcc_to_usj7_lrt(candidates)
+    if strict is not None:
+        return strict
+    relaxed = [
+        c
+        for c in candidates
+        if _candidate_arrives_at_usj7_lrt(c) and not _candidate_boards_brt_at_ss18(c)
+    ]
+    if relaxed:
+        return choose_best_candidate(
+            relaxed,
+            accessibility_first=False,
+            least_walk=False,
+            fewest_transfers=True,
+        )
+    return None
+
+
+def _pick_inbound_corridor_google(candidates: list[CandidateRoute]) -> CandidateRoute | None:
+    """Single-request Google route that uses USJ7→Sunu BRT (not SS18 BRT) for inbound trips."""
+    corridor = [
+        c
+        for c in candidates
+        if _candidate_brt_usj7_to_sunu(c) and not _candidate_boards_brt_at_ss18(c)
+    ]
+    if corridor:
+        return choose_best_candidate(
+            corridor,
+            accessibility_first=False,
+            least_walk=False,
+            fewest_transfers=True,
+        )
+    without_ss18_brt = [c for c in candidates if not _candidate_boards_brt_at_ss18(c)]
+    if without_ss18_brt:
+        return choose_best_candidate(
+            without_ss18_brt,
+            accessibility_first=False,
+            least_walk=False,
+            fewest_transfers=True,
+        )
+    return None
 
 
 def _pick_usj7_to_sunu_brt(candidates: list[CandidateRoute]) -> CandidateRoute | None:
@@ -188,6 +277,53 @@ def _pick_usj7_to_sunu_brt(candidates: list[CandidateRoute]) -> CandidateRoute |
     if brt is not None:
         return brt
     return None
+
+
+def _pick_monash_to_usj7_brt(candidates: list[CandidateRoute]) -> CandidateRoute | None:
+    matching = [c for c in candidates if _candidate_brt_sunu_to_usj7(c)]
+    if matching:
+        return choose_best_candidate(
+            matching,
+            accessibility_first=False,
+            least_walk=False,
+            fewest_transfers=False,
+        )
+    for candidate in candidates:
+        for step in _transit_steps(candidate):
+            if not _is_brt_step(step):
+                continue
+            departure, _ = _transit_stop_names(step)
+            if not is_ss18_stop(departure):
+                return candidate
+    return None
+
+
+def _pick_monash_departure_to_usj7(candidates: list[CandidateRoute]) -> CandidateRoute | None:
+    """Campus → USJ7 hub in one Google leg (BRT Sunu→USJ7 preferred)."""
+    brt = _pick_monash_to_usj7_brt(candidates)
+    if brt is not None:
+        return brt
+    without_ss18 = [c for c in candidates if not _candidate_boards_brt_at_ss18(c)]
+    if without_ss18:
+        return choose_best_candidate(
+            without_ss18,
+            accessibility_first=False,
+            least_walk=False,
+            fewest_transfers=False,
+        )
+    return None
+
+
+def _pick_usj7_to_destination_lrt(candidates: list[CandidateRoute]) -> CandidateRoute | None:
+    matching = [c for c in candidates if _candidate_departs_usj7_lrt(c)]
+    if not matching:
+        return None
+    return choose_best_candidate(
+        matching,
+        accessibility_first=False,
+        least_walk=False,
+        fewest_transfers=True,
+    )
 
 
 def _merge_candidates(*parts: CandidateRoute) -> CandidateRoute:
@@ -232,12 +368,12 @@ def _pick_leg_neutral(
     )
 
 
-async def fetch_klcc_monash_brt_candidate(
+async def _compose_to_monash(
     origin: PlaceInput,
     destination: PlaceInput,
     departure_time: str,
 ) -> CandidateRoute | None:
-    """Build a Monash corridor route with chained departures; preferences applied later."""
+    """Inbound: KV hub → USJ7 LRT → Sunway BRT (USJ7) → campus."""
     parts: list[CandidateRoute] = []
     offset_seconds = 0
     leg_departure = departure_time
@@ -246,7 +382,7 @@ async def fetch_klcc_monash_brt_candidate(
         leg1_candidates = await fetch_transit_candidates_lenient(
             origin, USJ7_INTERCHANGE, leg_departure
         )
-        leg1 = _pick_klcc_to_usj7_lrt(leg1_candidates)
+        leg1 = _pick_inbound_lrt_to_usj7(leg1_candidates)
         if leg1 is None:
             return None
         parts.append(leg1)
@@ -272,6 +408,76 @@ async def fetch_klcc_monash_brt_candidate(
     parts.append(leg3)
 
     return _merge_candidates(*parts)
+
+
+async def _compose_to_monash_with_fallback(
+    origin: PlaceInput,
+    destination: PlaceInput,
+    departure_time: str,
+) -> CandidateRoute | None:
+    composed = await _compose_to_monash(origin, destination, departure_time)
+    if composed is not None:
+        return composed
+    direct = await fetch_transit_candidates_lenient(origin, destination, departure_time)
+    return _pick_inbound_corridor_google(direct)
+
+
+async def _compose_from_monash(
+    origin: PlaceInput,
+    destination: PlaceInput,
+    departure_time: str,
+) -> CandidateRoute | None:
+    """Outbound: campus → Sunway BRT (Sunu-Monash → USJ7) → Kelana Jaya line — not via SS18."""
+    parts: list[CandidateRoute] = []
+    offset_seconds = 0
+    leg_departure = departure_time
+
+    leg1_candidates = await fetch_transit_candidates_lenient(
+        origin, USJ7_INTERCHANGE, leg_departure
+    )
+    leg1 = _pick_monash_departure_to_usj7(leg1_candidates)
+    if leg1 is None:
+        leg1_candidates = await fetch_transit_candidates_lenient(
+            origin, SUNU_MONASH_BRT, leg_departure
+        )
+        leg1 = _pick_monash_departure_to_usj7(leg1_candidates)
+        if leg1 is None:
+            return None
+    parts.append(leg1)
+    offset_seconds += _leg_duration_seconds(leg1)
+    leg_departure = departure_iso_after(departure_time, offset_seconds)
+
+    leg2_candidates = await fetch_transit_candidates_lenient(
+        USJ7_INTERCHANGE, destination, leg_departure
+    )
+    leg2 = _pick_usj7_to_destination_lrt(leg2_candidates)
+    if leg2 is None:
+        return None
+    parts.append(leg2)
+
+    return _merge_candidates(*parts)
+
+
+async def fetch_klcc_monash_brt_candidate(
+    origin: PlaceInput,
+    destination: PlaceInput,
+    departure_time: str,
+) -> CandidateRoute | None:
+    """Build a Monash corridor route with chained departures; preferences applied later."""
+    if _mentions_monash(destination):
+        return await _compose_to_monash_with_fallback(origin, destination, departure_time)
+    if _mentions_monash(origin):
+        return await _compose_from_monash(origin, destination, departure_time)
+    return None
+
+
+def uses_monash_corridor(candidate: CandidateRoute) -> bool:
+    """True for composed or Google routes using USJ7 ↔ Sunu-Monash BRT (not SS18 BRT shortcuts)."""
+    if isinstance(candidate.raw, dict) and candidate.raw.get("composed"):
+        return True
+    if _candidate_boards_brt_at_ss18(candidate):
+        return False
+    return _candidate_brt_usj7_to_sunu(candidate) or _candidate_brt_sunu_to_usj7(candidate)
 
 
 def summarize_candidate(candidate: CandidateRoute) -> dict:

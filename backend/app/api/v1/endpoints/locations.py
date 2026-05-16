@@ -1,8 +1,5 @@
-import json
 import logging
 import re
-import time
-from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
@@ -17,27 +14,6 @@ from app.services.mrt_facilities_service import get_mrt_facilities
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-_DEBUG_LOG = Path(__file__).resolve().parents[5] / ".cursor" / "debug-ce83c2.log"
-
-
-def _agent_log(hypothesis_id: str, message: str, data: dict) -> None:
-    # #region agent log
-    try:
-        payload = {
-            "sessionId": "ce83c2",
-            "hypothesisId": hypothesis_id,
-            "location": "locations.py",
-            "message": message,
-            "data": data,
-            "timestamp": int(time.time() * 1000),
-        }
-        _DEBUG_LOG.parent.mkdir(parents=True, exist_ok=True)
-        with _DEBUG_LOG.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
-    except OSError:
-        pass
-    # #endregion
-
 
 SOURCE_SYSTEM_LABELS = {
     "rapid_rail": "Rapid Rail",
@@ -138,7 +114,6 @@ def _supported_facilities(row: dict, status: str) -> list[str]:
 
 @router.get("/popular", response_model=list[LocationSummary])
 def popular_locations() -> list[LocationSummary]:
-    started = time.perf_counter()
     try:
         with get_connection() as conn:
             rows = conn.execute(
@@ -169,19 +144,8 @@ def popular_locations() -> list[LocationSummary]:
                 """,
                 {"ids": POPULAR_STATION_IDS},
             ).fetchall()
-            result = [_location_summary(row) for row in rows]
-            _agent_log(
-                "H6",
-                "popular_ok",
-                {"ms": round((time.perf_counter() - started) * 1000, 1), "count": len(result)},
-            )
-            return result
+            return [_location_summary(row) for row in rows]
     except Exception as exc:
-        _agent_log(
-            "H6",
-            "popular_error",
-            {"ms": round((time.perf_counter() - started) * 1000, 1), "error": type(exc).__name__},
-        )
         logger.exception("Failed to load /locations/popular from database.")
         csv_fallback = popular_csv_locations()
         if csv_fallback:
@@ -199,7 +163,6 @@ def search_locations(q: str = "") -> list[LocationSummary]:
     if not query:
         return []
 
-    started = time.perf_counter()
     try:
         with get_connection() as conn:
             rows = conn.execute(
@@ -232,23 +195,8 @@ def search_locations(q: str = "") -> list[LocationSummary]:
             ).fetchall()
             # Similarity ranking can still return name duplicates; normalize in API layer.
             deduped_rows = _dedupe_location_rows(rows, limit=20)
-            result = [_location_summary(row) for row in deduped_rows]
-            _agent_log(
-                "H6-H7",
-                "search_ok",
-                {
-                    "ms": round((time.perf_counter() - started) * 1000, 1),
-                    "count": len(result),
-                    "q_len": len(query),
-                },
-            )
-            return result
+            return [_location_summary(row) for row in deduped_rows]
     except Exception as exc:
-        _agent_log(
-            "H6-H7",
-            "search_error",
-            {"ms": round((time.perf_counter() - started) * 1000, 1), "error": type(exc).__name__},
-        )
         logger.exception("Failed to load /locations/search from database.")
         csv_fallback = search_csv_locations(query)
         if csv_fallback:

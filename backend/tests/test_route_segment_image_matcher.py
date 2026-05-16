@@ -65,15 +65,14 @@ def setup_function() -> None:
     reload_segment_image_templates_cache()
 
 
-def test_usj7_to_monash_matches_brt_segment_template() -> None:
+def test_usj7_to_monash_uses_google_not_curated_csv() -> None:
     images = match_step_images(
         _usj7_brt_forward_step(),
         1,
         "USJ 7",
         "Monash University Malaysia",
     )
-    assert images
-    assert any("step-04" in image["path"] or "brt" in image["path"].lower() for image in images)
+    assert images == []
 
 
 def test_klcc_to_monash_exact_od_still_matches() -> None:
@@ -126,8 +125,8 @@ def test_wrong_vehicle_type_returns_empty() -> None:
     assert images == []
 
 
-def test_non_canonical_od_uses_template_not_exact_step_key() -> None:
-    """USJ7→Monash is not klcc|monash OD; LRT leg still matches lrt template (step-02), not step-1."""
+def test_non_canonical_od_returns_empty_curated_images() -> None:
+    """Only klcc|monash university malaysia uses backend CSV; USJ7→Monash does not."""
     from app.services.route_station_images_service import get_route_step_images
 
     assert get_route_step_images("usj 7|monash university malaysia", 2) == []
@@ -137,14 +136,12 @@ def test_non_canonical_od_uses_template_not_exact_step_key() -> None:
         "USJ 7",
         "Monash University Malaysia",
     )
-    assert images
-    assert any("step-02" in image["path"] for image in images)
-    assert not any("step-01" in image["path"] for image in images)
+    assert images == []
 
 
 def test_resolve_route_step_images_dedupes_adjacent_paths() -> None:
     steps = [_usj7_brt_forward_step(), _usj7_brt_forward_step()]
-    resolved = resolve_route_step_images(steps, "USJ 7", "Monash University Malaysia")
+    resolved = resolve_route_step_images(steps, "KLCC", "Monash University Malaysia")
     assert 1 in resolved
     assert 2 in resolved
     if resolved[1] and resolved[2]:

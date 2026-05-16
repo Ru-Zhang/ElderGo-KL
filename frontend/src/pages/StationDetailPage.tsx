@@ -149,7 +149,8 @@ export default function StationDetailPage({
         selectedStation.lat,
         selectedStation.lon,
       );
-      setDestination(placeDetailToSelection(detail));
+      const selection = placeDetailToSelection(detail);
+      setDestination(selection);
     } catch {
       setDestination(fallback);
     } finally {

@@ -48,31 +48,12 @@ export function placeDetailToSelection(
   preferredLabel?: string | null
 ): PlaceSelection {
   const rawLabel = preferredLabel?.trim() || detail.name?.trim() || detail.display_name;
-  const selection = {
+  return {
     displayName: formatPlaceDisplayName(rawLabel),
     googlePlaceId: detail.google_place_id,
     lat: detail.lat,
     lon: detail.lon,
   };
-  // #region agent log
-  fetch('http://127.0.0.1:7267/ingest/af3fa6c2-77fe-4e06-a79f-1e670577b9b2', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'ce83c2' },
-    body: JSON.stringify({
-      sessionId: 'ce83c2',
-      hypothesisId: 'H-A',
-      location: 'googlePlaces.ts:placeDetailToSelection',
-      message: 'place_label_mapped',
-      data: {
-        preferredLabel: preferredLabel ?? null,
-        googleName: detail.name ?? null,
-        displayName: selection.displayName,
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
-  return selection;
 }
 
 export async function getPlaceDetail(

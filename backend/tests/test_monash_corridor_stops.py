@@ -6,8 +6,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.services.google_maps_service import CandidateRoute
 from app.services.klcc_monash_route_service import (
     _candidate_arrives_at_usj7_lrt,
+    _candidate_boards_brt_at_ss18,
+    _candidate_brt_sunu_to_usj7,
     _candidate_brt_usj7_to_sunu,
+    _candidate_departs_usj7_lrt,
+    _pick_inbound_corridor_google,
     _pick_klcc_to_usj7_lrt,
+    _pick_monash_to_usj7_brt,
+    _pick_usj7_to_destination_lrt,
     _pick_usj7_to_sunu_brt,
     is_ss18_stop,
     is_usj7_stop,
@@ -71,4 +77,37 @@ def test_brt_leg_prefers_usj7_not_ss18() -> None:
     assert not _candidate_brt_usj7_to_sunu(wrong)
     assert _candidate_brt_usj7_to_sunu(right)
     picked = _pick_usj7_to_sunu_brt([wrong, right])
+    assert picked is right
+
+
+def test_outbound_brt_leg_prefers_sunu_to_usj7_not_ss18() -> None:
+    wrong = _route(_brt_step(departure="Stesen BRT SS18", arrival="Stesen BRT USJ 7"))
+    right = _route(_brt_step(departure="Stesen BRT Sunu-Monash", arrival="Stesen BRT USJ 7"))
+    assert not _candidate_brt_sunu_to_usj7(wrong)
+    assert _candidate_brt_sunu_to_usj7(right)
+    picked = _pick_monash_to_usj7_brt([wrong, right])
+    assert picked is right
+
+
+def test_inbound_google_picker_prefers_usj7_brt_over_ss18() -> None:
+    ss18_brt = _route(
+        _lrt_step(departure="KL Sentral", arrival="SS18"),
+        _brt_step(departure="Stesen BRT SS18", arrival="Stesen BRT Sunu-Monash"),
+    )
+    usj7_brt = _route(
+        _lrt_step(departure="KL Sentral", arrival="USJ 7"),
+        _brt_step(departure="Stesen BRT USJ 7", arrival="Stesen BRT Sunu-Monash"),
+    )
+    assert _candidate_boards_brt_at_ss18(ss18_brt)
+    assert not _candidate_boards_brt_at_ss18(usj7_brt)
+    picked = _pick_inbound_corridor_google([ss18_brt, usj7_brt])
+    assert picked is usj7_brt
+
+
+def test_usj7_lrt_departure_rejects_ss18_boarding() -> None:
+    wrong = _route(_lrt_step(departure="SS18", arrival="KL Sentral"))
+    right = _route(_lrt_step(departure="USJ 7", arrival="KL Sentral"))
+    assert not _candidate_departs_usj7_lrt(wrong)
+    assert _candidate_departs_usj7_lrt(right)
+    picked = _pick_usj7_to_destination_lrt([wrong, right])
     assert picked is right

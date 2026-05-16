@@ -6,6 +6,7 @@ class PlaceSuggestion(BaseModel):
     place_id: str
     main_text: str | None = None
     secondary_text: str | None = None
+    types: list[str] = []
 
 
 class PlaceDetail(BaseModel):

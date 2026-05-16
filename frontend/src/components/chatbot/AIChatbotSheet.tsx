@@ -9,8 +9,6 @@ import { FontSizeMode } from '../../types/settings';
 import ChatMessageBlocks from './ChatMessageBlocks';
 import ChatQuickQuestions from './ChatQuickQuestions';
 import { formatChatActionLabel } from './suggestedQuestions';
-import { debugLog } from '../../utils/debugLog';
-
 interface AIChatbotSheetProps {
   isOpen: boolean;
   onClose: () => void;
@@ -151,9 +149,6 @@ function parseMessageBlocks(raw: string): MessageBlock[] {
 }
 
 export default function AIChatbotSheet({ isOpen, onClose, onNavigate }: AIChatbotSheetProps) {
-  // #region agent log
-  debugLog('AIChatbotSheet.tsx:render', 'sheet render', { isOpen }, 'A');
-  // #endregion
   const { language, fontSize, currentRoute, origin, destination, selectedStation } = useAppContext();
   const t = (key: string) => getTranslation(language, key as any);
   const fontScale = chatFontScale(fontSize);
@@ -215,12 +210,6 @@ export default function AIChatbotSheet({ isOpen, onClose, onNavigate }: AIChatbo
       if (cancelled) return;
       try {
         const raw = localStorage.getItem(CHATBOT_STORAGE_KEY);
-        // #region agent log
-        debugLog('AIChatbotSheet.tsx:hydrate', 'restore session start', {
-          hasRaw: Boolean(raw),
-          rawLength: raw?.length ?? 0
-        }, 'D');
-        // #endregion
         if (raw) {
           const parsed = JSON.parse(raw) as {
             messages?: ChatMessage[];
@@ -241,12 +230,7 @@ export default function AIChatbotSheet({ isOpen, onClose, onNavigate }: AIChatbo
             setFlowSlots(parsed.flowSlots);
           }
         }
-      } catch (err) {
-        // #region agent log
-        debugLog('AIChatbotSheet.tsx:hydrate', 'restore session failed', {
-          error: err instanceof Error ? err.message : String(err)
-        }, 'D');
-        // #endregion
+      } catch {
       } finally {
         if (!cancelled) setHasHydrated(true);
       }
@@ -307,13 +291,6 @@ export default function AIChatbotSheet({ isOpen, onClose, onNavigate }: AIChatbo
 
   const sendToAI = useCallback(async (messageText: string, options?: { resetFlow?: boolean }) => {
     const trimmed = messageText.trim();
-    // #region agent log
-    debugLog('AIChatbotSheet.tsx:sendToAI', 'send start', {
-      trimmedLength: trimmed.length,
-      resetFlow: Boolean(options?.resetFlow),
-      isSending
-    }, 'E');
-    // #endregion
     if (!trimmed || isSending) return;
 
     const outgoingFlow = options?.resetFlow ? null : chatFlow;
@@ -358,23 +335,10 @@ export default function AIChatbotSheet({ isOpen, onClose, onNavigate }: AIChatbo
           responseSource: response.response_source ?? null
         }
       ]);
-      // #region agent log
-      debugLog('AIChatbotSheet.tsx:sendToAI', 'send success', {
-        blockTypes: (response.answer_blocks ?? []).map((b) => b.type),
-        actionTypes: (response.actions ?? []).map((a) => a.type),
-        responseSource: response.response_source ?? null
-      }, 'E');
-      // #endregion
       if (computeRouteAction) {
         await runNavigation(computeRouteAction);
       }
     } catch (error) {
-      // #region agent log
-      debugLog('AIChatbotSheet.tsx:sendToAI', 'send error', {
-        error: error instanceof Error ? error.message : String(error),
-        status: error instanceof ApiError ? error.status : undefined
-      }, 'E');
-      // #endregion
       setMessages((prev) => [
         ...prev,
         {
