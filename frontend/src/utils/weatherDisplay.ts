@@ -131,7 +131,163 @@ function formatLaterClockLabel(slotTime: Date, departureTime: Date, language: La
   return `${dayPart}, ${timePart}`;
 }
 
-export function formatLaterOutlookRows(
+const LEAVE_WINDOW_MS = 3 * 60 * 60 * 1000;
+const LEAVE_WINDOW_HOURS = 3;
+
+export interface LeaveWindowTimelinePoint {
+  hoursAfter: number;
+  hoursAfterLabel: string;
+  clockLabel: string;
+  temperatureC: number;
+  temperatureLabel: string;
+  condition: string;
+  pop: number | null;
+  isInterpolated: boolean;
+  isDeparture: boolean;
+  rainLikely: boolean;
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+function pickEndSlot(
+  slots: WeatherHourlySlot[],
+  departureTime: Date,
+): WeatherHourlySlot | null {
+  const departureMs = departureTime.getTime();
+  const candidates = slots
+    .filter((slot) => !slot.isDepartureWindow)
+    .filter((slot) => {
+      const delta = new Date(slot.forecastTime).getTime() - departureMs;
+      return delta > 5 * 60 * 1000 && delta <= LEAVE_WINDOW_MS + 15 * 60 * 1000;
+    })
+    .sort((a, b) => new Date(a.forecastTime).getTime() - new Date(b.forecastTime).getTime());
+
+  if (candidates.length > 0) {
+    return candidates[candidates.length - 1];
+  }
+
+  const future = slots
+    .filter((slot) => new Date(slot.forecastTime).getTime() > departureMs)
+    .sort((a, b) => new Date(a.forecastTime).getTime() - new Date(b.forecastTime).getTime());
+  return future[0] ?? null;
+}
+
+/** Four-point timeline: leave + interpolated +1h/+2h + up to +3h (real forecast when available). */
+export function buildLeaveWindowTimeline(
+  weather: DestinationWeather,
+  language: Language,
+  departureTime: Date,
+): LeaveWindowTimelinePoint[] {
+  const t = (key: TranslationKey) => getTranslation(language, key);
+  const leaveLabel = t('routeWeatherLeaveTime');
+  const approxSuffix = t('routeWeatherApprox');
+
+  const departureSlot = weather.hourlyOutlook.find((s) => s.isDepartureWindow);
+  const startTemp = departureSlot?.temperatureC ?? weather.temperatureC;
+  const startCondition = simplifyWeatherCondition(
+    departureSlot?.weatherDescription ?? weather.weatherDescription ?? weather.weatherMain,
+    language,
+  );
+  const startPop = departureSlot?.precipitationProbabilityPercent ?? weather.precipitationProbabilityPercent ?? null;
+
+  const endSlot = pickEndSlot(weather.hourlyOutlook, departureTime);
+  const endTemp = endSlot?.temperatureC ?? startTemp;
+  const endCondition = simplifyWeatherCondition(
+    endSlot?.weatherDescription ?? weather.weatherDescription ?? weather.weatherMain,
+    language,
+  );
+  const endPop = endSlot?.precipitationProbabilityPercent ?? startPop;
+
+  const hourOffsets = [0, 1, 2, 3];
+  return hourOffsets.map((hoursAfter) => {
+    const ratio = hoursAfter / LEAVE_WINDOW_HOURS;
+    const slotTime = new Date(departureTime.getTime() + hoursAfter * 60 * 60 * 1000);
+    const isDeparture = hoursAfter === 0;
+    const isInterpolated = !isDeparture && hoursAfter < LEAVE_WINDOW_HOURS && Boolean(endSlot) && hoursAfter < 3;
+
+    let temperatureC: number;
+    let condition: string;
+    let pop: number | null;
+
+    if (isDeparture) {
+      temperatureC = startTemp;
+      condition = startCondition;
+      pop = startPop;
+    } else if (hoursAfter === LEAVE_WINDOW_HOURS && endSlot) {
+      temperatureC = endSlot.temperatureC;
+      condition = simplifyWeatherCondition(endSlot.weatherDescription, language);
+      pop = endSlot.precipitationProbabilityPercent ?? null;
+    } else {
+      temperatureC = Math.round(lerp(startTemp, endTemp, ratio) * 10) / 10;
+      condition = ratio >= 0.5 ? endCondition : startCondition;
+      pop =
+        startPop != null && endPop != null
+          ? Math.round(lerp(startPop, endPop, ratio))
+          : startPop ?? endPop;
+    }
+
+    const hoursAfterLabel =
+      hoursAfter === 0
+        ? leaveLabel
+        : formatHoursAfterLabel(hoursAfter, language);
+
+    const clockLabel = formatLaterClockLabel(slotTime, departureTime, language);
+    const rainLikely = pop != null && pop >= 40;
+
+    return {
+      hoursAfter,
+      hoursAfterLabel: isInterpolated ? `${hoursAfterLabel} ${approxSuffix}` : hoursAfterLabel,
+      clockLabel,
+      temperatureC,
+      temperatureLabel: `${temperatureC}°C`,
+      condition,
+      pop,
+      isInterpolated: isInterpolated && hoursAfter < LEAVE_WINDOW_HOURS,
+      isDeparture,
+      rainLikely,
+    };
+  });
+}
+
+export function buildWeatherChangeSummary(
+  timeline: LeaveWindowTimelinePoint[],
+  language: Language,
+): string {
+  const t = (key: TranslationKey) => getTranslation(language, key);
+  if (timeline.length < 2) {
+    return t('routeWeatherChangeLittle');
+  }
+
+  const start = timeline[0];
+  const end = timeline[timeline.length - 1];
+  const parts: string[] = [];
+
+  const tempDelta = end.temperatureC - start.temperatureC;
+  if (tempDelta >= 1.5) {
+    parts.push(t('routeWeatherChangeWarmer'));
+  } else if (tempDelta <= -1.5) {
+    parts.push(t('routeWeatherChangeCooler'));
+  } else {
+    parts.push(t('routeWeatherChangeTempStable'));
+  }
+
+  if (end.condition.toLowerCase() !== start.condition.toLowerCase()) {
+    parts.push(t('routeWeatherChangeConditionShift'));
+  } else {
+    parts.push(t('routeWeatherChangeLittle'));
+  }
+
+  if (timeline.some((p) => p.rainLikely)) {
+    parts.push(t('routeWeatherRainPossibleShort'));
+  }
+
+  return parts.slice(0, 3).join(' · ');
+}
+
+/** Forecast rows within 3 hours after planned departure (leave-time card shows "now"). */
+export function formatLeaveWindowOutlookRows(
   slots: WeatherHourlySlot[],
   language: Language,
   departureCondition: string,
@@ -145,11 +301,10 @@ export function formatLaterOutlookRows(
     .filter((slot) => {
       if (slot.isDepartureWindow) return false;
       const slotMs = new Date(slot.forecastTime).getTime();
-      // Only show forecast slots clearly after the planned departure.
-      return slotMs > departureMs + 30 * 60 * 1000;
+      const deltaMs = slotMs - departureMs;
+      return deltaMs > 5 * 60 * 1000 && deltaMs <= LEAVE_WINDOW_MS + 15 * 60 * 1000;
     })
     .sort((a, b) => new Date(a.forecastTime).getTime() - new Date(b.forecastTime).getTime())
-    .slice(0, 2)
     .map((slot) => {
       const slotTime = new Date(slot.forecastTime);
       const hoursAfter = (slotTime.getTime() - departureMs) / (60 * 60 * 1000);
@@ -172,6 +327,9 @@ export function formatLaterOutlookRows(
       };
     });
 }
+
+/** @deprecated Use formatLeaveWindowOutlookRows */
+export const formatLaterOutlookRows = formatLeaveWindowOutlookRows;
 
 export function formatHourlyOutlookLabel(iso: string, language: Language): string {
   const date = new Date(iso);

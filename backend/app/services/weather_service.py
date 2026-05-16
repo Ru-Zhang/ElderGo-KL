@@ -23,6 +23,7 @@ OPENWEATHER_FORECAST_URL = "https://api.openweathermap.org/data/2.5/forecast"
 OPENWEATHER_GEOCODING_URL = "https://api.openweathermap.org/geo/1.0/direct"
 RAIN_WEATHER_IDS = {500, 501, 502, 503, 504, 511, 520, 521, 522, 531}
 FORECAST_SLOT_HOURS = 3
+LEAVE_OUTLOOK_HOURS = 3
 
 
 def _format_departure_forecast_label(target_local: datetime) -> str:
@@ -134,10 +135,15 @@ def _build_hourly_outlook(
     anchor_idx = min(range(len(slots)), key=lambda i: abs((slots[i][0] - anchor).total_seconds()))
 
     start_idx = anchor_idx
-    end_idx = min(len(slots) - 1, anchor_idx + max_slots - 1)
     outlook: list[WeatherHourlySlot] = []
-    for idx in range(start_idx, end_idx + 1):
+    for idx in range(start_idx, len(slots)):
+        if len(outlook) >= max_slots:
+            break
         forecast_local, item = slots[idx]
+        if idx != anchor_idx:
+            hours_after = (forecast_local - anchor).total_seconds() / 3600
+            if hours_after <= 0 or hours_after > LEAVE_OUTLOOK_HOURS:
+                continue
         if idx != anchor_idx and forecast_local < anchor:
             continue
         main = item.get("main") or {}

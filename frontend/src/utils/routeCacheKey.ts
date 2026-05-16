@@ -3,7 +3,7 @@ import { TravelPreferences } from '../types/preferences';
 import { RouteRecommendationRequest } from '../types/routes';
 import { normalizeDepartureKey, resolveDepartureDate } from './departureTime';
 
-const ROUTE_RANKING_CACHE_VERSION = 'google-priority-fastest-v2';
+const ROUTE_RANKING_CACHE_VERSION = 'elder-priority-order-v1';
 
 function placeKey(place: PlaceSelection): string {
   if (typeof place.lat === 'number' && typeof place.lon === 'number') {

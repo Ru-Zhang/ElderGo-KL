@@ -468,7 +468,7 @@ async def _generate_answer_with_fallback(
     senior_poi_recommendation: bool = False,
 ) -> tuple[str, bool, list[ChatBlock], ResponseSourceType]:
     grounded = build_grounded_context(
-        message=message,
+                message=message,
         current_route_id=None,
         selected_location_id=request.selected_station_id if request else None,
         anonymous_user_id=None,
@@ -559,7 +559,7 @@ async def send_message(conversation_id: str, payload: AIMessageRequest) -> AIMes
                 conversation_id,
                 answer=_out_of_scope_answer_for(payload),
                 blocks=_out_of_scope_blocks_for(language),
-                in_scope=False,
+            in_scope=False,
                 actions=[],
                 response_source="db",
             )

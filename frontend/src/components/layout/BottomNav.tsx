@@ -1,6 +1,10 @@
+import type { ReactNode } from 'react';
 import { Map, Sliders, Bot, HelpCircle, Train } from 'lucide-react';
 import { useAppContext } from '../../app/AppProvider';
 import { getTranslation } from '../../i18n/translations';
+
+/** Reserve this space at the bottom of scrollable pages so content clears the fixed nav. */
+export const BOTTOM_NAV_CLEARANCE = '6.25rem';
 
 interface BottomNavProps {
   activeTab?: string;
@@ -11,79 +15,118 @@ interface BottomNavProps {
   onPreferenceClick?: () => void;
 }
 
+interface NavItemProps {
+  active: boolean;
+  label?: string;
+  onClick?: () => void;
+  iconBoxClass?: string;
+  labelFontPx: number;
+  labelSlotMinHeightPx: number;
+  'aria-label'?: string;
+  children: ReactNode;
+}
+
+const LABEL_SLOT_CLASS =
+  'block w-full min-w-0 overflow-hidden text-center font-medium leading-none whitespace-nowrap';
+
+function NavItem({
+  active,
+  label,
+  onClick,
+  iconBoxClass = 'h-10 w-10',
+  labelFontPx,
+  labelSlotMinHeightPx,
+  'aria-label': ariaLabel,
+  children,
+}: NavItemProps) {
+  const labelStyle = {
+    fontFamily: 'Poppins',
+    fontSize: `${labelFontPx}px`,
+    minHeight: `${labelSlotMinHeightPx}px`,
+    maxHeight: `${labelSlotMinHeightPx}px`,
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel ?? label}
+      className={`flex min-h-[4.75rem] w-full min-w-0 flex-col items-center justify-end gap-0.5 overflow-hidden px-0 pb-1 ${
+        active ? 'text-eldergo-blue' : 'text-eldergo-navy'
+      }`}
+    >
+      <div className={`flex flex-shrink-0 items-center justify-center ${iconBoxClass}`}>
+        {children}
+      </div>
+      {label ? (
+        <span className={LABEL_SLOT_CLASS} style={labelStyle}>
+          {label}
+        </span>
+      ) : (
+        <span className={LABEL_SLOT_CLASS} style={labelStyle} aria-hidden>
+          {'\u00A0'}
+        </span>
+      )}
+    </button>
+  );
+}
+
 export default function BottomNav({
   activeTab = 'home',
   onChatbotClick,
   onStationClick,
   onPlanningClick,
   onHelpClick,
-  onPreferenceClick
+  onPreferenceClick,
 }: BottomNavProps) {
-  const { language } = useAppContext();
+  const { language, fontSize } = useAppContext();
   const t = (key: string) => getTranslation(language, key as any);
-  const navLabelClass =
-    'max-w-full text-center text-[12px] font-medium leading-tight line-clamp-2 min-h-[2.5rem] sm:text-[13px]';
+  const navScale = fontSize === 'extra_large' ? 1.1 : fontSize === 'large' ? 1.05 : 1;
+  const iconSize = Math.round(30 * navScale);
+  const chatbotIconSize = Math.round(32 * navScale);
+  const chatbotCirclePx = Math.round(48 * navScale);
+  const labelFontPx = Math.round(13 * navScale);
+  const labelSlotMinHeightPx = Math.round(18 * navScale);
+  const navItemProps = { labelFontPx, labelSlotMinHeightPx };
 
   return (
-    // Fixed bottom nav keeps primary actions reachable with one tap.
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-eldergo-border px-4 py-3 z-50">
-      <div className="grid grid-cols-5 gap-2 items-center max-w-5xl mx-auto">
-        <button
-          onClick={onPlanningClick}
-          className={`flex flex-col items-center gap-1 py-2 ${
-            activeTab === 'planning' ? 'text-eldergo-blue' : 'text-eldergo-navy'
-          }`}
-        >
-          <Map size={26} strokeWidth={activeTab === 'planning' ? 2.5 : 2} />
-          <span className={navLabelClass} style={{ fontFamily: 'Poppins' }}>
-            {t('planning')}
-          </span>
-        </button>
+    <div className="fixed bottom-0 left-0 right-0 z-50 border-t-2 border-eldergo-border bg-white px-1 py-2 safe-area-pb sm:px-1.5">
+      <div className="mx-auto grid max-w-5xl grid-cols-5 items-end gap-0">
+        <NavItem active={activeTab === 'planning'} label={t('planning')} onClick={onPlanningClick} {...navItemProps}>
+          <Map size={iconSize} strokeWidth={activeTab === 'planning' ? 2.5 : 2} />
+        </NavItem>
 
-        <button
-          onClick={onStationClick}
-          className={`flex flex-col items-center gap-1 py-2 ${
-            activeTab === 'station' ? 'text-eldergo-blue' : 'text-eldergo-navy'
-          }`}
-        >
-          <Train size={26} strokeWidth={activeTab === 'station' ? 2.5 : 2} />
-          <span className={navLabelClass} style={{ fontFamily: 'Poppins' }}>
-            {t('stations')}
-          </span>
-        </button>
+        <NavItem active={activeTab === 'station'} label={t('stations')} onClick={onStationClick} {...navItemProps}>
+          <Train size={iconSize} strokeWidth={activeTab === 'station' ? 2.5 : 2} />
+        </NavItem>
 
-        <button
+        <NavItem
+          active={false}
           onClick={onChatbotClick}
-          className="flex items-center justify-center py-2"
+          iconBoxClass="flex-shrink-0"
+          aria-label={t('chatbot')}
+          {...navItemProps}
         >
-          <div className="w-16 h-16 bg-eldergo-blue rounded-full flex items-center justify-center shadow-xl hover:bg-eldergo-blue-dark transition-colors">
-            <Bot size={32} strokeWidth={2.5} className="text-white" />
+          <div
+            className="flex items-center justify-center rounded-full bg-eldergo-blue shadow-md"
+            style={{ width: chatbotCirclePx, height: chatbotCirclePx }}
+          >
+            <Bot size={chatbotIconSize} strokeWidth={2.5} className="text-white" />
           </div>
-        </button>
+        </NavItem>
 
-        <button
+        <NavItem
+          active={activeTab === 'preference'}
+          label={t('preference')}
           onClick={onPreferenceClick}
-          className={`flex flex-col items-center gap-1 py-2 ${
-            activeTab === 'preference' ? 'text-eldergo-blue' : 'text-eldergo-navy'
-          }`}
+          {...navItemProps}
         >
-          <Sliders size={26} strokeWidth={activeTab === 'preference' ? 2.5 : 2} />
-          <span className={navLabelClass} style={{ fontFamily: 'Poppins' }}>
-            {t('preference')}
-          </span>
-        </button>
+          <Sliders size={iconSize} strokeWidth={activeTab === 'preference' ? 2.5 : 2} />
+        </NavItem>
 
-        <button
-          onClick={onHelpClick}
-          className={`flex flex-col items-center gap-1 py-2 ${
-            activeTab === 'help' ? 'text-eldergo-blue' : 'text-eldergo-navy'
-          }`}
-        >
-          <HelpCircle size={26} strokeWidth={activeTab === 'help' ? 2.5 : 2} />
-          <span className={navLabelClass} style={{ fontFamily: 'Poppins' }}>
-            {t('help')}
-          </span>
-        </button>
+        <NavItem active={activeTab === 'help'} label={t('help')} onClick={onHelpClick} {...navItemProps}>
+          <HelpCircle size={iconSize} strokeWidth={activeTab === 'help' ? 2.5 : 2} />
+        </NavItem>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Download, Share2, Cloud, CloudLightning, CloudRain, CloudSun, Sun, Train, MapPin, Footprints, ChevronLeft, ChevronRight, ArrowDown, Navigation, Loader2, ArrowRightLeft, Armchair, Users, AlertCircle } from 'lucide-react';
+import { Download, Share2, Train, MapPin, Footprints, ChevronLeft, ChevronRight, ArrowDown, Navigation, Loader2, ArrowRightLeft, Armchair, Users, AlertCircle } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import BottomNav from '../components/layout/BottomNav';
 import { StationDetailModal } from '../components/common/StationDetailModal';
@@ -8,13 +8,14 @@ import { useAppContext } from '../app/AppProvider';
 import { getTranslation } from '../i18n/translations';
 import { DestinationWeather, getDestinationWeather } from '../services/weatherApi';
 import { getStationStaticImageUrl } from '../services/googlePlaces';
-import { rankingFactorTranslationKey } from '../utils/rankingDisplay';
 import { isCuratedCorridorRoute } from '../utils/curatedRouteImages';
 import { fetchRouteStationImageMap, type RouteStationImage } from '../services/routeStationImages';
 import GoogleMapsInstallModal from '../components/common/GoogleMapsInstallModal';
 import RouteLoadingPanel from '../components/route/RouteLoadingPanel';
+import RouteRankingInsight from '../components/route/RouteRankingInsight';
 import RouteResultSkeleton from '../components/route/RouteResultSkeleton';
 import RouteUnavailableView from '../components/route/RouteUnavailableView';
+import RouteWeatherCard from '../components/route/RouteWeatherCard';
 import { resolveStationDetailByName } from '../services/resolveStationDetail';
 import {
   buildRouteKey,
@@ -39,12 +40,6 @@ import {
   openGoogleMapsStore,
 } from '../utils/googleMapsNavigation';
 import { formatDepartureContextLabel, resolveDepartureDate } from '../utils/departureTime';
-import {
-  formatLaterOutlookRows,
-  primarySeniorWeatherTip,
-  simplifyWeatherCondition,
-  weatherRiskBadgeLabel,
-} from '../utils/weatherDisplay';
 import { formatTransitStepTitle } from '../utils/transitModeLabel';
 
 interface RouteResultPageProps {
@@ -450,12 +445,6 @@ export default function RouteResultPage({
     };
   }, [currentRoute?.recommended_route_id, currentRoute?.destination_name, departureTime, destination?.displayName, destination?.lat, destination?.lon]);
 
-  const seniorWeatherTip = () => {
-    if (weatherStatus === 'loading') return t('routeWeatherSeniorLoading');
-    if (weatherStatus !== 'ready' || !weather) return t('routeWeatherSeniorUnavailable');
-    return primarySeniorWeatherTip(weather, language);
-  };
-
   const plannedDestinationLabel = destination?.displayName
     ? toLocationLabel(destination.displayName)
     : currentRoute
@@ -475,133 +464,9 @@ export default function RouteResultPage({
     return t('planTimeLeavingAt').replace('{time}', timeLabel);
   };
 
-  const weatherConditionText = () => {
-    if (!weather) return '';
-    return simplifyWeatherCondition(weather.weatherDescription || weather.weatherMain, language);
-  };
-
-  const getWeatherIcon = () => {
-    if (!weather) return Cloud;
-    const description = `${weather.weatherMain} ${weather.weatherDescription}`.toLowerCase();
-    if (weather.riskLevel === 'storm' || description.includes('thunder') || description.includes('storm')) return CloudLightning;
-    if (weather.riskLevel === 'rain' || description.includes('rain') || description.includes('drizzle')) return CloudRain;
-    if (weather.riskLevel === 'hot' || description.includes('clear')) return Sun;
-    if (description.includes('cloud')) return Cloud;
-    return CloudSun;
-  };
-
-  const WeatherIcon = getWeatherIcon();
-
   const weatherDepartureDate = resolveDepartureDate(
     departureTime?.includes('T') ? 'now' : departureTime || 'now',
     departureTime?.includes('T') ? departureTime : undefined,
-  );
-
-  const laterOutlookRows =
-    weather && weather.hourlyOutlook.length > 0
-      ? formatLaterOutlookRows(
-          weather.hourlyOutlook,
-          language,
-          weatherConditionText(),
-          weatherDepartureDate,
-        )
-      : [];
-
-  const weatherRiskWord =
-    weather && weather.riskLevel !== 'clear' && weather.riskLevel !== 'unavailable'
-      ? weatherRiskBadgeLabel(weather, t)
-      : null;
-
-  const weatherCard = (
-    <div className="bg-white/95 border-2 border-eldergo-border p-4 sm:p-5 rounded-2xl shadow-md mb-4">
-      <div className="flex items-start gap-3">
-        <div className="w-11 h-11 bg-eldergo-blue/15 rounded-full flex items-center justify-center flex-shrink-0">
-          <WeatherIcon size={24} strokeWidth={2.5} className="text-eldergo-blue" />
-        </div>
-        <div className="min-w-0 flex-1 pt-0.5">
-          <h3 className="text-[18px] font-semibold text-eldergo-navy leading-snug break-words">
-            {plannedDestinationLabel}
-          </h3>
-          {weatherStatus === 'ready' && weather ? (
-            <p className="text-[15px] text-eldergo-muted mt-1 leading-snug">
-              <span className="font-medium text-eldergo-navy">{weatherLeavingLabel()}</span>
-              {weatherRiskWord ? (
-                <span>
-                  {' '}
-                  · <span className="font-medium text-eldergo-navy">{weatherRiskWord}</span>
-                </span>
-              ) : null}
-            </p>
-          ) : (
-            <p className="text-[14px] text-eldergo-muted mt-1">{t('routeWeatherForDeparture')}</p>
-          )}
-          {showGeocodedHint && (
-            <p className="text-[12px] text-eldergo-muted mt-1 leading-snug">
-              {t('routeWeatherGeocodedHint').replace('{name}', geocodedAreaLabel)}
-            </p>
-          )}
-        </div>
-      </div>
-
-      {weatherStatus === 'ready' && weather && (
-        <div className="mt-4 space-y-3">
-          <div className="rounded-xl bg-eldergo-blue/10 px-4 py-3.5">
-            <p className="text-[34px] font-bold text-eldergo-blue tabular-nums leading-none tracking-tight">
-              {weather.temperatureC}&deg;C
-            </p>
-            <p className="text-[15px] text-eldergo-navy mt-2 leading-snug">
-              {t('routeWeatherFeelsLike')} {weather.feelsLikeC}&deg;C
-              {weatherConditionText() ? (
-                <span className="text-eldergo-muted">
-                  {' '}
-                  · {weatherConditionText()}
-                </span>
-              ) : null}
-            </p>
-          </div>
-
-          {laterOutlookRows.length > 0 && (
-            <div className="rounded-xl border border-eldergo-border bg-[#F8FAFC] px-4 py-3">
-              <p className="text-[15px] font-semibold text-eldergo-navy leading-snug">
-                {t('routeWeatherLaterTitle')}
-              </p>
-              <p className="text-[13px] text-eldergo-muted mt-0.5 mb-2 leading-snug">
-                {t('routeWeatherLaterHint')}
-              </p>
-              <ul className="divide-y divide-eldergo-border/70">
-                {laterOutlookRows.map((row) => (
-                  <li
-                    key={`${row.hoursAfterLabel}-${row.clockLabel}`}
-                    className="flex items-center justify-between gap-4 py-2.5 first:pt-0 last:pb-0"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-[17px] font-semibold text-eldergo-navy tabular-nums leading-tight">
-                        {row.hoursAfterLabel}
-                      </p>
-                      <p className="text-[13px] text-eldergo-muted tabular-nums mt-0.5">{row.clockLabel}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-[20px] font-bold text-eldergo-navy tabular-nums leading-none">
-                        {row.temperature}
-                      </p>
-                      {row.note ? (
-                        <p className="text-[12px] text-eldergo-muted mt-1 max-w-[9rem] leading-snug ml-auto">
-                          {row.note}
-                        </p>
-                      ) : null}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="mt-4 rounded-xl bg-eldergo-green/10 px-4 py-3">
-        <p className="text-[15px] leading-relaxed text-eldergo-navy">{seniorWeatherTip()}</p>
-      </div>
-    </div>
   );
 
   const formatNavigationPoint = (place: typeof origin, fallbackName: string) => {
@@ -1249,13 +1114,19 @@ export default function RouteResultPage({
             <div className="mb-5">
               {currentRoute ? (
                 <div className="text-center">
-                  <h3 className="text-[28px] font-semibold text-eldergo-navy leading-tight">
+                  <h3
+                    className="font-semibold text-eldergo-navy leading-tight"
+                    style={{ fontSize: `${28 * baseFontSize}px` }}
+                  >
                     {toLocationLabel(currentRoute.origin_name)}
                   </h3>
                   <div className="flex justify-center py-2">
-                    <ArrowDown size={30} strokeWidth={2.8} className="text-eldergo-blue" />
+                    <ArrowDown size={28 * baseFontSize} strokeWidth={2.8} className="text-eldergo-blue" />
                   </div>
-                  <h3 className="text-[28px] font-semibold text-eldergo-navy leading-tight">
+                  <h3
+                    className="font-semibold text-eldergo-navy leading-tight"
+                    style={{ fontSize: `${28 * baseFontSize}px` }}
+                  >
                     {toLocationLabel(currentRoute.destination_name)}
                   </h3>
                 </div>
@@ -1265,35 +1136,40 @@ export default function RouteResultPage({
                 </h3>
               )}
             </div>
-            {currentRoute?.preference_summary_key ? (
-              <div className="mb-4 space-y-2 rounded-xl bg-eldergo-bg px-4 py-3 text-center text-[14px] leading-relaxed text-eldergo-muted">
-                <p>{t(currentRoute.preference_summary_key as any)}</p>
-                {rankingFactorTranslationKey(currentRoute.ranking_primary_factor, 'primary') ? (
-                  <p className="font-semibold text-eldergo-navy">
-                    {t(rankingFactorTranslationKey(currentRoute.ranking_primary_factor, 'primary') as any)}
-                  </p>
-                ) : null}
-                {rankingFactorTranslationKey(currentRoute.ranking_secondary_factor, 'secondary') ? (
-                  <p className="text-[13px]">
-                    {t(rankingFactorTranslationKey(currentRoute.ranking_secondary_factor, 'secondary') as any)}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <div className="text-[20px] font-bold text-eldergo-blue">{currentRoute?.duration_minutes ?? '-'} {t('routeMins')}</div>
-                <div className="text-[14px] text-eldergo-muted">{t('routeTime')}</div>
+                <div className="font-bold text-eldergo-blue tabular-nums" style={{ fontSize: `${20 * baseFontSize}px` }}>
+                  {currentRoute?.duration_minutes ?? '-'} {t('routeMins')}
+                </div>
+                <div className="text-eldergo-muted" style={{ fontSize: `${14 * baseFontSize}px` }}>
+                  {t('routeTime')}
+                </div>
               </div>
               <div>
-                <div className="text-[20px] font-bold text-eldergo-blue">{currentRoute?.transfers ?? '-'}</div>
-                <div className="text-[14px] text-eldergo-muted">{t('routeTransfers')}</div>
+                <div className="font-bold text-eldergo-blue tabular-nums" style={{ fontSize: `${20 * baseFontSize}px` }}>
+                  {currentRoute?.transfers ?? '-'}
+                </div>
+                <div className="text-eldergo-muted" style={{ fontSize: `${14 * baseFontSize}px` }}>
+                  {t('routeTransfers')}
+                </div>
               </div>
               <div>
-                <div className="text-[20px] font-bold text-eldergo-blue">{currentRoute?.walking_distance_meters ?? '-'}m</div>
-                <div className="text-[14px] text-eldergo-muted">{t('routeWalk')}</div>
+                <div className="font-bold text-eldergo-blue tabular-nums" style={{ fontSize: `${20 * baseFontSize}px` }}>
+                  {currentRoute?.walking_distance_meters ?? '-'}m
+                </div>
+                <div className="text-eldergo-muted" style={{ fontSize: `${14 * baseFontSize}px` }}>
+                  {t('routeWalk')}
+                </div>
               </div>
             </div>
+            {currentRoute ? (
+              <RouteRankingInsight
+                primaryFactor={currentRoute.ranking_primary_factor}
+                secondaryFactor={currentRoute.ranking_secondary_factor}
+                baseFontSize={baseFontSize}
+                t={t}
+              />
+            ) : null}
           </div>
 
           <button
@@ -1702,7 +1578,21 @@ export default function RouteResultPage({
             </div>
           )}
 
-          {weatherCard}
+          {currentRoute ? (
+            <RouteWeatherCard
+              weather={weather}
+              weatherStatus={weatherStatus}
+              plannedDestinationLabel={plannedDestinationLabel}
+              geocodedAreaLabel={geocodedAreaLabel}
+              showGeocodedHint={showGeocodedHint}
+              leavingLabel={weatherLeavingLabel()}
+              departureTime={weatherDepartureDate}
+              language={language}
+              baseFontSize={baseFontSize}
+              t={t}
+            />
+          ) : null}
+
             </>
           )}
         </div>

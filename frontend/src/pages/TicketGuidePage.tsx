@@ -1,6 +1,12 @@
 import { CreditCard, Coins } from 'lucide-react';
-import TopBar from '../components/layout/TopBar';
-import BottomNav from '../components/layout/BottomNav';
+import HelpPageShell from '../components/help/HelpPageShell';
+import {
+  HelpBodyText,
+  HelpCallout,
+  HelpContentCard,
+  HelpPageTitle,
+  HelpSectionTitle,
+} from '../components/help/HelpPrimitives';
 import { useAppContext } from '../app/AppProvider';
 import { getTranslation } from '../i18n/translations';
 
@@ -17,127 +23,104 @@ export default function TicketGuidePage({
   onNavigateToPlanning,
   onNavigateToStation,
   onNavigateToPreference,
-  onShowChatbot
+  onShowChatbot,
 }: TicketGuidePageProps) {
   const { fontSize, language } = useAppContext();
   const baseFontSize = fontSize === 'extra_large' ? 1.5 : fontSize === 'large' ? 1.25 : 1;
   const t = (key: string) => getTranslation(language, key as any);
 
+  const navProps = {
+    onLogoClick: onNavigateToHelp,
+    onChatbotClick: onShowChatbot,
+    onStationClick: onNavigateToStation,
+    onHelpClick: onNavigateToHelp,
+    onPlanningClick: onNavigateToPlanning,
+    onPreferenceClick: onNavigateToPreference,
+  };
+
   return (
-    <div className="min-h-screen relative" style={{ fontFamily: 'Poppins' }}>
-      <div
-        className="fixed inset-0 z-0 bg-cover bg-center"
-        style={{
-          backgroundImage: 'url(/background-elder.png)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center'
-        }}
-      >
-        <div className="absolute inset-0 bg-white/42" />
-        <div
-          className="absolute bottom-0 left-0 right-0 h-96 bg-bottom bg-no-repeat bg-contain"
-          style={{
-            backgroundImage: 'url(/watermark-elder.jpg)',
-            opacity: '0.12'
-          }}
-        />
-      </div>
-      <div className="relative z-10">
-      <TopBar onLogoClick={onNavigateToHelp} />
+    <HelpPageShell activeTab="help" {...navProps}>
+      <HelpPageTitle baseFontSize={baseFontSize}>{t('ticketGuideTitle')}</HelpPageTitle>
 
-      <main className="pt-20 pb-32 px-6">
-        <div className="max-w-2xl mx-auto">
-          <h2 className="font-semibold text-eldergo-navy mb-8" style={{ fontSize: `${30 * baseFontSize}px` }}>
-            {t('ticketGuideTitle')}
-          </h2>
-
-          <div className="space-y-6">
-            <div className="bg-white p-6 rounded-2xl shadow-md">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-14 h-14 bg-eldergo-green/20 rounded-full flex items-center justify-center">
-                  <Coins size={28 * baseFontSize} strokeWidth={2.5} className="text-eldergo-green" />
-                </div>
-                <h3 className="font-semibold text-eldergo-navy" style={{ fontSize: `${22 * baseFontSize}px` }}>
-                  {t('ticketMethodToken')}
-                </h3>
-              </div>
-              <p className="text-eldergo-muted leading-relaxed mb-4" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                {t('ticketTokenIntro')}
-              </p>
-              {/* Keep machine flow as fixed numbered steps to reduce cognitive load. */}
-              <ol className="space-y-3 text-eldergo-muted leading-relaxed" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                <li className="flex gap-3">
-                  <span className="font-bold text-eldergo-blue flex-shrink-0">1.</span>
-                  <span><span className="font-semibold">{t('ticketFindMachineTitle')}</span> {t('ticketFindMachineBody')}</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="font-bold text-eldergo-blue flex-shrink-0">2.</span>
-                  <span><span className="font-semibold">{t('ticketSelectLanguageTitle')}</span> {t('ticketSelectLanguageBody')}</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="font-bold text-eldergo-blue flex-shrink-0">3.</span>
-                  <span><span className="font-semibold">{t('ticketChooseDestinationTitle')}</span> {t('ticketChooseDestinationBody')}</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="font-bold text-eldergo-blue flex-shrink-0">4.</span>
-                  <span><span className="font-semibold">{t('ticketPayTitle')}</span> {t('ticketPayBody')}</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="font-bold text-eldergo-blue flex-shrink-0">5.</span>
-                  <span><span className="font-semibold">{t('ticketCollectTitle')}</span> {t('ticketCollectBody')}</span>
-                </li>
-              </ol>
-            </div>
-
-            <div className="bg-white p-6 rounded-2xl shadow-md">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-14 h-14 bg-eldergo-blue/20 rounded-full flex items-center justify-center">
-                  <CreditCard size={28 * baseFontSize} strokeWidth={2.5} className="text-eldergo-blue" />
-                </div>
-                <h3 className="font-semibold text-eldergo-navy" style={{ fontSize: `${22 * baseFontSize}px` }}>
-                  {t('ticketMethodTouchNGo')}
-                </h3>
-              </div>
-              <p className="text-eldergo-muted leading-relaxed mb-3" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                <span className="font-semibold text-eldergo-green">{t('ticketHighlyRecommended')}</span> {t('ticketTouchNGoBody')}
-              </p>
-              <p className="text-eldergo-muted leading-relaxed mb-3" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                {t('ticketTouchNGoInstruction')}
-              </p>
-              <p className="text-eldergo-muted leading-relaxed" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                {t('ticketTouchNGoNoCard')}
-              </p>
-            </div>
-
-            <div className="bg-eldergo-warning-bg border-l-4 border-eldergo-warning p-6 rounded-xl">
-              {/* External source link is displayed as trust signal for fare guidance. */}
-              <p className="font-semibold text-eldergo-navy mb-2" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                {t('ticketInfoSourceTitle')}
-              </p>
-              <p className="text-eldergo-muted leading-relaxed" style={{ fontSize: `${18 * baseFontSize}px` }}>
-                <a
-                  href="https://myrapid.com.my/"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-semibold text-eldergo-blue underline"
-                >
-                  {t('ticketInfoSourceBody')}
-                </a>
-              </p>
-            </div>
+      <HelpContentCard>
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-14 h-14 bg-eldergo-green/20 rounded-full flex items-center justify-center flex-shrink-0">
+            <Coins size={28 * baseFontSize} strokeWidth={2.5} className="text-eldergo-green" />
           </div>
+          <HelpSectionTitle baseFontSize={baseFontSize}>{t('ticketMethodToken')}</HelpSectionTitle>
         </div>
-      </main>
+        <HelpBodyText baseFontSize={baseFontSize} className="mb-4">
+          {t('ticketTokenIntro')}
+        </HelpBodyText>
+        <ol className="space-y-3" style={{ fontSize: `${17 * baseFontSize}px` }}>
+          <li className="flex gap-3 text-eldergo-muted leading-relaxed">
+            <span className="font-bold text-eldergo-blue flex-shrink-0">1.</span>
+            <span>
+              <span className="font-semibold text-eldergo-navy">{t('ticketFindMachineTitle')}</span>{' '}
+              {t('ticketFindMachineBody')}
+            </span>
+          </li>
+          <li className="flex gap-3 text-eldergo-muted leading-relaxed">
+            <span className="font-bold text-eldergo-blue flex-shrink-0">2.</span>
+            <span>
+              <span className="font-semibold text-eldergo-navy">{t('ticketSelectLanguageTitle')}</span>{' '}
+              {t('ticketSelectLanguageBody')}
+            </span>
+          </li>
+          <li className="flex gap-3 text-eldergo-muted leading-relaxed">
+            <span className="font-bold text-eldergo-blue flex-shrink-0">3.</span>
+            <span>
+              <span className="font-semibold text-eldergo-navy">{t('ticketChooseDestinationTitle')}</span>{' '}
+              {t('ticketChooseDestinationBody')}
+            </span>
+          </li>
+          <li className="flex gap-3 text-eldergo-muted leading-relaxed">
+            <span className="font-bold text-eldergo-blue flex-shrink-0">4.</span>
+            <span>
+              <span className="font-semibold text-eldergo-navy">{t('ticketPayTitle')}</span> {t('ticketPayBody')}
+            </span>
+          </li>
+          <li className="flex gap-3 text-eldergo-muted leading-relaxed">
+            <span className="font-bold text-eldergo-blue flex-shrink-0">5.</span>
+            <span>
+              <span className="font-semibold text-eldergo-navy">{t('ticketCollectTitle')}</span>{' '}
+              {t('ticketCollectBody')}
+            </span>
+          </li>
+        </ol>
+      </HelpContentCard>
 
-        <BottomNav
-          activeTab="help"
-          onChatbotClick={onShowChatbot}
-          onStationClick={onNavigateToStation}
-          onHelpClick={onNavigateToHelp}
-          onPlanningClick={onNavigateToPlanning}
-          onPreferenceClick={onNavigateToPreference}
-        />
-      </div>
-    </div>
+      <HelpContentCard>
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-14 h-14 bg-eldergo-blue/20 rounded-full flex items-center justify-center flex-shrink-0">
+            <CreditCard size={28 * baseFontSize} strokeWidth={2.5} className="text-eldergo-blue" />
+          </div>
+          <HelpSectionTitle baseFontSize={baseFontSize}>{t('ticketMethodTouchNGo')}</HelpSectionTitle>
+        </div>
+        <HelpBodyText baseFontSize={baseFontSize} className="mb-3">
+          <span className="font-semibold text-eldergo-green">{t('ticketHighlyRecommended')}</span> {t('ticketTouchNGoBody')}
+        </HelpBodyText>
+        <HelpBodyText baseFontSize={baseFontSize} className="mb-3">
+          {t('ticketTouchNGoInstruction')}
+        </HelpBodyText>
+        <HelpBodyText baseFontSize={baseFontSize}>{t('ticketTouchNGoNoCard')}</HelpBodyText>
+      </HelpContentCard>
+
+      <HelpCallout baseFontSize={baseFontSize} variant="warning">
+        <span className="block font-semibold mb-2" style={{ fontSize: `${18 * baseFontSize}px` }}>
+          {t('ticketInfoSourceTitle')}
+        </span>
+        <span style={{ fontSize: `${17 * baseFontSize}px` }}>
+          <a
+            href="https://myrapid.com.my/"
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold text-eldergo-blue underline"
+          >
+            {t('ticketInfoSourceBody')}
+          </a>
+        </span>
+      </HelpCallout>
+    </HelpPageShell>
   );
 }
