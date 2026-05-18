@@ -1,28 +1,19 @@
-"""Match curated step photos by OD key or reusable corridor segment templates."""
+"""Attach curated step photos from backend/data/route_*.csv by Monash corridor segment."""
 
 from __future__ import annotations
 
-import csv
-import re
-from dataclasses import dataclass
-from functools import lru_cache
 from typing import TypedDict
 
-from app.core.paths import ROUTE_SEGMENT_IMAGE_TEMPLATES_CSV
 from app.services.curated_corridor_policy import (
     CANONICAL_CORRIDOR_ROUTE_KEY,
-    is_monash_place,
+    csv_step_for_google_step,
+    detect_curated_profile,
     should_use_curated_route_csv,
 )
 from app.services.route_station_images_service import (
     RouteStationImage,
     get_route_step_images,
-    normalize_route_key,
 )
-from app.services.transit_direction_service import build_transit_line_direction
-
-_MATCH_THRESHOLD = 5
-_MATCH_THRESHOLD_WALKING = 2
 
 
 class RouteStationImageRef(TypedDict):
@@ -30,221 +21,16 @@ class RouteStationImageRef(TypedDict):
     caption: str
 
 
-@dataclass(frozen=True)
-class SegmentTemplate:
-    segment_id: str
-    source_route_key: str
-    source_step_number: int
-    from_patterns: tuple[str, ...]
-    to_patterns: tuple[str, ...]
-    line_patterns: tuple[str, ...]
-    vehicle_type: str | None
-    instruction_patterns: tuple[str, ...]
-    expected_direction_from: tuple[str, ...]
-    expected_direction_to: tuple[str, ...]
-
-
-def _normalize_text(value: str | None) -> str:
-    if not value:
-        return ""
-    return re.sub(r"\s+", " ", value.strip().lower())
-
-
-def _split_patterns(value: str | None) -> tuple[str, ...]:
-    if not value or not value.strip():
-        return ()
-    return tuple(part.strip().lower() for part in value.split("|") if part.strip())
-
-
 def is_curated_corridor_route(origin_name: str, destination_name: str) -> bool:
-    """Only KLCC → Monash (canonical OD) uses backend/data route CSV images."""
     return should_use_curated_route_csv(origin_name, destination_name)
 
 
-def _read_templates(csv_path) -> list[SegmentTemplate]:
-    if not csv_path.is_file():
-        return []
-    templates: list[SegmentTemplate] = []
-    with csv_path.open(encoding="utf-8-sig", newline="") as handle:
-        reader = csv.DictReader(handle)
-        for row in reader:
-            segment_id = (row.get("segment_id") or "").strip()
-            source_route_key = normalize_route_key(row.get("source_route_key") or "")
-            try:
-                source_step_number = int((row.get("source_step_number") or "0").strip())
-            except ValueError:
-                continue
-            if not segment_id or not source_route_key or source_step_number < 1:
-                continue
-            vehicle = (row.get("vehicle_type") or "").strip().upper() or None
-            templates.append(
-                SegmentTemplate(
-                    segment_id=segment_id,
-                    source_route_key=source_route_key,
-                    source_step_number=source_step_number,
-                    from_patterns=_split_patterns(row.get("from_station_pattern")),
-                    to_patterns=_split_patterns(row.get("to_station_pattern")),
-                    line_patterns=_split_patterns(row.get("transit_line_pattern")),
-                    vehicle_type=vehicle,
-                    instruction_patterns=_split_patterns(row.get("instruction_pattern")),
-                    expected_direction_from=_split_patterns(row.get("expected_direction_from")),
-                    expected_direction_to=_split_patterns(row.get("expected_direction_to")),
-                )
-            )
-    return templates
-
-
-@lru_cache
-def _load_templates() -> tuple[SegmentTemplate, ...]:
-    return tuple(_read_templates(ROUTE_SEGMENT_IMAGE_TEMPLATES_CSV))
-
-
 def reload_segment_image_templates_cache() -> None:
-    _load_templates.cache_clear()
-
-
-def _pattern_hits(patterns: tuple[str, ...], *haystacks: str) -> int:
-    if not patterns:
-        return 0
-    combined = " ".join(h for h in haystacks if h)
-    if not combined:
-        return 0
-    return sum(1 for pattern in patterns if pattern in combined)
-
-
-def _terminus_matches(patterns: tuple[str, ...], terminus: str) -> bool:
-    if not patterns:
-        return True
-    normalized = _normalize_text(terminus)
-    if not normalized:
-        return False
-    for pattern in patterns:
-        if pattern in normalized or normalized in pattern:
-            return True
-    return False
-
-
-def _direction_matches(template: SegmentTemplate, step: dict) -> bool:
-    if not template.expected_direction_from and not template.expected_direction_to:
-        return True
-
-    mode = (step.get("travel_mode") or "").upper()
-    if mode != "TRANSIT":
-        return False
-
-    transit = step.get("transit_details") or {}
-    direction = build_transit_line_direction(transit)
-    if not direction:
-        return False
-
-    from_term, to_term = direction
-    if template.expected_direction_from and not _terminus_matches(
-        template.expected_direction_from, from_term
-    ):
-        return False
-    if template.expected_direction_to and not _terminus_matches(template.expected_direction_to, to_term):
-        return False
-    return True
-
-
-def _score_template(
-    template: SegmentTemplate,
-    step: dict,
-    *,
-    destination_name: str = "",
-) -> int:
-    if not _direction_matches(template, step):
-        return 0
-
-    mode = (step.get("travel_mode") or "").upper()
-    transit = step.get("transit_details") or {}
-    line = transit.get("line") or {}
-    vehicle = (line.get("vehicle") or {}).get("type") or ""
-    from_station = _normalize_text(transit.get("departure_stop", {}).get("name"))
-    to_station = _normalize_text(transit.get("arrival_stop", {}).get("name"))
-    instruction = _normalize_text(step.get("html_instructions"))
-    line_name = _normalize_text(line.get("short_name") or line.get("name"))
-
-    if mode == "WALKING":
-        if template.vehicle_type:
-            return 0
-        dest_label = _normalize_text(destination_name)
-        score = _pattern_hits(template.instruction_patterns, instruction, dest_label)
-        score += _pattern_hits(template.from_patterns, from_station, instruction) * 2
-        score += _pattern_hits(template.to_patterns, to_station, instruction, dest_label) * 2
-        if score < 2:
-            return 0
-        return score
-
-    if mode != "TRANSIT":
-        return 0
-
-    if template.vehicle_type:
-        if template.vehicle_type != vehicle.upper():
-            return 0
-    elif vehicle:
-        return 0
-
-    from_hits = _pattern_hits(template.from_patterns, from_station, instruction)
-    to_hits = _pattern_hits(template.to_patterns, to_station, instruction)
-    line_hits = _pattern_hits(template.line_patterns, line_name, instruction)
-
-    if template.from_patterns and from_hits == 0:
-        return 0
-    if template.to_patterns and to_hits == 0:
-        return 0
-    if template.from_patterns or template.to_patterns:
-        if from_hits == 0 and to_hits == 0:
-            return 0
-
-    if template.line_patterns and line_hits == 0:
-        return 0
-
-    score = 0
-    if template.vehicle_type and template.vehicle_type == vehicle.upper():
-        score += 3
-    score += from_hits * 2
-    score += to_hits * 2
-    score += line_hits
-    score += _pattern_hits(template.instruction_patterns, instruction)
-    return score
+    """No-op: templates CSV replaced by explicit segment mapping in curated_corridor_policy."""
 
 
 def _to_refs(images: list[RouteStationImage]) -> list[RouteStationImageRef]:
     return [{"path": image["path"], "caption": image["caption"]} for image in images]
-
-
-def match_step_images(
-    step: dict,
-    step_number: int,
-    origin_name: str,
-    destination_name: str,
-    *,
-    google_steps: list[dict] | None = None,
-) -> list[RouteStationImageRef]:
-    if not should_use_curated_route_csv(
-        origin_name,
-        destination_name,
-        google_steps=google_steps,
-    ):
-        return []
-
-    best_template: SegmentTemplate | None = None
-    best_score = 0
-    is_walking = (step.get("travel_mode") or "").upper() == "WALKING"
-    threshold = _MATCH_THRESHOLD_WALKING if is_walking else _MATCH_THRESHOLD
-
-    for template in _load_templates():
-        score = _score_template(template, step, destination_name=destination_name)
-        if score > best_score:
-            best_score = score
-            best_template = template
-
-    if best_template is None or best_score < threshold:
-        return []
-
-    images = get_route_step_images(best_template.source_route_key, best_template.source_step_number)
-    return _to_refs(images)
 
 
 def resolve_route_step_images(
@@ -252,11 +38,12 @@ def resolve_route_step_images(
     origin_name: str,
     destination_name: str,
 ) -> dict[int, list[RouteStationImageRef]]:
-    if not should_use_curated_route_csv(
+    profile = detect_curated_profile(
         origin_name,
         destination_name,
         google_steps=google_steps,
-    ):
+    )
+    if profile is None:
         return {}
 
     resolved: dict[int, list[RouteStationImageRef]] = {}
@@ -264,12 +51,18 @@ def resolve_route_step_images(
 
     for index, step in enumerate(google_steps):
         step_number = index + 1
-        images = match_step_images(
+        csv_step = csv_step_for_google_step(
             step,
-            step_number,
-            origin_name,
-            destination_name,
-            google_steps=google_steps,
+            profile,
+            origin_name=origin_name,
+            destination_name=destination_name,
+        )
+        if csv_step is None:
+            resolved[step_number] = []
+            continue
+
+        images = _to_refs(
+            get_route_step_images(CANONICAL_CORRIDOR_ROUTE_KEY, csv_step),
         )
         if not images:
             resolved[step_number] = []
@@ -286,14 +79,5 @@ def resolve_route_step_images(
 
         resolved[step_number] = deduped
         previous_paths = {image["path"] for image in deduped}
-
-    # Final "Walk to Monash" often scores low on patterns alone; attach step-5 CSV assets.
-    if google_steps and is_monash_place(destination_name):
-        last_index = len(google_steps)
-        last_step = google_steps[-1]
-        if (last_step.get("travel_mode") or "").upper() == "WALKING" and not resolved.get(last_index):
-            arrival_images = get_route_step_images(CANONICAL_CORRIDOR_ROUTE_KEY, 5)
-            if arrival_images:
-                resolved[last_index] = _to_refs(arrival_images)
 
     return resolved

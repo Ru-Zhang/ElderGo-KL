@@ -3,11 +3,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.services.route_segment_image_matcher import (
-    match_step_images,
-    reload_segment_image_templates_cache,
-    resolve_route_step_images,
+from app.services.curated_corridor_policy import (
+    csv_step_for_google_step,
+    detect_curated_profile,
 )
+from app.services.route_segment_image_matcher import resolve_route_step_images
 
 
 def _usj7_brt_forward_step() -> dict:
@@ -18,19 +18,6 @@ def _usj7_brt_forward_step() -> dict:
             "departure_stop": {"name": "Stesen BRT USJ7"},
             "arrival_stop": {"name": "Stesen BRT Sunu-Monash"},
             "headsign": "Sunway-Setia Jaya",
-            "line": {"short_name": "BRT", "name": "BRT Sunway Line", "vehicle": {"type": "BUS"}},
-        },
-    }
-
-
-def _usj7_brt_reverse_step() -> dict:
-    return {
-        "travel_mode": "TRANSIT",
-        "html_instructions": "Bus towards USJ 7",
-        "transit_details": {
-            "departure_stop": {"name": "Stesen BRT Sunu-Monash"},
-            "arrival_stop": {"name": "Stesen BRT USJ7"},
-            "headsign": "USJ 7",
             "line": {"short_name": "BRT", "name": "BRT Sunway Line", "vehicle": {"type": "BUS"}},
         },
     }
@@ -49,103 +36,6 @@ def _klcc_lrt_step() -> dict:
     }
 
 
-def _wrong_vehicle_step() -> dict:
-    return {
-        "travel_mode": "TRANSIT",
-        "html_instructions": "Tram towards USJ 7",
-        "transit_details": {
-            "departure_stop": {"name": "USJ 7"},
-            "arrival_stop": {"name": "KL Sentral"},
-            "line": {"short_name": "T123", "vehicle": {"type": "TRAM"}},
-        },
-    }
-
-
-def setup_function() -> None:
-    reload_segment_image_templates_cache()
-
-
-def test_usj7_to_monash_uses_google_not_curated_csv() -> None:
-    images = match_step_images(
-        _usj7_brt_forward_step(),
-        1,
-        "USJ 7",
-        "Monash University Malaysia",
-    )
-    assert images == []
-
-
-def test_klcc_to_monash_exact_od_still_matches() -> None:
-    steps = [_klcc_lrt_step(), _usj7_brt_forward_step()]
-    images = match_step_images(
-        _klcc_lrt_step(),
-        2,
-        "KLCC",
-        "Monash University Malaysia",
-        google_steps=steps,
-    )
-    assert images
-    assert any("step-02" in image["path"] for image in images)
-
-
-def test_non_monash_corridor_returns_empty() -> None:
-    images = match_step_images(
-        _klcc_lrt_step(),
-        2,
-        "Petaling Jaya",
-        "KL Sentral",
-    )
-    assert images == []
-
-
-def test_unrelated_step_returns_empty() -> None:
-    walk_only = {
-        "travel_mode": "WALKING",
-        "html_instructions": "Walk to a park",
-    }
-    images = match_step_images(walk_only, 1, "Central Park", "Times Square")
-    assert images == []
-
-
-def test_brt_reverse_direction_returns_empty() -> None:
-    images = match_step_images(
-        _usj7_brt_reverse_step(),
-        1,
-        "Monash University Malaysia",
-        "USJ 7",
-    )
-    assert images == []
-
-
-def test_wrong_vehicle_type_returns_empty() -> None:
-    images = match_step_images(
-        _wrong_vehicle_step(),
-        1,
-        "USJ 7",
-        "Monash University Malaysia",
-    )
-    assert images == []
-
-
-def test_non_canonical_od_returns_empty_curated_images() -> None:
-    """Only klcc|monash university malaysia uses backend CSV; USJ7→Monash does not."""
-    from app.services.route_station_images_service import get_route_step_images
-
-    assert get_route_step_images("usj 7|monash university malaysia", 2) == []
-    images = match_step_images(
-        _klcc_lrt_step(),
-        2,
-        "USJ 7",
-        "Monash University Malaysia",
-        google_steps=[_klcc_lrt_step()],
-    )
-    assert images == []
-
-
-def _full_usj7_corridor_steps() -> list[dict]:
-    return [_klcc_lrt_step(), _usj7_brt_forward_step(), _usj7_brt_forward_step()]
-
-
 def _walk_to_monash_step() -> dict:
     return {
         "travel_mode": "WALKING",
@@ -153,21 +43,81 @@ def _walk_to_monash_step() -> dict:
     }
 
 
-def test_walk_to_monash_uses_step_five_csv() -> None:
-    steps = [_klcc_lrt_step(), _usj7_brt_forward_step(), _walk_to_monash_step()]
+def test_full_corridor_maps_steps_one_to_five() -> None:
+    steps = [
+        {"travel_mode": "WALKING", "html_instructions": "Walk to KLCC"},
+        _klcc_lrt_step(),
+        {
+            "travel_mode": "WALKING",
+            "html_instructions": "Walk to USJ 7",
+        },
+        _usj7_brt_forward_step(),
+        _walk_to_monash_step(),
+    ]
     resolved = resolve_route_step_images(steps, "KLCC", "Monash University Malaysia")
-    last = resolved.get(len(steps), [])
-    assert last
-    assert any("step-05" in image["path"] for image in last)
-    assert any("monash-campus" in image["path"] for image in last)
+    assert detect_curated_profile("KLCC", "Monash University Malaysia", google_steps=steps) == "full"
+    assert any("step-01" in image["path"] for image in resolved[1])
+    assert any("step-02" in image["path"] for image in resolved[2])
+    assert any("step-03" in image["path"] for image in resolved[3])
+    assert any("step-04" in image["path"] for image in resolved[4])
+    assert any("step-05" in image["path"] for image in resolved[5])
 
 
-def test_resolve_route_step_images_dedupes_adjacent_paths() -> None:
-    steps = _full_usj7_corridor_steps()
-    resolved = resolve_route_step_images(steps, "KLCC", "Monash University Malaysia")
-    assert 1 in resolved
-    assert 2 in resolved
-    if resolved[1] and resolved[2]:
-        paths1 = {image["path"] for image in resolved[1]}
-        paths2 = {image["path"] for image in resolved[2]}
-        assert paths1.isdisjoint(paths2) or len(resolved[2]) <= len(resolved[1])
+def test_usj7_brt_to_monash_uses_steps_three_four_five() -> None:
+    steps = [
+        {
+            "travel_mode": "TRANSIT",
+            "transit_details": {
+                "departure_stop": {"name": "USJ 7"},
+                "arrival_stop": {"name": "USJ 7"},
+                "line": {"short_name": "KJ", "vehicle": {"type": "SUBWAY"}},
+            },
+        },
+        _usj7_brt_forward_step(),
+        _walk_to_monash_step(),
+    ]
+    profile = detect_curated_profile("USJ 7", "Monash University Malaysia", google_steps=steps)
+    assert profile == "usj7_brt"
+    resolved = resolve_route_step_images(steps, "USJ 7", "Monash University Malaysia")
+    assert any("step-03" in image["path"] for image in resolved[1])
+    assert any("step-04" in image["path"] for image in resolved[2])
+    assert any("step-05" in image["path"] for image in resolved[3])
+
+
+def test_sunu_monash_to_monash_uses_step_five_only() -> None:
+    steps = [_walk_to_monash_step()]
+    profile = detect_curated_profile(
+        "Stesen BRT Sunu-Monash",
+        "Monash University Malaysia",
+        google_steps=steps,
+    )
+    assert profile == "sunu_arrival"
+    assert csv_step_for_google_step(
+        _walk_to_monash_step(),
+        "sunu_arrival",
+        origin_name="Stesen BRT Sunu-Monash",
+        destination_name="Monash University Malaysia",
+    ) == 5
+    resolved = resolve_route_step_images(
+        steps,
+        "Stesen BRT Sunu-Monash",
+        "Monash University Malaysia",
+    )
+    assert len(resolved) == 1
+    assert any("step-05" in image["path"] for image in resolved[1])
+
+
+def test_usj7_brt_only_two_legs_maps_four_and_five() -> None:
+    steps = [_usj7_brt_forward_step(), _walk_to_monash_step()]
+    resolved = resolve_route_step_images(steps, "USJ 7", "Monash University Malaysia")
+    assert any("step-04" in image["path"] for image in resolved[1])
+    assert any("step-05" in image["path"] for image in resolved[2])
+
+
+def test_kl_sentral_monash_no_curated() -> None:
+    steps = [_usj7_brt_forward_step(), _walk_to_monash_step()]
+    assert (
+        detect_curated_profile("KL Sentral", "Monash University Malaysia", google_steps=steps)
+        is None
+    )
+    assert resolve_route_step_images(steps, "KL Sentral", "Monash University Malaysia") == {}

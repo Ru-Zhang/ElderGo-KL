@@ -42,7 +42,6 @@ logger = logging.getLogger(__name__)
 async def _gather_route_candidates(
     payload: RouteRecommendationRequest,
 ) -> list[CandidateRoute]:
-    from app.services.curated_corridor_policy import is_canonical_klcc_to_monash_od
     from app.services.klcc_monash_route_service import fetch_klcc_monash_brt_candidate
 
     direct = await fetch_transit_candidates_lenient(
@@ -51,10 +50,13 @@ async def _gather_route_candidates(
         payload.departure_time,
     )
     candidates = list(direct)
-    if is_canonical_klcc_to_monash_od(
+    from app.services.curated_corridor_policy import detect_curated_profile
+
+    profile = detect_curated_profile(
         payload.origin.display_name,
         payload.destination.display_name,
-    ):
+    )
+    if profile in ("full", "usj7_brt"):
         composed = await fetch_klcc_monash_brt_candidate(
             payload.origin,
             payload.destination,
@@ -500,14 +502,14 @@ async def recommend_route(
             departure_time=payload.departure_time,
         )
 
-    from app.services.curated_corridor_policy import is_canonical_klcc_to_monash_od
+    from app.services.curated_corridor_policy import detect_curated_profile
     from app.services.klcc_monash_route_service import uses_monash_corridor
 
     rank_kwargs: dict = {}
-    if is_canonical_klcc_to_monash_od(
+    if detect_curated_profile(
         payload.origin.display_name,
         payload.destination.display_name,
-    ):
+    ) in ("full", "usj7_brt"):
         rank_kwargs["corridor_filter"] = uses_monash_corridor
 
     choice = rank_candidates_for_elders(

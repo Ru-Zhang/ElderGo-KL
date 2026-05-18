@@ -83,7 +83,13 @@ def test_klcc_monash_usj7_corridor_uses_curated() -> None:
         _recommend(
             "KLCC",
             "Monash University Malaysia",
-            [_kjl_to_usj7_step(), _brt_usj7_step()],
+            [
+                {"travel_mode": "WALKING", "html_instructions": "Walk to KLCC"},
+                _kjl_to_usj7_step(),
+                {"travel_mode": "WALKING", "html_instructions": "Walk to USJ 7"},
+                _brt_usj7_step(),
+                {"travel_mode": "WALKING", "html_instructions": "Walk to Monash University Malaysia"},
+            ],
         )
     )
     assert result.uses_curated_corridor is True
