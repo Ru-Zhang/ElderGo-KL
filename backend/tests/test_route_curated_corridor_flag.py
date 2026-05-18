@@ -32,6 +32,13 @@ def _brt_usj7_step() -> dict:
     }
 
 
+def _walk_to_monash_step() -> dict:
+    return {
+        "travel_mode": "WALKING",
+        "html_instructions": "Walk to Monash University Malaysia",
+    }
+
+
 def _ss18_brt_step() -> dict:
     return {
         "travel_mode": "TRANSIT",
@@ -96,16 +103,18 @@ def test_klcc_monash_usj7_corridor_uses_curated() -> None:
     assert any(step.curated_images for step in result.steps)
 
 
-def test_kl_sentral_monash_never_uses_curated() -> None:
+def test_kl_sentral_monash_via_usj7_uses_curated_on_corridor_legs() -> None:
     result = asyncio.run(
         _recommend(
             "KL Sentral",
             "Monash University Malaysia",
-            [_kjl_to_usj7_step(), _brt_usj7_step()],
+            [_kjl_to_usj7_step(), _brt_usj7_step(), _walk_to_monash_step()],
         )
     )
-    assert result.uses_curated_corridor is False
-    assert all(not step.curated_images for step in result.steps)
+    assert result.uses_curated_corridor is True
+    assert any("step-03" in image.path for image in result.steps[0].curated_images)
+    assert any("step-04" in image.path for image in result.steps[1].curated_images)
+    assert any("step-05" in image.path for image in result.steps[2].curated_images)
 
 
 def test_klcc_monash_ss18_shortcut_no_curated() -> None:

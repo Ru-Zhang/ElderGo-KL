@@ -155,8 +155,6 @@ def detect_curated_profile(
     """Pick which CSV step numbers (1–5) apply for this Monash-bound trip."""
     if not is_monash_place(destination_name) or is_monash_place(origin_name):
         return None
-    if not _origin_allows_curated(origin_name):
-        return None
 
     if google_steps:
         if any(_step_uses_ss18(step) for step in google_steps):
@@ -167,12 +165,13 @@ def detect_curated_profile(
             return "full"
         if is_sunu_monash_place(origin_name) and not _has_brt_usj7_to_sunu(google_steps):
             return "sunu_arrival"
-        if _has_brt_usj7_to_sunu(google_steps) and (
-            is_usj7_place(origin_name) or is_klcc_place(origin_name)
-        ):
+        # KL Sentral → Monash (and any hub): use steps 3–5 when the route includes USJ7 BRT.
+        if _has_brt_usj7_to_sunu(google_steps):
             return "usj7_brt"
         return None
 
+    if not _origin_allows_curated(origin_name):
+        return None
     if is_canonical_klcc_to_monash_od(origin_name, destination_name):
         return "full"
     if is_sunu_monash_place(origin_name):

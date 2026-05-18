@@ -114,8 +114,45 @@ def test_usj7_brt_only_two_legs_maps_four_and_five() -> None:
     assert any("step-05" in image["path"] for image in resolved[2])
 
 
-def test_kl_sentral_monash_no_curated() -> None:
-    steps = [_usj7_brt_forward_step(), _walk_to_monash_step()]
+def _ss18_brt_step() -> dict:
+    return {
+        "travel_mode": "TRANSIT",
+        "transit_details": {
+            "departure_stop": {"name": "Stesen BRT SS18"},
+            "arrival_stop": {"name": "Stesen BRT Sunu-Monash"},
+            "line": {"short_name": "BRT", "vehicle": {"type": "BUS"}},
+        },
+    }
+
+
+def test_kl_sentral_monash_via_usj7_uses_steps_three_four_five() -> None:
+    steps = [
+        {
+            "travel_mode": "TRANSIT",
+            "transit_details": {
+                "departure_stop": {"name": "KL Sentral"},
+                "arrival_stop": {"name": "USJ 7"},
+                "line": {"short_name": "KJ", "vehicle": {"type": "SUBWAY"}},
+            },
+        },
+        _usj7_brt_forward_step(),
+        _walk_to_monash_step(),
+    ]
+    profile = detect_curated_profile(
+        "KL Sentral",
+        "Monash University Malaysia",
+        google_steps=steps,
+    )
+    assert profile == "usj7_brt"
+    resolved = resolve_route_step_images(steps, "KL Sentral", "Monash University Malaysia")
+    assert any("step-03" in image["path"] for image in resolved[1])
+    assert any("step-04" in image["path"] for image in resolved[2])
+    assert any("step-05" in image["path"] for image in resolved[3])
+    assert not any("step-01" in image["path"] for paths in resolved.values() for image in paths)
+
+
+def test_kl_sentral_monash_ss18_no_curated() -> None:
+    steps = [_ss18_brt_step(), _walk_to_monash_step()]
     assert (
         detect_curated_profile("KL Sentral", "Monash University Malaysia", google_steps=steps)
         is None
