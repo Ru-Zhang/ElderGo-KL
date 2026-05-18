@@ -40,7 +40,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount at root (local + Render) and under /api/v1 (Render health check + docs).
 app.include_router(api_router)
+app.include_router(api_router, prefix="/api/v1")
 
 
 @app.get("/")

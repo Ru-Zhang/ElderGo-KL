@@ -1,4 +1,23 @@
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+/** Default API host on Render (overridden by VITE_API_BASE_URL at build time). */
+const RENDER_API_DEFAULT = 'https://eldergo-kl-api.onrender.com';
+
+function resolveApiBaseUrl(): string {
+  const fromEnv = import.meta.env.VITE_API_BASE_URL;
+  if (typeof fromEnv === 'string' && fromEnv.trim()) {
+    return fromEnv.trim().replace(/\/$/, '');
+  }
+  // Dev: use Vite proxy (vite.config.ts) — same origin as the UI at 127.0.0.1:5173.
+  if (import.meta.env.DEV) {
+    return '';
+  }
+  // Production static build (e.g. Render): use deployed API unless env was set at build.
+  if (import.meta.env.PROD) {
+    return RENDER_API_DEFAULT;
+  }
+  return 'http://127.0.0.1:8000';
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 export class ApiError extends Error {
   constructor(
@@ -58,7 +77,10 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
         'request_timeout',
       );
     }
-    throw error;
+    const hint = import.meta.env.DEV
+      ? 'Start the backend on port 8000, then refresh.'
+      : 'Check that the API service is running on Render, then refresh.';
+    throw new ApiError(`Cannot reach the ElderGo server. ${hint}`, 0, 'network_error');
   } finally {
     window.clearTimeout(timeoutId);
   }

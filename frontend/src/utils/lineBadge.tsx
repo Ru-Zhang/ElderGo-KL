@@ -41,6 +41,8 @@ function getLineMeta(rawName: string): LineMeta {
       return { code: 'BRT', bg: '#9333EA' };
     case 'ETS':
       return { code: 'ETS', bg: '#2563EB' };
+    case 'BUS':
+      return { code: 'Bus', bg: '#CA8A04' };
     default:
       break;
   }

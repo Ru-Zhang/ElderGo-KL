@@ -35,6 +35,23 @@ POPULAR_STATION_IDS: list[str] = [
     "station:klcc",
 ]
 
+# Only verified rail stations belong on the Stations browser (not OSM bus/POI junk).
+LISTABLE_LOCATION_TYPES = ("rail_station",)
+
+_ROUTES_AGG_SQL = """
+    COALESCE(ARRAY(
+        SELECT DISTINCT route.route_short_name
+        FROM station_group_members member
+        JOIN rail_station_routes station_route
+          ON station_route.station_id = member.station_id
+        JOIN rail_routes route
+          ON route.route_id = station_route.route_id
+        WHERE member.station_group_id = sl.location_id
+          AND route.route_short_name IS NOT NULL
+        ORDER BY route.route_short_name
+    ), ARRAY[]::TEXT[]) AS routes
+"""
+
 
 def _canonical_station_name(value: str) -> str:
     normalized = re.sub(r"\s*[-–—]?\s*REDONE$", "", value.strip(), flags=re.IGNORECASE)
@@ -69,6 +86,17 @@ def _dedupe_location_rows(rows: list[dict], limit: int) -> list[dict]:
     return deduped
 
 
+def _normalize_routes_for_row(row: dict) -> list[str]:
+    return [route for route in (row.get("routes") or []) if route]
+
+
+def _should_list_station(row: dict) -> bool:
+    location_type = row.get("location_type")
+    if location_type not in LISTABLE_LOCATION_TYPES:
+        return False
+    return len(_normalize_routes_for_row(row)) > 0
+
+
 def _location_summary(row: dict) -> LocationSummary:
     return LocationSummary(
         id=row["location_id"],
@@ -79,8 +107,12 @@ def _location_summary(row: dict) -> LocationSummary:
         accessibility_status=row.get("accessibility_status") or "unknown",
         confidence=row.get("confidence") or "unknown",
         note=None,
-        routes=list(row.get("routes") or []),
+        routes=_normalize_routes_for_row(row),
     )
+
+
+def _summaries_for_station_list(rows: list[dict]) -> list[LocationSummary]:
+    return [_location_summary(row) for row in rows if _should_list_station(row)]
 
 
 def _accessibility_note(status: str) -> str:
@@ -117,7 +149,7 @@ def popular_locations() -> list[LocationSummary]:
     try:
         with get_connection() as conn:
             rows = conn.execute(
-                """
+                f"""
                 SELECT
                     sl.location_id,
                     sl.location_type,
@@ -126,17 +158,7 @@ def popular_locations() -> list[LocationSummary]:
                     COALESCE(sl.confidence, 'unknown') AS confidence,
                     ST_Y(sl.geom::geometry) AS lat,
                     ST_X(sl.geom::geometry) AS lon,
-                    COALESCE(ARRAY(
-                        SELECT DISTINCT route.route_short_name
-                        FROM station_group_members member
-                        JOIN rail_station_routes station_route
-                          ON station_route.station_id = member.station_id
-                        JOIN rail_routes route
-                          ON route.route_id = station_route.route_id
-                        WHERE member.station_group_id = sl.location_id
-                          AND route.route_short_name IS NOT NULL
-                        ORDER BY route.route_short_name
-                    ), ARRAY[]::TEXT[]) AS routes
+                    {_ROUTES_AGG_SQL}
                 FROM searchable_locations sl
                 WHERE sl.location_type = 'rail_station'
                   AND sl.location_id = ANY(%(ids)s)
@@ -144,7 +166,7 @@ def popular_locations() -> list[LocationSummary]:
                 """,
                 {"ids": POPULAR_STATION_IDS},
             ).fetchall()
-            return [_location_summary(row) for row in rows]
+            return _summaries_for_station_list(rows)
     except Exception as exc:
         logger.exception("Failed to load /locations/popular from database.")
         csv_fallback = popular_csv_locations()
@@ -166,7 +188,7 @@ def search_locations(q: str = "") -> list[LocationSummary]:
     try:
         with get_connection() as conn:
             rows = conn.execute(
-                """
+                f"""
                 SELECT
                     sl.location_id,
                     sl.location_type,
@@ -175,27 +197,19 @@ def search_locations(q: str = "") -> list[LocationSummary]:
                     COALESCE(sl.confidence, 'unknown') AS confidence,
                     ST_Y(sl.geom::geometry) AS lat,
                     ST_X(sl.geom::geometry) AS lon,
-                    COALESCE(ARRAY(
-                        SELECT DISTINCT route.route_short_name
-                        FROM station_group_members member
-                        JOIN rail_station_routes station_route
-                          ON station_route.station_id = member.station_id
-                        JOIN rail_routes route
-                          ON route.route_id = station_route.route_id
-                        WHERE member.station_group_id = sl.location_id
-                          AND route.route_short_name IS NOT NULL
-                        ORDER BY route.route_short_name
-                    ), ARRAY[]::TEXT[]) AS routes
+                    {_ROUTES_AGG_SQL}
                 FROM searchable_locations sl
                 WHERE sl.display_name ILIKE %(like_query)s
+                  AND sl.location_type = 'rail_station'
                 ORDER BY similarity(sl.display_name, %(query)s) DESC, sl.display_name
                 LIMIT 60
                 """,
                 {"query": query, "like_query": f"%{query}%"},
             ).fetchall()
             # Similarity ranking can still return name duplicates; normalize in API layer.
-            deduped_rows = _dedupe_location_rows(rows, limit=20)
-            return [_location_summary(row) for row in deduped_rows]
+            deduped_rows = _dedupe_location_rows(rows, limit=40)
+            listable_rows = [row for row in deduped_rows if _should_list_station(row)]
+            return _summaries_for_station_list(listable_rows[:20])
     except Exception as exc:
         logger.exception("Failed to load /locations/search from database.")
         csv_fallback = search_csv_locations(query)

@@ -232,7 +232,9 @@ def search_csv_locations(query: str) -> list[LocationSummary]:
     matches = [
         location
         for location in load_csv_locations()
-        if lowered in location.name.lower()
+        if location.type == "rail_station"
+        and location.routes
+        and lowered in location.name.lower()
     ]
     matches.sort(key=lambda location: (not location.name.lower().startswith(lowered), location.name))
     return [LocationSummary(**location.model_dump()) for location in matches[:20]]

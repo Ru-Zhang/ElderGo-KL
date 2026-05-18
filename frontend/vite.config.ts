@@ -37,6 +37,16 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 5173,
     strictPort: true,
+    // Same-origin proxy so the browser never calls localhost:8000 cross-origin.
+    proxy: {
+      '/locations': { target: 'http://127.0.0.1:8000', changeOrigin: true },
+      '/places': { target: 'http://127.0.0.1:8000', changeOrigin: true },
+      '/routes': { target: 'http://127.0.0.1:8000', changeOrigin: true },
+      '/weather': { target: 'http://127.0.0.1:8000', changeOrigin: true },
+      '/ai': { target: 'http://127.0.0.1:8000', changeOrigin: true },
+      '/users': { target: 'http://127.0.0.1:8000', changeOrigin: true },
+      '/health': { target: 'http://127.0.0.1:8000', changeOrigin: true },
+    },
     watch: {
       usePolling: true,
       interval: 250,

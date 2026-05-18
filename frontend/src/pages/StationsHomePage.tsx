@@ -11,6 +11,7 @@ import {
 import TopBar from '../components/layout/TopBar';
 import BottomNav from '../components/layout/BottomNav';
 import { useAppContext } from '../app/AppProvider';
+import { ApiError } from '../services/api';
 import { getPopularLocations, searchLocations } from '../services/locationsApi';
 import { LocationDetail, LocationSummary, AccessibilityStatus } from '../types/locations';
 import { getTranslation } from '../i18n/translations';
@@ -117,8 +118,12 @@ export default function StationsHomePage({
         setPopularStations(dedupeLocations(locations));
         setError(null);
       })
-      .catch(() => {
-        setError(t('stationDatabaseNotReady'));
+      .catch((err) => {
+        if (err instanceof ApiError && err.code === 'network_error') {
+          setError(t('stationApiUnreachable'));
+        } else {
+          setError(t('stationDatabaseNotReady'));
+        }
       });
   }, [language]);
 
@@ -136,10 +141,14 @@ export default function StationsHomePage({
       if (requestId !== searchRequestIdRef.current) return;
       setSearchResults(dedupeLocations(locations));
       setError(null);
-    } catch {
+    } catch (err) {
       if (requestId !== searchRequestIdRef.current) return;
       setSearchResults([]);
-      setError(t('stationDatabaseNotReady'));
+      if (err instanceof ApiError && err.code === 'network_error') {
+        setError(t('stationApiUnreachable'));
+      } else {
+        setError(t('stationDatabaseNotReady'));
+      }
     } finally {
       if (requestId === searchRequestIdRef.current) {
         setIsSearching(false);
