@@ -139,8 +139,12 @@ def test_non_canonical_od_returns_empty_curated_images() -> None:
     assert images == []
 
 
+def _full_usj7_corridor_steps() -> list[dict]:
+    return [_klcc_lrt_step(), _usj7_brt_forward_step(), _usj7_brt_forward_step()]
+
+
 def test_resolve_route_step_images_dedupes_adjacent_paths() -> None:
-    steps = [_usj7_brt_forward_step(), _usj7_brt_forward_step()]
+    steps = _full_usj7_corridor_steps()
     resolved = resolve_route_step_images(steps, "KLCC", "Monash University Malaysia")
     assert 1 in resolved
     assert 2 in resolved

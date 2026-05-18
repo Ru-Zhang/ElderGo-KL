@@ -9,6 +9,10 @@ from functools import lru_cache
 from typing import TypedDict
 
 from app.core.paths import ROUTE_SEGMENT_IMAGE_TEMPLATES_CSV
+from app.services.curated_corridor_policy import (
+    CANONICAL_CORRIDOR_ROUTE_KEY,
+    should_use_curated_route_csv,
+)
 from app.services.route_station_images_service import (
     RouteStationImage,
     get_route_step_images,
@@ -17,7 +21,6 @@ from app.services.route_station_images_service import (
 from app.services.transit_direction_service import build_transit_line_direction
 
 _MATCH_THRESHOLD = 5
-CANONICAL_CORRIDOR_ROUTE_KEY = "klcc|monash university malaysia"
 
 
 class RouteStationImageRef(TypedDict):
@@ -51,18 +54,9 @@ def _split_patterns(value: str | None) -> tuple[str, ...]:
     return tuple(part.strip().lower() for part in value.split("|") if part.strip())
 
 
-def is_monash_corridor_destination(destination_name: str) -> bool:
-    return "monash" in _normalize_text(destination_name)
-
-
-def _is_canonical_corridor_od(origin_name: str, destination_name: str) -> bool:
-    route_key = f"{normalize_route_key(origin_name)}|{normalize_route_key(destination_name)}"
-    return route_key == CANONICAL_CORRIDOR_ROUTE_KEY
-
-
 def is_curated_corridor_route(origin_name: str, destination_name: str) -> bool:
-    """Only klcc|monash university malaysia uses backend/data route CSV images."""
-    return _is_canonical_corridor_od(origin_name, destination_name)
+    """Only KLCC → Monash (canonical OD) uses backend/data route CSV images."""
+    return should_use_curated_route_csv(origin_name, destination_name)
 
 
 def _read_templates(csv_path) -> list[SegmentTemplate]:
@@ -218,9 +212,7 @@ def match_step_images(
     origin_name: str,
     destination_name: str,
 ) -> list[RouteStationImageRef]:
-    # Only the canonical KLCC→Monash corridor uses backend CSV / templates.
-    # All other ODs (including KL Sentral→Monash, USJ7→Monash) use Google on the client.
-    if not _is_canonical_corridor_od(origin_name, destination_name):
+    if not should_use_curated_route_csv(origin_name, destination_name):
         return []
 
     best_template: SegmentTemplate | None = None
@@ -243,6 +235,13 @@ def resolve_route_step_images(
     origin_name: str,
     destination_name: str,
 ) -> dict[int, list[RouteStationImageRef]]:
+    if not should_use_curated_route_csv(
+        origin_name,
+        destination_name,
+        google_steps=google_steps,
+    ):
+        return {}
+
     resolved: dict[int, list[RouteStationImageRef]] = {}
     previous_paths: set[str] = set()
 

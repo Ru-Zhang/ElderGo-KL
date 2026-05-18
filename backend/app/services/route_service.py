@@ -41,13 +41,27 @@ logger = logging.getLogger(__name__)
 async def _gather_route_candidates(
     payload: RouteRecommendationRequest,
 ) -> list[CandidateRoute]:
+    from app.services.curated_corridor_policy import is_canonical_klcc_to_monash_od
+    from app.services.klcc_monash_route_service import fetch_klcc_monash_brt_candidate
+
     direct = await fetch_transit_candidates_lenient(
         payload.origin,
         payload.destination,
         payload.departure_time,
     )
-    unique = dedupe_candidates(direct)
-    return unique
+    candidates = list(direct)
+    if is_canonical_klcc_to_monash_od(
+        payload.origin.display_name,
+        payload.destination.display_name,
+    ):
+        composed = await fetch_klcc_monash_brt_candidate(
+            payload.origin,
+            payload.destination,
+            payload.departure_time,
+        )
+        if composed is not None:
+            candidates.insert(0, composed)
+    return dedupe_candidates(candidates)
 
 
 @dataclass
@@ -475,9 +489,20 @@ async def recommend_route(
             departure_time=payload.departure_time,
         )
 
+    from app.services.curated_corridor_policy import is_canonical_klcc_to_monash_od
+    from app.services.klcc_monash_route_service import uses_monash_corridor
+
+    rank_kwargs: dict = {}
+    if is_canonical_klcc_to_monash_od(
+        payload.origin.display_name,
+        payload.destination.display_name,
+    ):
+        rank_kwargs["corridor_filter"] = uses_monash_corridor
+
     choice = rank_candidates_for_elders(
         transit_candidates,
         payload.preferences,
+        **rank_kwargs,
     )
     if choice is None:
         raise RouteUnavailableError(

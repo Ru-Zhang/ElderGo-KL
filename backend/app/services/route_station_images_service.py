@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TypedDict
 
 from app.core.paths import ROUTE_STATION_IMAGES_CSV, ROUTE_STATION_IMAGES_LINKED_CSV
+from app.services.curated_corridor_policy import is_canonical_corridor_route_key
 
 CSV_PATH = ROUTE_STATION_IMAGES_CSV
 LINKED_CSV_PATH = ROUTE_STATION_IMAGES_LINKED_CSV
@@ -107,6 +108,8 @@ def _load_rows() -> dict[tuple[str, str], list[RouteStationImage]]:
 
 def get_route_station_image_map(route_key: str) -> dict[str, list[RouteStationImage]]:
     normalized_route = normalize_route_key(route_key)
+    if not is_canonical_corridor_route_key(normalized_route):
+        return {}
     rows = _load_rows()
     result: dict[str, list[RouteStationImage]] = {}
     for (route, station), images in rows.items():
@@ -117,6 +120,8 @@ def get_route_station_image_map(route_key: str) -> dict[str, list[RouteStationIm
 
 def get_route_station_images(route_key: str, station_key: str) -> list[RouteStationImage]:
     normalized_route = normalize_route_key(route_key)
+    if not is_canonical_corridor_route_key(normalized_route):
+        return []
     rows = _load_rows()
     for alias in _station_lookup_keys(station_key):
         images = rows.get((normalized_route, alias))
@@ -129,6 +134,8 @@ def get_route_step_images(route_key: str, step_number: int) -> list[RouteStation
     if step_number < 1:
         return []
     normalized_route = normalize_route_key(route_key)
+    if not is_canonical_corridor_route_key(normalized_route):
+        return []
     rows = _load_rows()
     images = rows.get((normalized_route, f"step:{step_number}"))
     return list(images) if images else []

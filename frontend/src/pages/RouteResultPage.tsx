@@ -8,7 +8,10 @@ import { useAppContext } from '../app/AppProvider';
 import { getTranslation } from '../i18n/translations';
 import { DestinationWeather, getDestinationWeather } from '../services/weatherApi';
 import { getStationStaticImageUrl } from '../services/googlePlaces';
-import { isCuratedCorridorRoute } from '../utils/curatedRouteImages';
+import {
+  CANONICAL_KLCC_MONASH_ROUTE_KEY,
+  isCuratedCorridorRoute,
+} from '../utils/curatedRouteImages';
 import { fetchRouteStationImageMap, type RouteStationImage } from '../services/routeStationImages';
 import GoogleMapsInstallModal from '../components/common/GoogleMapsInstallModal';
 import RouteLoadingPanel from '../components/route/RouteLoadingPanel';
@@ -313,16 +316,12 @@ export default function RouteResultPage({
       setRouteImageMap({});
       return;
     }
-    const routeKey = buildRouteKey(
-      toLocationLabel(currentRoute.origin_name),
-      toLocationLabel(currentRoute.destination_name),
-    );
     if (!isCuratedCorridorRoute(currentRoute.origin_name, currentRoute.destination_name)) {
       setRouteImageMap({});
       return;
     }
     let cancelled = false;
-    fetchRouteStationImageMap(routeKey)
+    fetchRouteStationImageMap(CANONICAL_KLCC_MONASH_ROUTE_KEY)
       .then((map) => {
         if (!cancelled) setRouteImageMap(map);
       })
