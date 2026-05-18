@@ -15,6 +15,18 @@ CANONICAL_CORRIDOR_ROUTE_KEY = "klcc|monash university malaysia"
 
 CuratedCorridorProfile = Literal["full", "usj7_brt", "sunu_arrival"]
 
+_LRT_VEHICLE_TYPES = frozenset(
+    {"SUBWAY", "TRAIN", "HEAVY_RAIL", "LIGHT_RAIL", "METRO", "RAIL", "COMMUTER_TRAIN"}
+)
+
+
+def _is_lrt_vehicle(vehicle_type: str | None) -> bool:
+    return (vehicle_type or "").upper() in _LRT_VEHICLE_TYPES
+
+
+def _is_brt_bus_vehicle(vehicle_type: str | None) -> bool:
+    return (vehicle_type or "").upper() in {"BUS", "TROLLEYBUS"}
+
 
 def _normalize_place(name: str | None) -> str:
     if not name:
@@ -97,7 +109,7 @@ def _has_brt_usj7_to_sunu(steps: list[dict]) -> bool:
         departure = (transit.get("departure_stop") or {}).get("name") or ""
         arrival = (transit.get("arrival_stop") or {}).get("name") or ""
         vehicle = ((transit.get("line") or {}).get("vehicle") or {}).get("type") or ""
-        if vehicle.upper() == "BUS" and is_usj7_stop(departure) and is_sunu_monash_stop(arrival):
+        if _is_brt_bus_vehicle(vehicle) and is_usj7_stop(departure) and is_sunu_monash_stop(arrival):
             return True
     return False
 
@@ -122,11 +134,11 @@ def google_steps_use_usj7_kjl_brt(steps: list[dict]) -> bool:
         vehicle = ((line.get("vehicle") or {}).get("type") or "").upper()
         line_label = f"{line.get('short_name') or ''} {line.get('name') or ''}".upper()
 
-        if vehicle == "SUBWAY" and is_usj7_stop(arrival):
+        if _is_lrt_vehicle(vehicle) and is_usj7_stop(arrival):
             if is_klcc_place(departure) or "KJ" in line_label or "KELANA" in line_label:
                 has_kjl_to_usj7 = True
 
-        if vehicle == "BUS" and is_usj7_stop(departure) and is_sunu_monash_stop(arrival):
+        if _is_brt_bus_vehicle(vehicle) and is_usj7_stop(departure) and is_sunu_monash_stop(arrival):
             has_brt_usj7_to_sunu = True
 
     return has_kjl_to_usj7 and has_brt_usj7_to_sunu
@@ -224,9 +236,9 @@ def csv_step_for_google_step(
             departure = (transit.get("departure_stop") or {}).get("name") or ""
             arrival = (transit.get("arrival_stop") or {}).get("name") or ""
             vehicle = ((transit.get("line") or {}).get("vehicle") or {}).get("type") or ""
-            if vehicle.upper() == "SUBWAY" and is_usj7_stop(arrival):
+            if _is_lrt_vehicle(vehicle) and is_usj7_stop(arrival):
                 return 3
-            if vehicle.upper() == "BUS" and is_usj7_stop(departure):
+            if _is_brt_bus_vehicle(vehicle) and is_usj7_stop(departure):
                 return 4
         return None
 
@@ -245,11 +257,11 @@ def csv_step_for_google_step(
         departure = (transit.get("departure_stop") or {}).get("name") or ""
         arrival = (transit.get("arrival_stop") or {}).get("name") or ""
         vehicle = ((transit.get("line") or {}).get("vehicle") or {}).get("type") or ""
-        if vehicle.upper() == "SUBWAY" and is_klcc_place(departure):
+        if _is_lrt_vehicle(vehicle) and is_klcc_place(departure):
             return 2
-        if vehicle.upper() == "SUBWAY" and is_usj7_stop(arrival):
+        if _is_lrt_vehicle(vehicle) and is_usj7_stop(arrival):
             return 3
-        if vehicle.upper() == "BUS" and is_usj7_stop(departure):
+        if _is_brt_bus_vehicle(vehicle) and is_usj7_stop(departure):
             return 4
 
     return None
