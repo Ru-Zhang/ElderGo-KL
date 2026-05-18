@@ -75,6 +75,8 @@ class RecommendedRoute(BaseModel):
     recommended_route_id: str
     origin_name: str
     destination_name: str
+    # True only for KLCC → Monash via USJ7 (KJL + BRT); gates route_*.csv step photos.
+    uses_curated_corridor: bool = False
     duration_minutes: int
     transfers: int
     walking_distance_meters: int

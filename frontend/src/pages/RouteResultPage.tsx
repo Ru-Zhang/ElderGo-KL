@@ -8,11 +8,7 @@ import { useAppContext } from '../app/AppProvider';
 import { getTranslation } from '../i18n/translations';
 import { DestinationWeather, getDestinationWeather } from '../services/weatherApi';
 import { getStationStaticImageUrl } from '../services/googlePlaces';
-import {
-  CANONICAL_KLCC_MONASH_ROUTE_KEY,
-  isCuratedCorridorRoute,
-} from '../utils/curatedRouteImages';
-import { fetchRouteStationImageMap, type RouteStationImage } from '../services/routeStationImages';
+import type { RouteStationImage } from '../services/routeStationImages';
 import GoogleMapsInstallModal from '../components/common/GoogleMapsInstallModal';
 import RouteLoadingPanel from '../components/route/RouteLoadingPanel';
 import RouteRankingInsight from '../components/route/RouteRankingInsight';
@@ -20,12 +16,7 @@ import RouteResultSkeleton from '../components/route/RouteResultSkeleton';
 import RouteUnavailableView from '../components/route/RouteUnavailableView';
 import RouteWeatherCard from '../components/route/RouteWeatherCard';
 import { resolveStationDetailByName } from '../services/resolveStationDetail';
-import {
-  buildRouteKey,
-  getCustomRouteStepImages,
-  getCustomStationImages,
-  resolveRouteImageUrl,
-} from '../utils/routeStationImages';
+import { resolveRouteImageUrl } from '../utils/routeStationImages';
 import type { LocationDetail } from '../types/locations';
 import { extractStationNameFromInstruction, cleanStationQuery } from '../utils/stationName';
 import {
@@ -99,7 +90,6 @@ export default function RouteResultPage({
   const [weatherStatus, setWeatherStatus] = useState<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
   const [stationModalName, setStationModalName] = useState<string | null>(null);
   const [stepStationDetails, setStepStationDetails] = useState<Record<string, LocationDetail | null>>({});
-  const [routeImageMap, setRouteImageMap] = useState<Record<string, RouteStationImage[]>>({});
   const [stepImageIndex, setStepImageIndex] = useState(0);
   const t = (key: string) => getTranslation(language, key as any);
   const travelDateForSeatLookup = getTravelDateForSeatLookup();
@@ -312,28 +302,6 @@ export default function RouteResultPage({
   }, [currentRoute?.recommended_route_id, currentStep, currentRoute?.steps]);
 
   useEffect(() => {
-    if (!currentRoute) {
-      setRouteImageMap({});
-      return;
-    }
-    if (!isCuratedCorridorRoute(currentRoute.origin_name, currentRoute.destination_name)) {
-      setRouteImageMap({});
-      return;
-    }
-    let cancelled = false;
-    fetchRouteStationImageMap(CANONICAL_KLCC_MONASH_ROUTE_KEY)
-      .then((map) => {
-        if (!cancelled) setRouteImageMap(map);
-      })
-      .catch(() => {
-        if (!cancelled) setRouteImageMap({});
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [currentRoute?.recommended_route_id, currentRoute?.origin_name, currentRoute?.destination_name]);
-
-  useEffect(() => {
     setStepImageIndex(0);
   }, [currentStep]);
 
@@ -344,11 +312,7 @@ export default function RouteResultPage({
     },
     stepIndex: number,
   ): RouteStationImage[] => {
-    const useCuratedCsv =
-      currentRoute &&
-      isCuratedCorridorRoute(currentRoute.origin_name, currentRoute.destination_name);
-
-    if (useCuratedCsv) {
+    if (currentRoute?.uses_curated_corridor) {
       const curated = currentRoute.steps[stepIndex]?.curated_images;
       if (curated && curated.length > 0) {
         return curated.map((image) => ({
@@ -356,13 +320,15 @@ export default function RouteResultPage({
           caption: image.caption || '',
         }));
       }
-
-      const stepImages = getCustomRouteStepImages(routeImageMap, stepIndex);
-      if (stepImages.length > 0) return stepImages;
     }
 
     const isLastStep = stepIndex === routeSteps.length - 1;
-    const showPlaceImageOnly = Boolean(step.isWalking && isLastStep && !step.stationForPopup);
+    const showPlaceImageOnly = Boolean(
+      step.isWalking &&
+        isLastStep &&
+        !step.stationForPopup &&
+        !currentRoute?.uses_curated_corridor,
+    );
     const detail = step.stationForPopup ? stepStationDetails[step.stationForPopup] : undefined;
 
     if (showPlaceImageOnly) {
@@ -383,10 +349,6 @@ export default function RouteResultPage({
     }
 
     if (step.stationForPopup) {
-      if (useCuratedCsv) {
-        const custom = getCustomStationImages(routeImageMap, step.stationForPopup);
-        if (custom.length > 0) return custom;
-      }
       if (detail?.name) {
         return [
           {

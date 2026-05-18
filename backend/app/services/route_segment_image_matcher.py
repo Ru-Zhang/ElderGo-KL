@@ -11,6 +11,7 @@ from typing import TypedDict
 from app.core.paths import ROUTE_SEGMENT_IMAGE_TEMPLATES_CSV
 from app.services.curated_corridor_policy import (
     CANONICAL_CORRIDOR_ROUTE_KEY,
+    is_monash_place,
     should_use_curated_route_csv,
 )
 from app.services.route_station_images_service import (
@@ -21,6 +22,7 @@ from app.services.route_station_images_service import (
 from app.services.transit_direction_service import build_transit_line_direction
 
 _MATCH_THRESHOLD = 5
+_MATCH_THRESHOLD_WALKING = 2
 
 
 class RouteStationImageRef(TypedDict):
@@ -145,7 +147,12 @@ def _direction_matches(template: SegmentTemplate, step: dict) -> bool:
     return True
 
 
-def _score_template(template: SegmentTemplate, step: dict) -> int:
+def _score_template(
+    template: SegmentTemplate,
+    step: dict,
+    *,
+    destination_name: str = "",
+) -> int:
     if not _direction_matches(template, step):
         return 0
 
@@ -161,9 +168,10 @@ def _score_template(template: SegmentTemplate, step: dict) -> int:
     if mode == "WALKING":
         if template.vehicle_type:
             return 0
-        score = _pattern_hits(template.instruction_patterns, instruction)
+        dest_label = _normalize_text(destination_name)
+        score = _pattern_hits(template.instruction_patterns, instruction, dest_label)
         score += _pattern_hits(template.from_patterns, from_station, instruction) * 2
-        score += _pattern_hits(template.to_patterns, to_station, instruction) * 2
+        score += _pattern_hits(template.to_patterns, to_station, instruction, dest_label) * 2
         if score < 2:
             return 0
         return score
@@ -211,19 +219,28 @@ def match_step_images(
     step_number: int,
     origin_name: str,
     destination_name: str,
+    *,
+    google_steps: list[dict] | None = None,
 ) -> list[RouteStationImageRef]:
-    if not should_use_curated_route_csv(origin_name, destination_name):
+    if not should_use_curated_route_csv(
+        origin_name,
+        destination_name,
+        google_steps=google_steps,
+    ):
         return []
 
     best_template: SegmentTemplate | None = None
     best_score = 0
+    is_walking = (step.get("travel_mode") or "").upper() == "WALKING"
+    threshold = _MATCH_THRESHOLD_WALKING if is_walking else _MATCH_THRESHOLD
+
     for template in _load_templates():
-        score = _score_template(template, step)
+        score = _score_template(template, step, destination_name=destination_name)
         if score > best_score:
             best_score = score
             best_template = template
 
-    if best_template is None or best_score < _MATCH_THRESHOLD:
+    if best_template is None or best_score < threshold:
         return []
 
     images = get_route_step_images(best_template.source_route_key, best_template.source_step_number)
@@ -247,7 +264,13 @@ def resolve_route_step_images(
 
     for index, step in enumerate(google_steps):
         step_number = index + 1
-        images = match_step_images(step, step_number, origin_name, destination_name)
+        images = match_step_images(
+            step,
+            step_number,
+            origin_name,
+            destination_name,
+            google_steps=google_steps,
+        )
         if not images:
             resolved[step_number] = []
             continue
@@ -263,5 +286,14 @@ def resolve_route_step_images(
 
         resolved[step_number] = deduped
         previous_paths = {image["path"] for image in deduped}
+
+    # Final "Walk to Monash" often scores low on patterns alone; attach step-5 CSV assets.
+    if google_steps and is_monash_place(destination_name):
+        last_index = len(google_steps)
+        last_step = google_steps[-1]
+        if (last_step.get("travel_mode") or "").upper() == "WALKING" and not resolved.get(last_index):
+            arrival_images = get_route_step_images(CANONICAL_CORRIDOR_ROUTE_KEY, 5)
+            if arrival_images:
+                resolved[last_index] = _to_refs(arrival_images)
 
     return resolved

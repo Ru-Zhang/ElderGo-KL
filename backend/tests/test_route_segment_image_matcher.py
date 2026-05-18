@@ -76,11 +76,13 @@ def test_usj7_to_monash_uses_google_not_curated_csv() -> None:
 
 
 def test_klcc_to_monash_exact_od_still_matches() -> None:
+    steps = [_klcc_lrt_step(), _usj7_brt_forward_step()]
     images = match_step_images(
         _klcc_lrt_step(),
         2,
         "KLCC",
         "Monash University Malaysia",
+        google_steps=steps,
     )
     assert images
     assert any("step-02" in image["path"] for image in images)
@@ -135,12 +137,29 @@ def test_non_canonical_od_returns_empty_curated_images() -> None:
         2,
         "USJ 7",
         "Monash University Malaysia",
+        google_steps=[_klcc_lrt_step()],
     )
     assert images == []
 
 
 def _full_usj7_corridor_steps() -> list[dict]:
     return [_klcc_lrt_step(), _usj7_brt_forward_step(), _usj7_brt_forward_step()]
+
+
+def _walk_to_monash_step() -> dict:
+    return {
+        "travel_mode": "WALKING",
+        "html_instructions": "Walk to Monash University Malaysia",
+    }
+
+
+def test_walk_to_monash_uses_step_five_csv() -> None:
+    steps = [_klcc_lrt_step(), _usj7_brt_forward_step(), _walk_to_monash_step()]
+    resolved = resolve_route_step_images(steps, "KLCC", "Monash University Malaysia")
+    last = resolved.get(len(steps), [])
+    assert last
+    assert any("step-05" in image["path"] for image in last)
+    assert any("monash-campus" in image["path"] for image in last)
 
 
 def test_resolve_route_step_images_dedupes_adjacent_paths() -> None:

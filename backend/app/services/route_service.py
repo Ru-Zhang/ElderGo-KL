@@ -25,6 +25,7 @@ from app.services.elder_route_ranking_service import (
     rank_candidates_for_elders,
 )
 from app.services.google_maps_service import fetch_transit_candidates_lenient
+from app.services.curated_corridor_policy import should_use_curated_route_csv
 from app.services.route_segment_image_matcher import resolve_route_step_images
 from app.services.accessibility_annotation_service import (
     AccessibilityAnnotationResult,
@@ -188,17 +189,26 @@ def _route_from_candidate(
     ranking_secondary_factor: str | None = None,
 ) -> PreparedRecommendation:
     annotation_results = annotate_all_route_steps(candidate.steps)
-    step_images = resolve_route_step_images(
-        candidate.steps,
+    uses_curated = should_use_curated_route_csv(
         payload.origin.display_name,
         payload.destination.display_name,
+        google_steps=candidate.steps,
+    )
+    step_images = (
+        resolve_route_step_images(
+            candidate.steps,
+            payload.origin.display_name,
+            payload.destination.display_name,
+        )
+        if uses_curated
+        else {}
     )
     prepared_steps = [
         _step_from_google(
             index + 1,
             step,
             annotation_result=annotation_results[index],
-            curated_images=step_images.get(index + 1, []),
+            curated_images=step_images.get(index + 1, []) if uses_curated else [],
         )
         for index, step in enumerate(candidate.steps)
     ]
@@ -214,6 +224,7 @@ def _route_from_candidate(
         recommended_route_id="google_route_live",
         origin_name=payload.origin.display_name,
         destination_name=payload.destination.display_name,
+        uses_curated_corridor=uses_curated,
         duration_minutes=candidate.duration_minutes,
         transfers=candidate.transfers,
         walking_distance_meters=candidate.walking_distance_meters,

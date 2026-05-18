@@ -83,6 +83,8 @@ export interface RecommendedRoute {
   recommended_route_id: string;
   origin_name: string;
   destination_name: string;
+  /** KLCC → Monash via USJ7 (KJL + BRT); only then use route_*.csv step photos. */
+  uses_curated_corridor?: boolean;
   duration_minutes: number;
   transfers: number;
   walking_distance_meters: number;
