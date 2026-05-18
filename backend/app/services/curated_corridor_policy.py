@@ -28,6 +28,44 @@ def _is_brt_bus_vehicle(vehicle_type: str | None) -> bool:
     return (vehicle_type or "").upper() in {"BUS", "TROLLEYBUS"}
 
 
+def _line_label(transit: dict) -> str:
+    line = transit.get("line") or {}
+    return f"{line.get('short_name') or ''} {line.get('name') or ''}".upper()
+
+
+def _is_brt_transit_step(transit: dict) -> bool:
+    """Sunway BRT — Google often omits vehicle.type; fall back to line/stop names."""
+    line = transit.get("line") or {}
+    vehicle = ((line.get("vehicle") or {}).get("type") or "").upper()
+    label = _line_label(transit)
+    departure = (transit.get("departure_stop") or {}).get("name") or ""
+    arrival = (transit.get("arrival_stop") or {}).get("name") or ""
+    if _is_brt_bus_vehicle(vehicle):
+        return True
+    if "BRT" in label or "SUNWAY LINE" in label:
+        return True
+    dep_upper = departure.upper()
+    arr_upper = arrival.upper()
+    if is_usj7_stop(departure) and is_sunu_monash_stop(arrival):
+        return "BRT" in dep_upper or "BRT" in arr_upper
+    return False
+
+
+def _is_lrt_transit_step(transit: dict) -> bool:
+    """Kelana Jaya LRT — tolerate missing vehicle.type when line or USJ7 arrival implies LRT."""
+    if _is_brt_transit_step(transit):
+        return False
+    line = transit.get("line") or {}
+    vehicle = ((line.get("vehicle") or {}).get("type") or "").upper()
+    label = _line_label(transit)
+    if _is_lrt_vehicle(vehicle):
+        return True
+    if "KELANA" in label or "LRT" in label or re.search(r"\bKJ\b", label):
+        return True
+    arrival = (transit.get("arrival_stop") or {}).get("name") or ""
+    return is_usj7_stop(arrival)
+
+
 def _normalize_place(name: str | None) -> str:
     if not name:
         return ""
@@ -45,6 +83,10 @@ def is_klcc_place(name: str | None) -> bool:
     if "klcc lrt" in normalized or "lrt klcc" in normalized:
         return True
     if "suria" in normalized and "klcc" in normalized:
+        return True
+    if "klcc" in normalized:
+        return True
+    if "city centre" in normalized and "kuala lumpur" in normalized:
         return True
     return False
 
@@ -108,8 +150,11 @@ def _has_brt_usj7_to_sunu(steps: list[dict]) -> bool:
         transit = step.get("transit_details") or {}
         departure = (transit.get("departure_stop") or {}).get("name") or ""
         arrival = (transit.get("arrival_stop") or {}).get("name") or ""
-        vehicle = ((transit.get("line") or {}).get("vehicle") or {}).get("type") or ""
-        if _is_brt_bus_vehicle(vehicle) and is_usj7_stop(departure) and is_sunu_monash_stop(arrival):
+        if (
+            is_usj7_stop(departure)
+            and is_sunu_monash_stop(arrival)
+            and _is_brt_transit_step(transit)
+        ):
             return True
     return False
 
@@ -130,15 +175,17 @@ def google_steps_use_usj7_kjl_brt(steps: list[dict]) -> bool:
         transit = step.get("transit_details") or {}
         departure = (transit.get("departure_stop") or {}).get("name") or ""
         arrival = (transit.get("arrival_stop") or {}).get("name") or ""
-        line = transit.get("line") or {}
-        vehicle = ((line.get("vehicle") or {}).get("type") or "").upper()
-        line_label = f"{line.get('short_name') or ''} {line.get('name') or ''}".upper()
+        line_label = _line_label(transit)
 
-        if _is_lrt_vehicle(vehicle) and is_usj7_stop(arrival):
+        if is_usj7_stop(arrival) and _is_lrt_transit_step(transit):
             if is_klcc_place(departure) or "KJ" in line_label or "KELANA" in line_label:
                 has_kjl_to_usj7 = True
 
-        if _is_brt_bus_vehicle(vehicle) and is_usj7_stop(departure) and is_sunu_monash_stop(arrival):
+        if (
+            is_usj7_stop(departure)
+            and is_sunu_monash_stop(arrival)
+            and _is_brt_transit_step(transit)
+        ):
             has_brt_usj7_to_sunu = True
 
     return has_kjl_to_usj7 and has_brt_usj7_to_sunu
@@ -152,11 +199,39 @@ def _origin_allows_curated(origin_name: str) -> bool:
     )
 
 
+def _strip_html_instructions(value: str | None) -> str:
+    if not value:
+        return ""
+    return re.sub(r"<[^>]+>", "", value)
+
+
 def _is_walk_to_monash(step: dict, destination_name: str) -> bool:
     if (step.get("travel_mode") or "").upper() != "WALKING":
         return False
-    instruction = _normalize_place(step.get("html_instructions"))
+    instruction = _normalize_place(_strip_html_instructions(step.get("html_instructions")))
     return is_monash_place(destination_name) and "monash" in instruction
+
+
+def _is_transit_brt_google_step(step: dict | None) -> bool:
+    if step is None or (step.get("travel_mode") or "").upper() != "TRANSIT":
+        return False
+    return _is_brt_transit_step(step.get("transit_details") or {})
+
+
+def _is_post_brt_final_walk_to_monash(
+    step: dict,
+    destination_name: str,
+    *,
+    previous_step: dict | None,
+    is_last_step: bool,
+) -> bool:
+    """After a BRT leg, the final walk to campus uses CSV step 5 (tap-out / lift / campus)."""
+    if not is_last_step or (step.get("travel_mode") or "").upper() != "WALKING":
+        return False
+    if not is_monash_place(destination_name) or not _is_transit_brt_google_step(previous_step):
+        return False
+    instruction = _normalize_place(_strip_html_instructions(step.get("html_instructions")))
+    return "monash" in instruction
 
 
 def detect_curated_profile(
@@ -208,10 +283,20 @@ def csv_step_for_google_step(
     *,
     origin_name: str,
     destination_name: str,
+    previous_step: dict | None = None,
+    is_last_step: bool = False,
 ) -> int | None:
     """Map a Google Directions step to route_station_images.csv step_number (1–5)."""
     mode = (step.get("travel_mode") or "").upper()
-    instruction = _normalize_place(step.get("html_instructions"))
+    instruction = _normalize_place(_strip_html_instructions(step.get("html_instructions")))
+
+    if mode == "WALKING" and _is_post_brt_final_walk_to_monash(
+        step,
+        destination_name,
+        previous_step=previous_step,
+        is_last_step=is_last_step,
+    ):
+        return 5
 
     if profile == "sunu_arrival":
         if _is_walk_to_monash(step, destination_name):
@@ -235,10 +320,9 @@ def csv_step_for_google_step(
             transit = step.get("transit_details") or {}
             departure = (transit.get("departure_stop") or {}).get("name") or ""
             arrival = (transit.get("arrival_stop") or {}).get("name") or ""
-            vehicle = ((transit.get("line") or {}).get("vehicle") or {}).get("type") or ""
-            if _is_lrt_vehicle(vehicle) and is_usj7_stop(arrival):
+            if _is_lrt_transit_step(transit) and is_usj7_stop(arrival):
                 return 3
-            if _is_brt_bus_vehicle(vehicle) and is_usj7_stop(departure):
+            if _is_brt_transit_step(transit) and is_usj7_stop(departure):
                 return 4
         return None
 
@@ -256,12 +340,11 @@ def csv_step_for_google_step(
         transit = step.get("transit_details") or {}
         departure = (transit.get("departure_stop") or {}).get("name") or ""
         arrival = (transit.get("arrival_stop") or {}).get("name") or ""
-        vehicle = ((transit.get("line") or {}).get("vehicle") or {}).get("type") or ""
-        if _is_lrt_vehicle(vehicle) and is_klcc_place(departure):
+        if _is_lrt_transit_step(transit) and is_klcc_place(departure):
             return 2
-        if _is_lrt_vehicle(vehicle) and is_usj7_stop(arrival):
+        if _is_lrt_transit_step(transit) and is_usj7_stop(arrival):
             return 3
-        if _is_brt_bus_vehicle(vehicle) and is_usj7_stop(departure):
+        if _is_brt_transit_step(transit) and is_usj7_stop(departure):
             return 4
 
     return None

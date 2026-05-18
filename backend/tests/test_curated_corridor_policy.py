@@ -88,6 +88,33 @@ def test_canonical_route_key_constant() -> None:
     assert CANONICAL_CORRIDOR_ROUTE_KEY == "klcc|monash university malaysia"
 
 
+def test_corridor_detected_when_google_omits_vehicle_type() -> None:
+    steps = [
+        {
+            "travel_mode": "TRANSIT",
+            "transit_details": {
+                "departure_stop": {"name": "KLCC"},
+                "arrival_stop": {"name": "USJ 7"},
+                "line": {"short_name": "KJ", "name": "Kelana Jaya Line"},
+            },
+        },
+        {
+            "travel_mode": "TRANSIT",
+            "transit_details": {
+                "departure_stop": {"name": "Stesen BRT USJ 7"},
+                "arrival_stop": {"name": "Stesen BRT Sunu-Monash"},
+                "line": {"name": "BRT Sunway Line"},
+            },
+        },
+        {"travel_mode": "WALKING", "html_instructions": "Walk to Monash University Malaysia"},
+    ]
+    assert google_steps_use_usj7_kjl_brt(steps)
+    assert (
+        detect_curated_profile("KLCC", "Monash University Malaysia", google_steps=steps)
+        == "full"
+    )
+
+
 def test_google_heavy_rail_lrt_counts_as_kjl_corridor() -> None:
     steps = [
         {

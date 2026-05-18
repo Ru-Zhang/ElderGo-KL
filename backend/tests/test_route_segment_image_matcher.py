@@ -151,6 +151,18 @@ def test_kl_sentral_monash_via_usj7_uses_steps_three_four_five() -> None:
     assert not any("step-01" in image["path"] for paths in resolved.values() for image in paths)
 
 
+def test_final_walk_after_brt_uses_step_five_with_html_instruction() -> None:
+    steps = [
+        _usj7_brt_forward_step(),
+        {
+            "travel_mode": "WALKING",
+            "html_instructions": "<b>Walk</b> to Monash University Malaysia",
+        },
+    ]
+    resolved = resolve_route_step_images(steps, "KLCC", "Monash University Malaysia")
+    assert any("step-05" in image["path"] for image in resolved[2])
+
+
 def test_kl_sentral_monash_ss18_no_curated() -> None:
     steps = [_ss18_brt_step(), _walk_to_monash_step()]
     assert (

@@ -49,6 +49,7 @@ def resolve_route_step_images(
     resolved: dict[int, list[RouteStationImageRef]] = {}
     previous_paths: set[str] = set()
 
+    last_index = len(google_steps) - 1
     for index, step in enumerate(google_steps):
         step_number = index + 1
         csv_step = csv_step_for_google_step(
@@ -56,6 +57,8 @@ def resolve_route_step_images(
             profile,
             origin_name=origin_name,
             destination_name=destination_name,
+            previous_step=google_steps[index - 1] if index > 0 else None,
+            is_last_step=index == last_index,
         )
         if csv_step is None:
             resolved[step_number] = []

@@ -20,7 +20,7 @@ from app.services.departure_time_service import (
 )
 
 KL_TZ = ZoneInfo("Asia/Kuala_Lumpur")
-ROUTE_RANKING_CACHE_VERSION = "google-priority-fastest-v3-curated-lrt"
+ROUTE_RANKING_CACHE_VERSION = "google-priority-fastest-v5-brt-detect"
 
 
 def _place_key(place: PlaceInput) -> str:

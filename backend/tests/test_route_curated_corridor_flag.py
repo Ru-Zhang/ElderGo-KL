@@ -85,6 +85,30 @@ async def _recommend(origin: str, destination: str, steps: list[dict]):
                     return await route_service.recommend_route(payload)
 
 
+async def _recommend_with_candidates(candidates: list[CandidateRoute]):
+    from app.services import route_service
+
+    payload = RouteRecommendationRequest(
+        origin=PlaceInput(display_name="KLCC"),
+        destination=PlaceInput(display_name="Monash University Malaysia"),
+        departure_time="now",
+        preferences=TravelPreferences(),
+    )
+    with patch.object(route_service.settings, "demo_mode", True):
+        with patch.object(route_service, "get_route_cache") as mock_cache:
+            mock_cache.return_value.get = AsyncMock(return_value=None)
+            mock_cache.return_value.set = AsyncMock()
+            with patch(
+                "app.services.route_service.fetch_transit_candidates_lenient",
+                new=AsyncMock(return_value=candidates),
+            ):
+                with patch(
+                    "app.services.klcc_monash_route_service.fetch_klcc_monash_brt_candidate",
+                    new=AsyncMock(return_value=None),
+                ):
+                    return await route_service.recommend_route(payload)
+
+
 def test_klcc_monash_usj7_corridor_uses_curated() -> None:
     result = asyncio.run(
         _recommend(
@@ -115,6 +139,25 @@ def test_kl_sentral_monash_via_usj7_uses_curated_on_corridor_legs() -> None:
     assert any("step-03" in image.path for image in result.steps[0].curated_images)
     assert any("step-04" in image.path for image in result.steps[1].curated_images)
     assert any("step-05" in image.path for image in result.steps[2].curated_images)
+
+
+def test_klcc_monash_prefers_usj7_corridor_over_ss18_shortcut() -> None:
+    ss18 = _candidate([_ss18_brt_step(), _walk_to_monash_step()])
+    ss18.duration_minutes = 50
+    corridor = _candidate(
+        [
+            {"travel_mode": "WALKING", "html_instructions": "Walk to KLCC"},
+            _kjl_to_usj7_step(),
+            {"travel_mode": "WALKING", "html_instructions": "Walk to USJ 7"},
+            _brt_usj7_step(),
+            _walk_to_monash_step(),
+        ]
+    )
+    corridor.duration_minutes = 55
+    result = asyncio.run(_recommend_with_candidates([ss18, corridor]))
+    assert result.uses_curated_corridor is True
+    assert len(result.steps) == 5
+    assert any(step.curated_images for step in result.steps)
 
 
 def test_klcc_monash_ss18_shortcut_no_curated() -> None:

@@ -119,10 +119,45 @@ def rank_candidates_for_elders(
 ) -> RouteChoiceResult | None:
     """Choose from Google-returned transit candidates using user priority order.
 
-    corridor_filter is accepted for backward compatibility but intentionally
-    ignored so preferences never force a route outside the Google candidate pool.
+    When corridor_filter is set (Monash USJ7↔Sunu BRT corridor), rank only
+    matching candidates so faster SS18 BRT shortcuts do not win over curated legs.
+    Falls back to the full pool only when no candidate passes the filter.
     """
-    del corridor_filter
+    if corridor_filter is not None:
+        corridor_pool = [c for c in candidates if corridor_filter(c)]
+        # #region agent log
+        try:
+            import json
+            from pathlib import Path
+            from time import time as _time
+
+            _log_path = Path(__file__).resolve().parents[2] / ".cursor" / "debug-ce83c2.log"
+            _log_path.parent.mkdir(parents=True, exist_ok=True)
+            with _log_path.open("a", encoding="utf-8") as _f:
+                _f.write(
+                    json.dumps(
+                        {
+                            "sessionId": "ce83c2",
+                            "hypothesisId": "H-rank-corridor",
+                            "location": "elder_route_ranking_service.py:rank_candidates_for_elders",
+                            "message": "corridor_filter_pool",
+                            "data": {
+                                "total": len(candidates),
+                                "corridor": len(corridor_pool),
+                                "using_corridor_only": bool(corridor_pool),
+                            },
+                            "timestamp": int(_time() * 1000),
+                        }
+                    )
+                    + "\n"
+                )
+        except Exception:
+            pass
+        # #endregion
+        if corridor_pool:
+            ranked = _rank_pool(corridor_pool, preferences)
+            if ranked is not None:
+                return ranked
     return _rank_pool(candidates, preferences)
 
 
