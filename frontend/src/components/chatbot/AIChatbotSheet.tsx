@@ -36,6 +36,27 @@ interface ChatMessage {
   blocks?: ChatBlock[];
   actions?: ChatAction[];
   responseSource?: ResponseSourceType | null;
+  inScope?: boolean;
+}
+
+function filterAssistantActions(
+  actions: ChatAction[] | undefined,
+  answerText: string,
+  inScope: boolean
+): ChatAction[] | undefined {
+  if (!actions?.length) return actions;
+  const hasComputeRoute = actions.some((a) => a.type === 'compute_route');
+  const looksOutOfScope =
+    !inScope ||
+    /\[OUT_OF_SCOPE\]/i.test(answerText) ||
+    /Klang Valley travel help only|仅限巴生谷出行|Lembah Klang sahaja/i.test(answerText);
+  if (looksOutOfScope || !hasComputeRoute) {
+    const filtered = actions.filter(
+      (a) => a.type !== 'open_route_text' && a.type !== 'open_route_map'
+    );
+    return filtered.length > 0 ? filtered : undefined;
+  }
+  return actions;
 }
 
 type MessageBlock =
@@ -324,15 +345,21 @@ export default function AIChatbotSheet({ isOpen, onClose, onNavigate }: AIChatbo
       });
       setChatFlow(response.chat_flow ?? null);
       setFlowSlots(response.flow_slots ?? {});
-      const computeRouteAction = response.actions?.find((a) => a.type === 'compute_route');
+      const assistantActions = filterAssistantActions(
+        response.actions,
+        response.answer,
+        response.in_scope
+      );
+      const computeRouteAction = assistantActions?.find((a) => a.type === 'compute_route');
       setMessages((prev) => [
         ...prev,
         {
           text: response.answer,
           isUser: false,
           blocks: response.answer_blocks?.length ? response.answer_blocks : undefined,
-          actions: response.actions?.length ? response.actions : undefined,
-          responseSource: response.response_source ?? null
+          actions: assistantActions,
+          responseSource: response.response_source ?? null,
+          inScope: response.in_scope
         }
       ]);
       if (computeRouteAction) {
@@ -368,9 +395,13 @@ export default function AIChatbotSheet({ isOpen, onClose, onNavigate }: AIChatbo
   };
 
   const handleSuggestedQuestion = (messageKey: TranslationKey) => {
-    setChatFlow(null);
-    setFlowSlots({});
-    void sendToAI(t(messageKey), { resetFlow: true });
+    const keepPlanFlow =
+      chatFlow === 'plan_route' && messageKey === 'chatSuggest_planRouteMsg';
+    if (!keepPlanFlow) {
+      setChatFlow(null);
+      setFlowSlots({});
+    }
+    void sendToAI(t(messageKey), { resetFlow: !keepPlanFlow });
   };
 
   const handleActionClick = (action: ChatAction) => {

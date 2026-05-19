@@ -109,6 +109,7 @@ def generate_content(
     use_maps_grounding: bool = False,
     language_code: str = "en_US",
     timeout: float = 20.0,
+    max_output_tokens: int | None = None,
 ) -> dict[str, Any]:
     """Call Gemini generateContent; returns raw API JSON."""
     if not api_key:
@@ -126,6 +127,8 @@ def generate_content(
                 "languageCode": language_code,
             }
         }
+    if max_output_tokens is not None:
+        payload["generationConfig"] = {"maxOutputTokens": max_output_tokens, "temperature": 0.2}
 
     response = httpx.post(url, json=payload, timeout=timeout)
     response.raise_for_status()
@@ -174,6 +177,7 @@ async def call_with_key_pool(
     use_maps_grounding: bool = False,
     language_code: str = "en_US",
     timeout: float = 20.0,
+    max_output_tokens: int | None = None,
 ) -> tuple[dict[str, Any] | None, str | None]:
     """
     Try each available API key. Returns (response_json, error_kind).
@@ -195,6 +199,7 @@ async def call_with_key_pool(
                 use_maps_grounding=use_maps_grounding,
                 language_code=language_code,
                 timeout=timeout,
+                max_output_tokens=max_output_tokens,
             )
             elapsed_ms = int((time.perf_counter() - started) * 1000)
             data["_eldergo_meta"] = {

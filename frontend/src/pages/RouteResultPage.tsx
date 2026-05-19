@@ -1,9 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
-import { Download, Share2, Train, MapPin, Footprints, ChevronLeft, ChevronRight, ArrowDown, Navigation, Loader2, ArrowRightLeft, Armchair, Users, AlertCircle } from 'lucide-react';
+import { Download, Share2, Train, MapPin, Footprints, ChevronLeft, ChevronRight, ArrowDown, Navigation, Loader2, ArrowRightLeft } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import BottomNav from '../components/layout/BottomNav';
 import { StationDetailModal } from '../components/common/StationDetailModal';
-import { ImageWithFallback } from '../components/common/ImageWithFallback';
 import { useAppContext } from '../app/AppProvider';
 import { getTranslation } from '../i18n/translations';
 import { DestinationWeather, getDestinationWeather } from '../services/weatherApi';
@@ -15,16 +14,11 @@ import RouteRankingInsight from '../components/route/RouteRankingInsight';
 import RouteResultSkeleton from '../components/route/RouteResultSkeleton';
 import RouteUnavailableView from '../components/route/RouteUnavailableView';
 import RouteWeatherCard from '../components/route/RouteWeatherCard';
+import RouteStepPhotoGallery from '../components/route/RouteStepPhotoGallery';
 import { resolveStationDetailByName } from '../services/resolveStationDetail';
 import { resolveRouteImageUrl } from '../utils/routeStationImages';
 import type { LocationDetail } from '../types/locations';
 import { extractStationNameFromInstruction, cleanStationQuery } from '../utils/stationName';
-import {
-  getSeatAvailabilityLevel,
-  getSeatProbabilityForRouteStep,
-  getTravelDateForSeatLookup,
-  type SeatAvailabilityLevel,
-} from '../utils/seatProbability';
 import { getElderHighlightFacilities, getFacilityTier } from '../utils/facilityPriority';
 import { pickFacilityIcon } from '../utils/facilityIcons';
 import { translateFacility } from '../utils/dataI18n';
@@ -91,8 +85,8 @@ export default function RouteResultPage({
   const [stationModalName, setStationModalName] = useState<string | null>(null);
   const [stepStationDetails, setStepStationDetails] = useState<Record<string, LocationDetail | null>>({});
   const [stepImageIndex, setStepImageIndex] = useState(0);
+  const [photoLightboxOpen, setPhotoLightboxOpen] = useState(false);
   const t = (key: string) => getTranslation(language, key as any);
-  const travelDateForSeatLookup = getTravelDateForSeatLookup();
 
   useEffect(() => {
     setViewMode(initialViewMode);
@@ -251,19 +245,6 @@ export default function RouteResultPage({
       color: step.step_type === 'walking' ? BRAND_COLORS.blue : step.step_type === 'transit' ? BRAND_COLORS.green : BRAND_COLORS.warning,
       accessibility: localizeAccessibilityMessage(step.annotation.message),
       stationForPopup,
-      seatAvailabilityLevel: (() => {
-        const pct = getSeatProbabilityForRouteStep(
-          {
-            step_type: step.step_type,
-            from_station: step.from_station,
-            to_station: step.to_station,
-            stationForPopup,
-          },
-          stepStationDetails,
-          travelDateForSeatLookup,
-        );
-        return pct != null ? getSeatAvailabilityLevel(pct) : null;
-      })(),
     };
   }) || [];
 
@@ -1203,22 +1184,22 @@ export default function RouteResultPage({
               )}
 
               <div className="relative">
-                {currentStep > 0 && (
+                {!photoLightboxOpen && currentStep > 0 && (
                   <button
                     type="button"
                     onClick={() => scroll('left')}
-                    className="absolute -left-2 sm:left-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border-2 border-eldergo-border bg-white/95 shadow-lg backdrop-blur-sm transition-all hover:border-eldergo-blue hover:bg-white sm:h-12 sm:w-12"
+                    className="absolute left-0 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border-2 border-eldergo-border bg-white/95 shadow-lg backdrop-blur-sm transition-all hover:border-eldergo-blue hover:bg-white sm:h-12 sm:w-12"
                     aria-label={t('routeStepPrevious')}
                   >
                     <ChevronLeft size={20} strokeWidth={2.5} className="text-eldergo-navy sm:h-6 sm:w-6" />
                   </button>
                 )}
 
-                {currentStep < routeSteps.length - 1 && (
+                {!photoLightboxOpen && currentStep < routeSteps.length - 1 && (
                   <button
                     type="button"
                     onClick={() => scroll('right')}
-                    className="absolute -right-2 sm:right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border-2 border-eldergo-border bg-white/95 shadow-lg backdrop-blur-sm transition-all hover:border-eldergo-blue hover:bg-white sm:h-12 sm:w-12"
+                    className="absolute right-0 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border-2 border-eldergo-border bg-white/95 shadow-lg backdrop-blur-sm transition-all hover:border-eldergo-blue hover:bg-white sm:h-12 sm:w-12"
                     aria-label={t('routeStepNext')}
                   >
                     <ChevronRight size={20} strokeWidth={2.5} className="text-eldergo-navy sm:h-6 sm:w-6" />
@@ -1244,20 +1225,20 @@ export default function RouteResultPage({
                       const showFacilityRow = highlights.length > 0;
 
                       const stepImages = resolveStepImages(step, stepIndex);
-                      const safeImageIndex =
-                        stepImages.length > 0 ? Math.min(stepImageIndex, stepImages.length - 1) : 0;
-                      const activeImage = stepImages[safeImageIndex] ?? null;
-                      const imageSrc = activeImage?.path ?? null;
-                      const imageCaption = activeImage?.caption?.trim() ?? '';
                       const showImageBlock = stepImages.length > 0;
+                      const photoAlt =
+                        detail?.name ||
+                        step.stationForPopup ||
+                        toLocationLabel(destination?.displayName) ||
+                        'Destination';
 
                       return (
                         <div
                           key={`route-step-${stepIndex}-${step.step}`}
-                          className="w-full flex-shrink-0 px-6 sm:px-16"
+                          className="w-full flex-shrink-0 px-0"
                         >
                           <div
-                            className="bg-white/95 backdrop-blur-sm p-5 sm:p-6 rounded-2xl shadow-xl border-l-4 flex flex-col overflow-y-auto"
+                            className="w-full bg-white/95 backdrop-blur-sm p-5 sm:p-6 rounded-2xl shadow-xl border-l-4 flex flex-col overflow-y-auto"
                             style={{
                               borderLeftColor: step.color,
                               // Lock all step cards to the same scrollable
@@ -1322,44 +1303,6 @@ export default function RouteResultPage({
                                     : ''
                                   : `${t('routeDuration')}: ${step.duration}`}
                               </div>
-
-                              {step.seatAvailabilityLevel && (() => {
-                                const level = step.seatAvailabilityLevel as SeatAvailabilityLevel;
-                                const seatLevelConfig: Record<
-                                  SeatAvailabilityLevel,
-                                  { Icon: typeof Armchair; colorClass: string; textKey: 'routeSeatAvailabilityRelaxed' | 'routeSeatAvailabilityModerate' | 'routeSeatAvailabilityCrowded' }
-                                > = {
-                                  relaxed: {
-                                    Icon: Armchair,
-                                    colorClass: 'text-eldergo-green',
-                                    textKey: 'routeSeatAvailabilityRelaxed',
-                                  },
-                                  moderate: {
-                                    Icon: Users,
-                                    colorClass: 'text-eldergo-warning',
-                                    textKey: 'routeSeatAvailabilityModerate',
-                                  },
-                                  crowded: {
-                                    Icon: AlertCircle,
-                                    colorClass: 'text-red-600',
-                                    textKey: 'routeSeatAvailabilityCrowded',
-                                  },
-                                };
-                                const { Icon, colorClass, textKey } = seatLevelConfig[level];
-                                const tierLabel = t(textKey);
-                                return (
-                                  <div
-                                    className={`inline-flex items-center gap-2 self-start mb-4 font-medium ${colorClass}`}
-                                    style={{ fontSize: `${15 * baseFontSize}px` }}
-                                    role="status"
-                                    aria-label={`${t('routeSeatAvailabilityLabel')} ${tierLabel}`}
-                                  >
-                                    <Icon size={16 * baseFontSize} strokeWidth={2.5} aria-hidden />
-                                    <span>{t('routeSeatAvailabilityLabel')}</span>
-                                    <span className="font-semibold">{tierLabel}</span>
-                                  </div>
-                                );
-                              })()}
 
                               <div className="flex flex-col gap-4 pt-1 flex-1 min-h-0">
                                 {step.stationForPopup && (
@@ -1437,77 +1380,17 @@ export default function RouteResultPage({
                                   </div>
                                 )}
 
-                                {showImageBlock && imageSrc && (
-                                  // flex-1 lets the image grow to fill the
-                                  // empty space below the button/chips so the
-                                  // card looks balanced. min-h-[160px] keeps
-                                  // it from collapsing when the card has lots
-                                  // of facility chips.
-                                  <div className="flex-1 min-h-[160px] flex flex-col gap-2">
-                                    <div className="relative flex-1 min-h-[160px] rounded-xl overflow-hidden border border-eldergo-border shadow-sm">
-                                      <ImageWithFallback
-                                        src={imageSrc}
-                                        alt={
-                                          imageCaption ||
-                                          detail?.name ||
-                                          step.stationForPopup ||
-                                          toLocationLabel(destination?.displayName) ||
-                                          'Destination'
-                                        }
-                                        className="w-full h-full object-cover"
-                                      />
-                                      {stepImages.length > 1 && safeImageIndex > 0 && (
-                                        <button
-                                          type="button"
-                                          onClick={() => setStepImageIndex((prev) => Math.max(0, prev - 1))}
-                                          className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full border border-eldergo-border bg-white/90 p-2 shadow-md"
-                                          aria-label={t('routePhotoPrevious')}
-                                        >
-                                          <ChevronLeft size={20} className="text-eldergo-navy" />
-                                        </button>
-                                      )}
-                                      {stepImages.length > 1 &&
-                                        safeImageIndex < stepImages.length - 1 && (
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              setStepImageIndex((prev) =>
-                                                Math.min(stepImages.length - 1, prev + 1),
-                                              )
-                                            }
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full border border-eldergo-border bg-white/90 p-2 shadow-md"
-                                            aria-label={t('routePhotoNext')}
-                                          >
-                                            <ChevronRight size={20} className="text-eldergo-navy" />
-                                          </button>
-                                        )}
-                                    </div>
-                                    {imageCaption && (
-                                      <p
-                                        className="text-center text-eldergo-navy/85 px-3 leading-snug"
-                                        style={{ fontSize: `${14 * baseFontSize}px` }}
-                                      >
-                                        {imageCaption}
-                                      </p>
-                                    )}
-                                    {stepImages.length > 1 && (
-                                      <div className="flex items-center justify-center gap-2">
-                                        {stepImages.map((_, dotIndex) => (
-                                          <button
-                                            key={`route-step-image-dot-${stepIndex}-${dotIndex}`}
-                                            type="button"
-                                            onClick={() => setStepImageIndex(dotIndex)}
-                                            className={`h-2.5 w-2.5 rounded-full ${
-                                              dotIndex === safeImageIndex
-                                                ? 'bg-eldergo-blue'
-                                                : 'bg-eldergo-border'
-                                            }`}
-                                            aria-label={`Photo ${dotIndex + 1} of ${stepImages.length}`}
-                                          />
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
+                                {showImageBlock && (
+                                  <RouteStepPhotoGallery
+                                    images={stepImages}
+                                    imageIndex={stepImageIndex}
+                                    onImageIndexChange={setStepImageIndex}
+                                    imageAlt={photoAlt}
+                                    baseFontSize={baseFontSize}
+                                    t={t}
+                                    isActiveStep={stepIndex === currentStep}
+                                    onLightboxOpenChange={setPhotoLightboxOpen}
+                                  />
                                 )}
                               </div>
                             </div>

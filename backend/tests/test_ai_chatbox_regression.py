@@ -368,6 +368,10 @@ def test_chatbox_out_of_scope_reject_has_guidance(monkeypatch) -> None:
     payload = response.json()
     assert payload["in_scope"] is False
     assert "Ask about one of these topics" in payload["answer"]
+    assert any(
+        block.get("type") == "heading" and "Klang Valley" in (block.get("text") or "")
+        for block in payload.get("answer_blocks") or []
+    )
     assert "Next step:" not in payload["answer"]
     _assert_no_rag_metadata(payload)
 
@@ -607,9 +611,20 @@ def test_chatbox_route_planning_prefill_skips_gemini(monkeypatch) -> None:
     monkeypatch.setattr(ai_intent_service, "search_places_kv", fake_places)
 
     client = TestClient(app)
-    response = client.post(
+    r0 = client.post(
         "/ai/conversations/conv_test/messages",
         json={"message": "from Monash University to KL Sentral"},
+    )
+    assert r0.status_code == 200
+    slots = r0.json().get("flow_slots") or {}
+    flow = r0.json().get("chat_flow") or "plan_route"
+    response = client.post(
+        "/ai/conversations/conv_test/messages",
+        json={
+            "message": "yes",
+            "chat_flow": flow,
+            "flow_slots": slots,
+        },
     )
 
     assert response.status_code == 200
@@ -629,8 +644,24 @@ def test_chatbox_route_planning_prefill_skips_gemini(monkeypatch) -> None:
 
 
 def test_chatbox_route_planning_missing_destination_has_no_actions(monkeypatch) -> None:
+    from app.schemas.places import PlaceDetail
+    from app.services import ai_flow_service
+
     _set_guardrail(monkeypatch)
     gemini_called = _mock_call_with_key_pool_tracker(monkeypatch)
+
+    async def fake_places(query, limit=5):
+        return [
+            PlaceDetail(
+                display_name="Monash University Malaysia",
+                google_place_id="p_monash",
+                lat=3.07,
+                lon=101.6,
+                name="Monash University Malaysia",
+            )
+        ]
+
+    monkeypatch.setattr(ai_flow_service, "search_places_kv", fake_places)
 
     client = TestClient(app)
     response = client.post(
@@ -643,8 +674,8 @@ def test_chatbox_route_planning_missing_destination_has_no_actions(monkeypatch) 
     assert gemini_called == []
     assert payload["in_scope"] is True
     assert payload["actions"] == []
-    assert "Monash University" in payload["answer"]
-    assert "where" in payload["answer"].lower()
+    assert payload.get("chat_flow") == "plan_route"
+    assert "where" in payload["answer"].lower() or "目的地" in payload["answer"]
 
 
 def test_chatbox_from_to_route_uses_flow_not_gemini_even_if_classified_general(monkeypatch) -> None:
@@ -669,9 +700,19 @@ def test_chatbox_from_to_route_uses_flow_not_gemini_even_if_classified_general(m
     monkeypatch.setattr(ai_flow_service, "search_places_kv", fake_places)
 
     client = TestClient(app)
-    response = client.post(
+    r0 = client.post(
         "/ai/conversations/conv_test/messages",
         json={"message": "from Monash University to KL Sentral please help"},
+    )
+    slots = r0.json().get("flow_slots") or {}
+    flow = r0.json().get("chat_flow") or "plan_route"
+    response = client.post(
+        "/ai/conversations/conv_test/messages",
+        json={
+            "message": "yes",
+            "chat_flow": flow,
+            "flow_slots": slots,
+        },
     )
 
     assert response.status_code == 200
@@ -1212,6 +1253,103 @@ def test_chatbox_plan_route_monash_uni_to_klcc_friendly_labels(monkeypatch) -> N
     assert action["destination_name"] == "KLCC"
 
 
+def test_chatbox_destination_only_enters_plan_route_flow(monkeypatch) -> None:
+    from app.schemas.places import PlaceDetail
+    from app.services import ai_flow_service
+
+    _set_guardrail(monkeypatch)
+
+    async def fake_places(query, limit=5):
+        if "monash" in query.lower():
+            return [
+                PlaceDetail(
+                    display_name="Monash University Malaysia",
+                    google_place_id="p_monash",
+                    lat=3.07,
+                    lon=101.6,
+                    name="Monash University Malaysia",
+                )
+            ]
+        return [
+            PlaceDetail(
+                display_name=query,
+                google_place_id="p_other",
+                lat=3.1,
+                lon=101.7,
+                name=query,
+            )
+        ]
+
+    monkeypatch.setattr(ai_flow_service, "search_places_kv", fake_places)
+
+    client = TestClient(app)
+    r0 = client.post(
+        "/ai/conversations/conv_test/messages",
+        json={"message": "i wanna go to monash"},
+    )
+    assert r0.status_code == 200
+    payload = r0.json()
+    assert payload.get("chat_flow") == "plan_route"
+    answer_lower = payload["answer"].lower()
+    assert (
+        "start" in answer_lower
+        or "origin" in answer_lower
+        or "出发" in payload["answer"]
+        or "mula" in answer_lower
+    )
+
+    r1 = client.post(
+        "/ai/conversations/conv_test/messages",
+        json={
+            "message": "kl sentral",
+            "chat_flow": "plan_route",
+            "flow_slots": payload["flow_slots"],
+        },
+    )
+    r1_payload = r1.json()
+    if any(a["type"] == "compute_route" for a in r1_payload.get("actions", [])):
+        return
+    r2 = client.post(
+        "/ai/conversations/conv_test/messages",
+        json={
+            "message": "yes",
+            "chat_flow": r1_payload.get("chat_flow") or "plan_route",
+            "flow_slots": r1_payload.get("flow_slots") or {},
+        },
+    )
+    assert any(a["type"] == "compute_route" for a in r2.json().get("actions", []))
+
+
+def test_chatbox_explicit_time_not_now(monkeypatch) -> None:
+    from app.schemas.places import PlaceDetail
+    from app.services import ai_flow_service
+
+    _set_guardrail(monkeypatch)
+
+    async def fake_places(query, limit=5):
+        return [
+            PlaceDetail(
+                display_name=query,
+                google_place_id=f"p_{query[:4]}",
+                lat=3.1,
+                lon=101.7,
+                name=query,
+            )
+        ]
+
+    monkeypatch.setattr(ai_flow_service, "search_places_kv", fake_places)
+
+    client = TestClient(app)
+    response = client.post(
+        "/ai/conversations/conv_test/messages",
+        json={"message": "from monash to klcc at tomorrow 1pm"},
+    )
+    payload = response.json()
+    action = next(a for a in payload["actions"] if a["type"] == "compute_route")
+    assert action["departure_time"] != "now"
+    assert "T13:00:00" in action["departure_time"]
+
+
 def test_chatbox_plan_route_one_shot_from_to(monkeypatch) -> None:
     from app.schemas.places import PlaceDetail
     from app.services import ai_flow_service
@@ -1232,9 +1370,19 @@ def test_chatbox_plan_route_one_shot_from_to(monkeypatch) -> None:
     monkeypatch.setattr(ai_flow_service, "search_places_kv", fake_places)
 
     client = TestClient(app)
-    response = client.post(
+    r0 = client.post(
         "/ai/conversations/conv_test/messages",
         json={"message": "from Monash University to KLCC"},
+    )
+    slots = r0.json().get("flow_slots") or {}
+    flow = r0.json().get("chat_flow") or "plan_route"
+    response = client.post(
+        "/ai/conversations/conv_test/messages",
+        json={
+            "message": "yes",
+            "chat_flow": flow,
+            "flow_slots": slots,
+        },
     )
     payload = response.json()
     assert any(action["type"] == "compute_route" for action in payload["actions"])

@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     gemini_api_key_primary: str = Field(default="", alias="ELDERGO_GEMINI_API_KEY_PRIMARY")
     gemini_api_key_secondary: str = Field(default="", alias="ELDERGO_GEMINI_API_KEY_SECONDARY")
     gemini_api_keys: str = Field(default="", alias="ELDERGO_GEMINI_API_KEYS")
+    gemini_intent_routing_enabled: bool = Field(
+        default=True, alias="ELDERGO_GEMINI_INTENT_ROUTING_ENABLED"
+    )
     ai_guardrail_enabled: bool = Field(default=True, alias="ELDERGO_AI_GUARDRAIL_ENABLED")
     ai_guardrail_mode: str = Field(default="hybrid", alias="ELDERGO_AI_GUARDRAIL_MODE")
     ai_guardrail_strict: bool = Field(default=False, alias="ELDERGO_AI_GUARDRAIL_STRICT")

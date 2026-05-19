@@ -47,6 +47,27 @@ def test_exploratory_poi_skips_short_messages() -> None:
     assert result is None
 
 
+def test_clinic_in_sunway_area_is_exploratory() -> None:
+    from app.services.ai_exploratory_poi_service import (
+        build_places_search_query,
+        is_area_poi_query,
+        is_exploratory_poi_message,
+    )
+
+    message = "clinic in sunway area"
+    assert is_area_poi_query(message)
+    assert is_exploratory_poi_message(message)
+    query = build_places_search_query(message)
+    assert "clinic" in query.lower()
+    assert "sunway" in query.lower()
+
+
+def test_short_cafe_near_klcc() -> None:
+    from app.services.ai_exploratory_poi_service import is_exploratory_poi_message
+
+    assert is_exploratory_poi_message("cafe near KLCC")
+
+
 def test_enroute_rest_not_plan_route_pair() -> None:
     from app.services.ai_exploratory_poi_service import (
         build_enroute_places_search,

@@ -199,7 +199,7 @@ def _find_station_by_coordinate_with_conn(
 ) -> StationMatch | None:
     if lat is None or lon is None:
         return None
-    row = conn.execute(
+        row = conn.execute(
             """
             SELECT
                 station.station_id,
@@ -239,7 +239,7 @@ def _find_station_by_coordinate(lat: float | None, lon: float | None) -> Station
 def _find_station_by_name_with_conn(conn, name: str | None) -> StationMatch | None:
     if not name:
         return None
-    row = conn.execute(
+        row = conn.execute(
             """
             SELECT
                 station.station_id,

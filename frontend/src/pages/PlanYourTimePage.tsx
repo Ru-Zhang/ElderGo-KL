@@ -321,7 +321,7 @@ export default function PlanYourTimePage({
         <div className="absolute inset-0 bg-white/40" />
       </div>
       <div className="relative z-10">
-        <TopBar onLogoClick={onNavigateToPlanning} />
+      <TopBar onLogoClick={onNavigateToPlanning} />
 
         <main className="pt-20 pb-36 px-4 sm:px-6">
           <div className="max-w-2xl mx-auto mt-4">
@@ -329,8 +329,8 @@ export default function PlanYourTimePage({
               className="font-semibold text-eldergo-navy mb-1 leading-tight"
               style={{ fontSize: `${24 * baseFontSize}px` }}
             >
-              {t('planTimeTitle')}
-            </h2>
+            {t('planTimeTitle')}
+          </h2>
             <p
               className="text-eldergo-muted mb-4 leading-relaxed"
               style={{ fontSize: `${14 * baseFontSize}px` }}
@@ -342,7 +342,7 @@ export default function PlanYourTimePage({
               {DEPARTURE_PRESETS.map((preset) => renderPresetRow(preset))}
             </div>
 
-            <button
+                <button
               type="button"
               onClick={() => {
                 if (selectedTime === 'custom') {
@@ -375,17 +375,17 @@ export default function PlanYourTimePage({
               >
                 <CalendarClock
                   size={22}
-                  strokeWidth={2.5}
+                      strokeWidth={2.5}
                   className={selectedTime === 'custom' ? 'text-white' : 'text-eldergo-navy'}
-                />
-              </div>
+                    />
+                  </div>
               <div className="flex-1 min-w-0 text-left">
                 <div
                   className="font-semibold text-eldergo-navy leading-snug"
                   style={{ fontSize: `${17 * baseFontSize}px` }}
                 >
                   {t('planTimeCustomExact')}
-                </div>
+                    </div>
                 {selectedTime === 'custom' ? (
                   <p
                     className="mt-0.5 font-semibold leading-snug text-eldergo-blue tabular-nums"
@@ -401,11 +401,11 @@ export default function PlanYourTimePage({
                     {t('planTimeCustomExactDesc')}
                   </p>
                 )}
-              </div>
+                    </div>
               {selectedTime === 'custom' && (
                 <Check size={22} strokeWidth={3} className="text-eldergo-blue shrink-0" />
-              )}
-            </button>
+                  )}
+                </button>
 
             {selectedTime === 'custom' && customPickerOpen && (
               <div className="mb-4 space-y-3 rounded-xl border-2 border-eldergo-border bg-white p-4 shadow-sm max-w-full">
@@ -465,7 +465,7 @@ export default function PlanYourTimePage({
                     {t('planTimeCancelCustom')}
                   </button>
                 </div>
-              </div>
+          </div>
             )}
 
             <p
@@ -476,17 +476,17 @@ export default function PlanYourTimePage({
               {t('planTimeLeavingAt').replace('{time}', summaryTime)}
             </p>
 
-            <button
+          <button
               type="button"
-              onClick={handleShowRoute}
+            onClick={handleShowRoute}
               disabled={routeLoading || Boolean(customTimeError)}
               className="w-full bg-eldergo-warning hover:bg-eldergo-warning-dark text-white font-semibold py-4 rounded-xl transition-colors shadow-lg disabled:opacity-60"
               style={{ fontSize: `${20 * baseFontSize}px` }}
-            >
-              {routeLoading ? t('planTimeFindingRoute') : t('planTimeShowRoute')}
-            </button>
-          </div>
-        </main>
+          >
+            {routeLoading ? t('planTimeFindingRoute') : t('planTimeShowRoute')}
+          </button>
+        </div>
+      </main>
 
         <BottomNav
           activeTab="planning"

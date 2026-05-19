@@ -9,7 +9,15 @@ from fastapi import HTTPException
 
 from app.schemas.ai import AIMessageRequest, ChatAction, ChatBlock
 from app.services.chat_blocks_service import (
+    blocks_ask_confirm_plan_route,
     blocks_ask_departure_time,
+    blocks_ask_preferences_before_route,
+    blocks_ask_use_defaults,
+    blocks_outside_kv,
+    blocks_weather_not_found,
+    blocks_place_did_you_mean,
+    blocks_place_not_found,
+    blocks_place_not_found_for_slot,
     blocks_ask_route_destination,
     blocks_ask_route_origin,
     blocks_ask_station,
@@ -49,11 +57,12 @@ from app.services.ai_route_parse_service import (
     place_matches_user_query,
     place_ui_label,
     refine_place_query_for_slot,
+    suggest_place_alias,
     try_gemini_route_pair,
     try_rule_route_pair,
 )
 from app.services.departure_time_service import KL_TZ, format_departure_display_label
-from app.services.klang_valley_service import place_detail_in_kv, reject_outside_kv_message
+from app.services.klang_valley_service import place_detail_in_kv
 from app.services.locations_search_service import get_location_detail_by_id, search_station_locations
 from app.services.places_service import search_places_kv
 from app.services.weather_service import get_weather_forecast
@@ -259,6 +268,17 @@ DEPARTURE_MAP = {
 }
 
 
+def _flow_error_result(
+    error: str | list[ChatBlock],
+    *,
+    flow: FlowType | None,
+    slots: dict[str, str] | None = None,
+) -> IntentResult:
+    if isinstance(error, list):
+        return _flow_result(blocks=error, flow=flow, slots=slots)
+    return _flow_result(error, flow=flow, slots=slots)
+
+
 def _flow_result(
     answer: str | None = None,
     *,
@@ -329,6 +349,30 @@ def _is_bare_flow_chip(message: str) -> bool:
 
 
 def _looks_like_station_query(message: str) -> bool:
+    from app.services.ai_exploratory_poi_service import (
+        extract_poi_category_term,
+        is_area_poi_query,
+        is_exploratory_poi_message,
+    )
+
+    if is_exploratory_poi_message(message) or is_area_poi_query(message):
+        return False
+    if extract_poi_category_term(message):
+        return False
+
+    from app.services.ai_route_sentence_service import extract_route_endpoints
+
+    rule_origin, rule_dest = extract_route_endpoints(message)
+    if rule_origin or rule_dest:
+        return False
+
+    lowered = message.lower()
+    if re.search(
+        r"\b(?:go\s+to|wanna|want\s+to|heading\s+to|get\s+to|nak\s+pergi)\b",
+        lowered,
+    ):
+        return False
+
     cleaned = message.strip()
     if not cleaned or len(cleaned) > 28:
         return False
@@ -341,6 +385,8 @@ def _looks_like_station_query(message: str) -> bool:
         return False
     travel_hints = ("route", "travel", "plan", "weather", "ticket", "guide", "help", "how ")
     if any(hint in lowered for hint in travel_hints):
+        return False
+    if re.search(r"\b(?:in|near|around|area|附近)\b", lowered):
         return False
     return bool(re.match(r"^[A-Za-z0-9][A-Za-z0-9\s.'-]{0,26}$", cleaned))
 
@@ -390,46 +436,10 @@ _DEPARTURE_CHOICE_KEYS = ("now", "morning_peak", "midday", "evening_peak", "nigh
 
 
 def _parse_custom_departure_iso(message: str) -> str | None:
-    """Parse 'tomorrow 6am' / 'today 3pm' into ISO departure for route API."""
-    from datetime import datetime, timedelta
+    """Parse 'tomorrow 6am' / 'today 3pm' / 'at 1 pm' into ISO departure for route API."""
+    from app.services.ai_route_sentence_service import parse_custom_departure_iso
 
-    lowered = message.lower().strip()
-    now = datetime.now(KL_TZ)
-    target_date = None
-    if re.search(r"\btomorrow\b|esok|明天", lowered):
-        target_date = (now + timedelta(days=1)).date()
-    elif re.search(r"\btoday\b|hari\s+ini|今天", lowered):
-        target_date = now.date()
-    if target_date is None:
-        return None
-
-    time_match = re.search(
-        r"(?<!\d)(\d{1,2})(?::(\d{2}))?\s*(am|pm)?(?!\d)",
-        lowered,
-    )
-    if not time_match:
-        return None
-
-    hour = int(time_match.group(1))
-    minute = int(time_match.group(2) or 0)
-    meridiem = time_match.group(3)
-    if meridiem == "pm" and hour < 12:
-        hour += 12
-    if meridiem == "am" and hour == 12:
-        hour = 0
-    if not meridiem and hour <= 12 and re.search(r"\b(?:pm|petang|malam|晚上)\b", lowered):
-        if hour < 12:
-            hour += 12
-
-    candidate = datetime(
-        target_date.year,
-        target_date.month,
-        target_date.day,
-        hour,
-        minute,
-        tzinfo=KL_TZ,
-    )
-    return candidate.isoformat()
+    return parse_custom_departure_iso(message)
 
 
 def _parse_departure_time(message: str) -> str | None:
@@ -764,26 +774,80 @@ def _resolved_place_from_known(known: dict[str, object], user_query: str) -> dic
     }
 
 
-async def _resolve_place_by_query(query: str, language: str) -> tuple[dict | None, str | None]:
-    """Resolve a single place name to coordinates (first KV match)."""
-    user_query = query.strip()
+async def _resolve_place_by_query(
+    query: str,
+    language: str,
+    *,
+    slot: Literal["origin", "destination"] | None = None,
+    slots: dict[str, str] | None = None,
+) -> tuple[dict | None, dict[str, str], str | list[ChatBlock] | None]:
+    """Resolve a place; when several KV matches exist, return candidate slots to pick from."""
+    from app.services.ai_route_sentence_service import sanitize_route_endpoint
+
+    user_query = sanitize_route_endpoint(query) or query.strip()
+    base_slots = dict(slots or {})
     issue = classify_place_input(user_query)
     if issue != "ok":
-        return None, blocks_to_plain_text(blocks_place_input_error(issue, language))
+        return None, base_slots, blocks_place_input_error(issue, language)
+
+    def _not_found() -> list[ChatBlock]:
+        if slot:
+            return blocks_place_not_found_for_slot(slot, user_query, language)
+        return blocks_place_not_found(language)
+
+    from app.services.ai_route_parse_service import is_broad_area_place_query
+
     known = lookup_known_kv_place(user_query)
-    if known is not None:
-        return _resolved_place_from_known(known, user_query), None
+    if known is not None and not (slot and is_broad_area_place_query(user_query)):
+        return _resolved_place_from_known(known, user_query), base_slots, None
     normalized = normalize_place_query(user_query)
     places = await search_places_kv(normalized, limit=8)
     kv_places = _dedupe_kv_places([p for p in places if place_detail_in_kv(p)], limit=3)
+    if places and not kv_places:
+        return None, base_slots, blocks_outside_kv(language)
     if not kv_places:
-        return None, PLACE_NOT_FOUND[language]
+        suggestion = suggest_place_alias(user_query)
+        if suggestion:
+            label = place_ui_label(user_query, canonical_name=suggestion)
+            return None, base_slots, blocks_place_did_you_mean(label, language)
+        return None, base_slots, _not_found()
+
+    if slot and is_broad_area_place_query(user_query) and len(kv_places) < 2:
+        known_rows = broad_area_disambig_known_places(user_query)
+        if len(known_rows) >= 2:
+            candidate_key = (
+                "origin_candidates" if slot == "origin" else "destination_candidates"
+            )
+            candidates = [
+                _resolved_place_from_known(row, user_query) for row in known_rows[:3]
+            ]
+            merged = _save_candidates(base_slots, candidate_key, candidates)
+            pick_msg = PICK_PLACE[language].format(
+                options=_candidate_lines(candidates, language)
+            )
+            return None, merged, pick_msg
+
+    if len(kv_places) > 1 and slot:
+        candidate_key = (
+            "origin_candidates" if slot == "origin" else "destination_candidates"
+        )
+        candidates = _places_to_candidates(kv_places, user_query=user_query)
+        merged = _save_candidates(base_slots, candidate_key, candidates)
+        pick_msg = PICK_PLACE[language].format(
+            options=_candidate_lines(candidates, language)
+        )
+        return None, merged, pick_msg
+
     place = kv_places[0]
     if not place_matches_user_query(
         user_query, place_name=place.name, formatted_address=place.formatted_address
     ):
-        return None, PLACE_NOT_FOUND[language]
-    return (_resolved_place_dict(place, user_query), None)
+        suggestion = suggest_place_alias(user_query)
+        if suggestion:
+            label = place_ui_label(user_query, canonical_name=suggestion)
+            return None, base_slots, blocks_place_did_you_mean(label, language)
+        return None, base_slots, _not_found()
+    return _resolved_place_dict(place, user_query), base_slots, None
 
 
 async def _resolve_place_slot(
@@ -791,15 +855,29 @@ async def _resolve_place_slot(
     slots: dict[str, str],
     candidate_key: str,
     language: str,
-) -> tuple[dict | None, dict[str, str], str | None]:
-    """Returns (resolved_place_dict, updated_slots, error_message)."""
+) -> tuple[dict | None, dict[str, str], str | list[ChatBlock] | None]:
+    """Returns (resolved_place_dict, updated_slots, error_message or error_blocks)."""
+    from app.services.ai_route_parse_service import suggest_place_alias
+    from app.services.ai_route_sentence_service import is_confirm_yes
+
     updated_slots = dict(slots)
-    candidates = _load_candidates(updated_slots, candidate_key)
-    slot_kind: str | None = None
+    slot_kind: Literal["origin", "destination"] | None = None
     if candidate_key == "origin_candidates":
         slot_kind = "origin"
     elif candidate_key == "destination_candidates":
         slot_kind = "destination"
+
+    suggested_query = (updated_slots.get("suggested_place_query") or "").strip()
+    if suggested_query and is_confirm_yes(message):
+        updated_slots = {k: v for k, v in updated_slots.items() if k != "suggested_place_query"}
+        resolved, _, err = await _resolve_place_by_query(
+            suggested_query, language, slot=slot_kind, slots=updated_slots
+        )
+        if resolved:
+            return resolved, updated_slots, None
+        return None, updated_slots, err
+
+    candidates = _load_candidates(updated_slots, candidate_key)
 
     if candidates:
         picked = _match_named_candidate(message, candidates)
@@ -818,23 +896,53 @@ async def _resolve_place_slot(
     if issue != "ok":
         return None, updated_slots, blocks_to_plain_text(blocks_place_input_error(issue, language))
 
+    from app.services.ai_route_parse_service import is_broad_area_place_query
+
     known = lookup_known_kv_place(user_query)
-    if known is not None:
+    if known is not None and not (slot_kind and is_broad_area_place_query(user_query)):
         return _resolved_place_from_known(known, user_query), updated_slots, None
 
     message = normalize_place_query(user_query)
 
+    from app.services.ai_route_parse_service import (
+        broad_area_disambig_known_places,
+        is_broad_area_place_query,
+    )
+
     places = await search_places_kv(message, limit=8)
     kv_places = _dedupe_kv_places([p for p in places if place_detail_in_kv(p)], limit=3)
+    if places and not kv_places:
+        return None, updated_slots, blocks_outside_kv(language)
     if not kv_places:
-        return None, updated_slots, PLACE_NOT_FOUND[language]
+        suggestion = suggest_place_alias(user_query)
+        if suggestion:
+            updated_slots["suggested_place_query"] = suggestion
+            label = place_ui_label(user_query, canonical_name=suggestion)
+            return None, updated_slots, blocks_place_did_you_mean(label, language)
+        return None, updated_slots, blocks_place_not_found(language)
+
+    if slot_kind and is_broad_area_place_query(user_query) and len(kv_places) < 2:
+        known_rows = broad_area_disambig_known_places(user_query)
+        if len(known_rows) >= 2:
+            candidates = [
+                _resolved_place_from_known(row, user_query) for row in known_rows[:3]
+            ]
+            updated_slots = _save_candidates(updated_slots, candidate_key, candidates)
+            return None, updated_slots, PICK_PLACE[language].format(
+                options=_candidate_lines(candidates, language)
+            )
 
     if len(kv_places) == 1:
         place = kv_places[0]
         if not place_matches_user_query(
             user_query, place_name=place.name, formatted_address=place.formatted_address
         ):
-            return None, updated_slots, PLACE_NOT_FOUND[language]
+            suggestion = suggest_place_alias(user_query)
+            if suggestion:
+                updated_slots["suggested_place_query"] = suggestion
+                label = place_ui_label(user_query, canonical_name=suggestion)
+                return None, updated_slots, blocks_place_did_you_mean(label, language)
+            return None, updated_slots, blocks_place_not_found(language)
         return (_resolved_place_dict(place, user_query), updated_slots, None)
 
     candidates = _places_to_candidates(kv_places, user_query=user_query)
@@ -952,7 +1060,7 @@ async def _fetch_kv_overview_forecast():
 
 async def _weather_for_place_query(
     query: str, language: str
-) -> tuple[object | None, str | None, str | None]:
+) -> tuple[object | None, str | None, str | list[ChatBlock] | None]:
     """Returns (forecast, region_label, error_message). Uses weather API only — no Gemini."""
     user_query = query.strip()
     if not is_plausible_place_query(user_query):
@@ -962,9 +1070,9 @@ async def _weather_for_place_query(
     places = await search_places_kv(location, limit=3)
     kv_places = [p for p in places if place_detail_in_kv(p)]
     if places and not kv_places:
-        return None, None, reject_outside_kv_message(language)
+        return None, None, blocks_outside_kv(language)
     if not kv_places:
-        return None, None, WEATHER_NOT_FOUND[language]
+        return None, None, blocks_weather_not_found(language)
     place = kv_places[0]
     matched = place_matches_user_query(
         user_query, place_name=place.name, formatted_address=place.formatted_address
@@ -1027,7 +1135,11 @@ async def _handle_weather_flow(
 
         forecast, region_label, local_err = await _weather_for_place_query(place_query, language)
         if local_err:
-            err_blocks = blocks_weather_not_found(language) + blocks_ask_weather_location(language)
+            err_blocks = (
+                local_err
+                if isinstance(local_err, list)
+                else blocks_weather_not_found(language) + blocks_ask_weather_location(language)
+            )
             return _flow_result(
                 blocks=overview_blocks + err_blocks,
                 flow="weather",
@@ -1049,7 +1161,11 @@ async def _handle_weather_flow(
 
     forecast, region_label, local_err = await _weather_for_place_query(place_query, language)
     if local_err:
-        err_blocks = blocks_weather_not_found(language) + blocks_ask_weather_location(language)
+        err_blocks = (
+            local_err
+            if isinstance(local_err, list)
+            else blocks_weather_not_found(language) + blocks_ask_weather_location(language)
+        )
         return _flow_result(blocks=err_blocks, flow="weather", slots=updated)
     return _flow_result(
         blocks=blocks_for_weather(forecast, language, region_label=region_label),
@@ -1099,21 +1215,478 @@ async def _finish_plan_route(
     )
 
 
+def _ingest_plan_route_metadata(message: str, updated: dict[str, str]) -> None:
+    from app.services.ai_route_sentence_service import (
+        extract_preference_hint,
+        has_departure_signal,
+        parse_departure_time,
+    )
+
+    pref = extract_preference_hint(message)
+    if pref:
+        updated["preference_hint"] = pref
+    if has_departure_signal(message):
+        dep = parse_departure_time(message)
+        if dep:
+            updated["departure_time"] = dep
+
+
+def _is_metadata_only_message(message: str) -> bool:
+    from app.services.ai_route_sentence_service import (
+        extract_preference_hint,
+        extract_route_endpoints,
+        has_departure_signal,
+        parse_departure_time,
+    )
+
+    origin, destination = extract_route_endpoints(message)
+    if origin and destination:
+        return False
+
+    if extract_preference_hint(message):
+        return True
+    if has_departure_signal(message) and parse_departure_time(message):
+        return True
+    return False
+
+
+async def _try_apply_full_route_sentence(
+    message: str, updated: dict[str, str], language: str
+) -> IntentResult | None:
+    """Parse and resolve a full origin+destination (+ optional time) in one message."""
+    from app.services.ai_route_sentence_service import (
+        has_explicit_departure_or_preference,
+        is_confirm_no,
+        is_confirm_yes,
+        parse_route_sentence,
+    )
+
+    from app.services.ai_route_sentence_service import is_plan_route_intent_message
+
+    if is_plan_route_intent_message(message):
+        return None
+
+    parsed = parse_route_sentence(message)
+    if not (parsed.origin and parsed.destination):
+        return None
+    if not (
+        is_plausible_place_query(parsed.origin) and is_plausible_place_query(parsed.destination)
+    ):
+        return None
+
+    work = dict(updated)
+    origin_place, o_slots, origin_err = await _resolve_place_by_query(
+        parsed.origin, language, slot="origin", slots=work
+    )
+    work.update(o_slots)
+    if origin_err:
+        return _flow_error_result(origin_err, flow="plan_route", slots=work)
+    if not origin_place:
+        return None
+
+    dest_place, d_slots, dest_err = await _resolve_place_by_query(
+        parsed.destination, language, slot="destination", slots=work
+    )
+    work.update(d_slots)
+    if dest_err:
+        return _flow_error_result(dest_err, flow="plan_route", slots=work)
+    if not dest_place:
+        return None
+
+    updated = work
+    updated["origin_resolved"] = json.dumps(origin_place)
+    updated["destination_resolved"] = json.dumps(dest_place)
+    if parsed.departure:
+        updated["departure_time"] = parsed.departure
+
+    if updated.get("awaiting_plan_confirm") == "1":
+        if is_confirm_yes(message):
+            updated.pop("awaiting_plan_confirm", None)
+            dep = updated.get("departure_time") or "now"
+            return await _finish_plan_route(updated, dep, language)
+        if is_confirm_no(message):
+            updated.pop("awaiting_plan_confirm", None)
+            return _flow_result(
+                blocks=blocks_ask_route_origin(language),
+                flow="plan_route",
+                slots={},
+            )
+        o_label = _route_place_label(origin_place)
+        d_label = _route_place_label(dest_place)
+        return _flow_result(
+            blocks=blocks_ask_confirm_plan_route(o_label, d_label, language),
+            flow="plan_route",
+            slots=updated,
+        )
+
+    if has_explicit_departure_or_preference(message, updated):
+        dep = updated.get("departure_time") or "now"
+        return await _maybe_finish_with_preference(updated, dep, message, language)
+
+    updated["awaiting_plan_confirm"] = "1"
+    o_label = _route_place_label(origin_place)
+    d_label = _route_place_label(dest_place)
+    return _flow_result(
+        blocks=blocks_ask_confirm_plan_route(o_label, d_label, language),
+        flow="plan_route",
+        slots=updated,
+    )
+
+
+async def enter_plan_route_partial(
+    message: str,
+    *,
+    origin: str | None,
+    destination: str | None,
+    departure: str | None,
+    language: str,
+    planning_mode: str | None = None,
+) -> IntentResult:
+    """Start plan_route when only origin or only destination is known."""
+    from app.services.ai_route_sentence_service import parse_departure_time
+
+    slots: dict[str, str] = {}
+    if planning_mode:
+        slots["planning_mode"] = planning_mode
+    if departure:
+        slots["departure_time"] = parse_departure_time(departure) or departure
+
+    if destination and not origin:
+        place, merged, err = await _resolve_place_by_query(
+            destination, language, slot="destination", slots=slots
+        )
+        slots.update(merged)
+        if err:
+            return _flow_error_result(err, flow="plan_route", slots=slots)
+        if place:
+            slots["destination_resolved"] = json.dumps(place)
+        return _flow_result(
+            blocks=blocks_ask_route_origin(language),
+            flow="plan_route",
+            slots=slots,
+        )
+
+    if origin and not destination:
+        place, merged, err = await _resolve_place_by_query(
+            origin, language, slot="origin", slots=slots
+        )
+        slots.update(merged)
+        if err:
+            return _flow_error_result(err, flow="plan_route", slots=slots)
+        if place:
+            slots["origin_resolved"] = json.dumps(place)
+        return _flow_result(
+            blocks=blocks_ask_route_destination(language),
+            flow="plan_route",
+            slots=slots,
+        )
+
+    if origin and destination:
+        o_place, o_slots, o_err = await _resolve_place_by_query(
+            origin, language, slot="origin", slots=slots
+        )
+        slots.update(o_slots)
+        if o_err:
+            return _flow_error_result(o_err, flow="plan_route", slots=slots)
+        d_place, d_slots, d_err = await _resolve_place_by_query(
+            destination, language, slot="destination", slots=slots
+        )
+        slots.update(d_slots)
+        if d_err:
+            return _flow_error_result(d_err, flow="plan_route", slots=slots)
+        if o_place and d_place:
+            slots["origin_resolved"] = json.dumps(o_place)
+            slots["destination_resolved"] = json.dumps(d_place)
+            dep = slots.get("departure_time") or "now"
+            return await _maybe_finish_with_preference(updated=slots, departure=dep, message=message, language=language)
+
+    return await _handle_plan_route_flow(message, slots, language)
+
+
+async def _try_apply_partial_route_sentence(
+    message: str, updated: dict[str, str], language: str
+) -> IntentResult | None:
+    """Fill one endpoint from a single-place or Gemini-assisted utterance."""
+    from app.services.ai_intent_gemini_service import try_gemini_travel_slots
+    from app.services.ai_route_sentence_service import parse_route_sentence, parse_departure_time
+
+    parsed = parse_route_sentence(message)
+    origin_q, dest_q = parsed.origin, parsed.destination
+
+    if not origin_q and not dest_q:
+        travel = await try_gemini_travel_slots(message)
+        if travel:
+            origin_q, dest_q = travel.origin, travel.destination
+            if travel.departure and not updated.get("departure_time"):
+                updated["departure_time"] = (
+                    parse_departure_time(travel.departure) or travel.departure
+                )
+            if travel.preference:
+                updated["preference_hint"] = travel.preference
+
+    if parsed.departure and not updated.get("departure_time"):
+        updated["departure_time"] = parsed.departure
+
+    if dest_q and not origin_q and not updated.get("destination_resolved"):
+        if updated.get("origin_resolved"):
+            return None
+        place, merged, err = await _resolve_place_by_query(
+            dest_q, language, slot="destination", slots=updated
+        )
+        updated.update(merged)
+        if err:
+            return _flow_error_result(err, flow="plan_route", slots=updated)
+        if not place:
+            return None
+        updated["destination_resolved"] = json.dumps(place)
+        if updated.get("origin_resolved"):
+            dep = updated.get("departure_time") or "now"
+            return await _maybe_finish_with_preference(updated, dep, message, language)
+        return _flow_result(
+            blocks=blocks_ask_route_origin(language),
+            flow="plan_route",
+            slots=updated,
+        )
+
+    if origin_q and not dest_q:
+        if updated.get("destination_resolved"):
+            return None
+        if updated.get("origin_resolved"):
+            return None
+        place, merged, err = await _resolve_place_by_query(
+            origin_q, language, slot="origin", slots=updated
+        )
+        updated.update(merged)
+        if err:
+            return _flow_error_result(err, flow="plan_route", slots=updated)
+        if not place:
+            return None
+        updated["origin_resolved"] = json.dumps(place)
+        if updated.get("destination_resolved"):
+            dep = updated.get("departure_time") or "now"
+            return await _maybe_finish_with_preference(updated, dep, message, language)
+        return _flow_result(
+            blocks=blocks_ask_route_destination(language),
+            flow="plan_route",
+            slots=updated,
+        )
+
+    return None
+
+
+async def _handle_recommendation_plan_route(
+    message: str, updated: dict[str, str], language: str
+) -> IntentResult:
+    """Collect origin, destination, then time/preferences for route recommendation requests."""
+    _ingest_plan_route_metadata(message, updated)
+
+    partial = await _try_apply_partial_route_sentence(message, updated, language)
+    if partial is not None:
+        return partial
+
+    full = await _try_apply_full_route_sentence(message, updated, language)
+    if full is not None:
+        return full
+
+    if not updated.get("origin_resolved"):
+        return _flow_result(blocks=blocks_ask_route_origin(language), flow="plan_route", slots=updated)
+    if not updated.get("destination_resolved"):
+        return _flow_result(
+            blocks=blocks_ask_route_destination(language),
+            flow="plan_route",
+            slots=updated,
+        )
+    departure = updated.get("departure_time") or _parse_departure_time(message)
+    return await _maybe_finish_with_preference(updated, departure or "now", message, language)
+
+
+async def _maybe_finish_with_preference(
+    updated: dict[str, str],
+    departure: str,
+    message: str,
+    language: str,
+) -> IntentResult:
+    from app.services.ai_route_sentence_service import (
+        has_explicit_departure_or_preference,
+        is_confirm_no,
+        is_confirm_yes,
+        is_preferences_done_reply,
+        parse_departure_time,
+    )
+
+    if updated.get("awaiting_preferences_setup") == "1":
+        if is_preferences_done_reply(message):
+            updated.pop("awaiting_preferences_setup", None)
+            final_dep = updated.get("departure_time") or departure or "now"
+            return await _finish_plan_route(updated, final_dep, language)
+        return _flow_result(
+            blocks=blocks_ask_preferences_before_route(language),
+            flow="plan_route",
+            slots=updated,
+            actions=[ChatAction(type="open_preference")],
+        )
+
+    if updated.get("awaiting_defaults_confirm") == "1":
+        from app.services.ai_route_sentence_service import extract_preference_hint
+
+        if is_confirm_yes(message):
+            updated.pop("awaiting_defaults_confirm", None)
+            final_dep = updated.get("departure_time") or departure or "now"
+            return await _finish_plan_route(updated, final_dep, language)
+        if is_confirm_no(message):
+            updated.pop("awaiting_defaults_confirm", None)
+            updated["awaiting_preferences_setup"] = "1"
+            return _flow_result(
+                blocks=blocks_ask_preferences_before_route(language),
+                flow="plan_route",
+                slots=updated,
+                actions=[ChatAction(type="open_preference")],
+            )
+        dep = parse_departure_time(message)
+        pref = extract_preference_hint(message)
+        if dep or pref:
+            updated.pop("awaiting_defaults_confirm", None)
+            if dep:
+                updated["departure_time"] = dep
+            if pref:
+                updated["preference_hint"] = pref
+            final_dep = updated.get("departure_time") or departure or "now"
+            return await _finish_plan_route(updated, final_dep, language)
+        return _flow_result(
+            blocks=blocks_ask_use_defaults(language),
+            flow="plan_route",
+            slots=updated,
+        )
+
+    explicit = has_explicit_departure_or_preference(message, updated)
+    final_dep = updated.get("departure_time") or (
+        parse_departure_time(message) if explicit else None
+    ) or departure
+
+    if not explicit:
+        updated["awaiting_defaults_confirm"] = "1"
+        return _flow_result(
+            blocks=blocks_ask_use_defaults(language),
+            flow="plan_route",
+            slots=updated,
+        )
+
+    final_dep = final_dep or "now"
+    from app.services.ai_route_sentence_service import validate_departure_iso
+    from app.services.departure_time_service import normalize_departure_key
+
+    preset_keys = frozenset({"now", "morning_peak", "midday", "evening_peak", "night"})
+    dep_key = normalize_departure_key(final_dep)
+    if dep_key not in preset_keys:
+        status = validate_departure_iso(final_dep, message=message)
+        if status == "past" and updated.get("awaiting_departure_clarify") != "1":
+            updated["awaiting_departure_clarify"] = "1"
+            from app.services.chat_blocks_service import blocks_departure_time_past
+
+            return _flow_result(
+                blocks=blocks_departure_time_past(language),
+                flow="plan_route",
+                slots=updated,
+            )
+        if status == "needs_date":
+            return _flow_result(
+                blocks=blocks_ask_departure_time(language),
+                flow="plan_route",
+                slots=updated,
+            )
+    updated.pop("awaiting_departure_clarify", None)
+    updated["departure_time"] = final_dep
+    return await _finish_plan_route(updated, final_dep, language)
+
+
 async def _handle_plan_route_flow(
     message: str, slots: dict[str, str], language: str
 ) -> IntentResult:
+    from app.services.ai_intent_gemini_service import is_route_recommendation_message
+
     updated = dict(slots)
     msg_lower = message.lower().strip()
+    _ingest_plan_route_metadata(message, updated)
+
+    if updated.get("awaiting_departure_clarify") == "1":
+        dep = updated.get("departure_time") or _parse_departure_time(message)
+        if dep:
+            updated.pop("awaiting_departure_clarify", None)
+            if updated.get("origin_resolved") and updated.get("destination_resolved"):
+                return await _maybe_finish_with_preference(updated, dep, message, language)
+
+    if is_route_recommendation_message(message) or updated.get("planning_mode") == "recommendation":
+        updated["planning_mode"] = "recommendation"
+        return await _handle_recommendation_plan_route(message, updated, language)
+
+    if updated.get("awaiting_plan_confirm") == "1":
+        from app.services.ai_route_sentence_service import is_confirm_no, is_confirm_yes
+
+        if is_confirm_yes(message):
+            updated.pop("awaiting_plan_confirm", None)
+            dep = updated.get("departure_time") or "now"
+            return await _finish_plan_route(updated, dep, language)
+        if is_confirm_no(message):
+            updated.pop("awaiting_plan_confirm", None)
+            return _flow_result(
+                blocks=blocks_ask_route_origin(language),
+                flow="plan_route",
+                slots={},
+            )
+        origin = json.loads(updated["origin_resolved"]) if updated.get("origin_resolved") else None
+        dest = json.loads(updated["destination_resolved"]) if updated.get("destination_resolved") else None
+        if origin and dest:
+            return _flow_result(
+                blocks=blocks_ask_confirm_plan_route(
+                    _route_place_label(origin), _route_place_label(dest), language
+                ),
+                flow="plan_route",
+                slots=updated,
+            )
 
     if updated.get("origin_resolved") and updated.get("destination_resolved"):
-        departure = _parse_departure_time(message)
+        departure = updated.get("departure_time") or _parse_departure_time(message)
+        return await _maybe_finish_with_preference(
+            updated, departure or "now", message, language
+        )
+
+    if not updated.get("origin_resolved") and (
+        msg_lower in PLAN_BARE_TRIGGERS
+        or (not updated and _is_plan_route_starter(message) and len(msg_lower) < 60)
+    ):
+        return _flow_result(blocks=blocks_ask_route_origin(language), flow="plan_route", slots={})
+
+    partial_route = await _try_apply_partial_route_sentence(message, updated, language)
+    if partial_route is not None:
+        return partial_route
+
+    full_route = await _try_apply_full_route_sentence(message, updated, language)
+    if full_route is not None:
+        return full_route
+
+    if _is_metadata_only_message(message):
+        if not updated.get("origin_resolved"):
+            return _flow_result(blocks=blocks_ask_route_origin(language), flow="plan_route", slots=updated)
+        if not updated.get("destination_resolved"):
+            return _flow_result(
+                blocks=blocks_ask_route_destination(language),
+                flow="plan_route",
+                slots=updated,
+            )
+        departure = updated.get("departure_time") or _parse_departure_time(message)
         if departure:
-            return await _finish_plan_route(updated, departure, language)
+            return await _maybe_finish_with_preference(updated, departure, message, language)
+        return _flow_result(blocks=blocks_ask_departure_time(language), flow="plan_route", slots=updated)
 
     if not updated.get("origin_resolved"):
         picked, updated = _try_pick_candidate_from_slots(message, updated, "origin_candidates")
         if picked:
             updated["origin_resolved"] = json.dumps(picked)
+            if updated.get("destination_resolved"):
+                departure = updated.get("departure_time") or _parse_departure_time(message)
+                return await _maybe_finish_with_preference(
+                    updated, departure or "now", message, language
+                )
             return _flow_result(
                 blocks=blocks_ask_route_destination(language),
                 flow="plan_route",
@@ -1124,11 +1697,7 @@ async def _handle_plan_route_flow(
         picked, updated = _try_pick_candidate_from_slots(message, updated, "destination_candidates")
         if picked:
             updated["destination_resolved"] = json.dumps(picked)
-            return _flow_result(
-                blocks=blocks_ask_departure_time(language),
-                flow="plan_route",
-                slots=updated,
-            )
+            return await _maybe_finish_with_preference(updated, "now", message, language)
 
     if not updated.get("origin_resolved") and not updated.get("destination_resolved"):
         from app.services.ai_exploratory_poi_service import is_enroute_rest_exploratory
@@ -1136,26 +1705,49 @@ async def _handle_plan_route_flow(
         if is_enroute_rest_exploratory(message):
             return None
 
-        rule_origin, rule_dest = try_rule_route_pair(message)
+        from app.services.ai_route_sentence_service import parse_route_sentence
+
+        parsed = parse_route_sentence(message)
+        rule_origin, rule_dest = parsed.origin, parsed.destination
         gemini_origin, gemini_dest = rule_origin, rule_dest
         if not (rule_origin and rule_dest):
-            gemini_origin, gemini_dest = await try_gemini_route_pair(message)
+            origin_hint = None
+            dest_hint = None
+            if updated.get("origin_resolved"):
+                origin_hint = _route_place_label(json.loads(updated["origin_resolved"]))
+            if updated.get("destination_resolved"):
+                dest_hint = _route_place_label(json.loads(updated["destination_resolved"]))
+            gemini_origin, gemini_dest = await try_gemini_route_pair(
+                message, origin_hint=origin_hint, destination_hint=dest_hint
+            )
         origin_q = gemini_origin or rule_origin
         dest_q = gemini_dest or rule_dest
         if origin_q and dest_q:
-            (origin_place, origin_err), (dest_place, dest_err) = await asyncio.gather(
-                _resolve_place_by_query(origin_q, language),
-                _resolve_place_by_query(dest_q, language),
+            work = dict(updated)
+            origin_place, o_slots, origin_err = await _resolve_place_by_query(
+                origin_q, language, slot="origin", slots=work
             )
+            work.update(o_slots)
             if origin_err:
-                return _flow_result(origin_err, flow="plan_route", slots={})
+                return _flow_error_result(origin_err, flow="plan_route", slots=work)
+            dest_place, d_slots, dest_err = await _resolve_place_by_query(
+                dest_q, language, slot="destination", slots=work
+            )
+            work.update(d_slots)
             if dest_err:
-                return _flow_result(dest_err, flow="plan_route", slots={})
+                return _flow_error_result(dest_err, flow="plan_route", slots=work)
             if origin_place and dest_place:
+                updated = work
                 updated["origin_resolved"] = json.dumps(origin_place)
                 updated["destination_resolved"] = json.dumps(dest_place)
-                departure = _parse_departure_time(message) or "now"
-                return await _finish_plan_route(updated, departure, language)
+                departure = (
+                    parsed.departure
+                    or updated.get("departure_time")
+                    or _parse_departure_time(message)
+                )
+                return await _maybe_finish_with_preference(
+                    updated, departure or "now", message, language
+                )
 
     if is_unclear_place_reply(message):
         if not updated.get("origin_resolved"):
@@ -1192,18 +1784,13 @@ async def _handle_plan_route_flow(
             return _flow_result(blocks=blocks_invalid_departure(language), flow="plan_route", slots=updated)
         return _flow_result(blocks=blocks_ask_departure_time(language), flow="plan_route", slots=updated)
 
-    if not updated.get("origin_resolved") and (
-        msg_lower in PLAN_BARE_TRIGGERS or (not updated and _is_plan_route_starter(message) and len(msg_lower) < 60)
-    ):
-        return _flow_result(blocks=blocks_ask_route_origin(language), flow="plan_route", slots={})
-
     if not updated.get("origin_resolved"):
         if updated.get("origin_pending"):
             resolved, updated, error = await _resolve_place_slot(
                 message, updated, "origin_candidates", language
             )
             if error:
-                return _flow_result(error, flow="plan_route", slots=updated)
+                return _flow_error_result(error, flow="plan_route", slots=updated)
             if resolved is None and error is None:
                 return _flow_result(
                     blocks=_place_input_blocks(message, language, slot="origin"),
@@ -1211,8 +1798,8 @@ async def _handle_plan_route_flow(
                     slots=updated,
                 )
             if resolved is None:
-                return _flow_result(
-                    error or PLACE_NOT_FOUND[language],
+                return _flow_error_result(
+                    error or blocks_place_not_found(language),
                     flow="plan_route",
                     slots={k: v for k, v in updated.items() if not k.startswith("origin_")},
                 )
@@ -1224,7 +1811,7 @@ async def _handle_plan_route_flow(
             )
             if error:
                 updated["origin_pending"] = "1"
-                return _flow_result(error, flow="plan_route", slots=updated)
+                return _flow_error_result(error, flow="plan_route", slots=updated)
             if resolved is None and error is None:
                 return _flow_result(
                     blocks=_place_input_blocks(message, language, slot="origin"),
@@ -1232,12 +1819,17 @@ async def _handle_plan_route_flow(
                     slots=updated,
                 )
             if resolved is None:
-                return _flow_result(
-                    error or PLACE_NOT_FOUND[language],
+                return _flow_error_result(
+                    error or blocks_place_not_found(language),
                     flow="plan_route",
                     slots={},
                 )
             updated["origin_resolved"] = json.dumps(resolved)
+            if updated.get("destination_resolved"):
+                departure = updated.get("departure_time") or _parse_departure_time(message)
+                return await _maybe_finish_with_preference(
+                    updated, departure or "now", message, language
+                )
             return _flow_result(
                 blocks=blocks_ask_route_destination(language),
                 flow="plan_route",
@@ -1250,7 +1842,7 @@ async def _handle_plan_route_flow(
                 message, updated, "destination_candidates", language
             )
             if error:
-                return _flow_result(error, flow="plan_route", slots=updated)
+                return _flow_error_result(error, flow="plan_route", slots=updated)
             if resolved is None and error is None:
                 return _flow_result(
                     blocks=_place_input_blocks(message, language, slot="destination"),
@@ -1258,8 +1850,8 @@ async def _handle_plan_route_flow(
                     slots=updated,
                 )
             if resolved is None:
-                return _flow_result(
-                    error or PLACE_NOT_FOUND[language],
+                return _flow_error_result(
+                    error or blocks_place_not_found(language),
                     flow="plan_route",
                     slots={k: v for k, v in updated.items() if not k.startswith("destination_")},
                 )
@@ -1271,7 +1863,7 @@ async def _handle_plan_route_flow(
             )
             if error:
                 updated["destination_pending"] = "1"
-                return _flow_result(error, flow="plan_route", slots=updated)
+                return _flow_error_result(error, flow="plan_route", slots=updated)
             if resolved is None and error is None:
                 return _flow_result(
                     blocks=_place_input_blocks(message, language, slot="destination"),
@@ -1279,25 +1871,19 @@ async def _handle_plan_route_flow(
                     slots=updated,
                 )
             if resolved is None:
-                return _flow_result(
-                    error or PLACE_NOT_FOUND[language],
+                return _flow_error_result(
+                    error or blocks_place_not_found(language),
                     flow="plan_route",
                     slots={"origin_resolved": updated["origin_resolved"]},
                 )
             updated["destination_resolved"] = json.dumps(resolved)
-            return _flow_result(
-                blocks=blocks_ask_departure_time(language),
-                flow="plan_route",
-                slots=updated,
-            )
+            return await _maybe_finish_with_preference(updated, "now", message, language)
+
+    if _departure_input_is_invalid(message):
+        return _flow_result(blocks=blocks_invalid_departure(language), flow="plan_route", slots=updated)
 
     departure = updated.get("departure_time") or _parse_departure_time(message)
-    if not departure:
-        if _departure_input_is_invalid(message):
-            return _flow_result(blocks=blocks_invalid_departure(language), flow="plan_route", slots=updated)
-        return _flow_result(blocks=blocks_ask_departure_time(language), flow="plan_route", slots=updated)
-
-    return await _finish_plan_route(updated, departure, language)
+    return await _maybe_finish_with_preference(updated, departure or "now", message, language)
 
 
 async def resolve_chat_flow(message: str, request: AIMessageRequest) -> IntentResult | None:
@@ -1317,11 +1903,31 @@ async def resolve_chat_flow(message: str, request: AIMessageRequest) -> IntentRe
             slots = {}
         else:
             from app.services.ai_exploratory_poi_service import is_enroute_rest_exploratory
+            from app.services.ai_intent_gemini_service import is_route_recommendation_message
 
             rule_origin, rule_dest = try_rule_route_pair(message)
             if rule_origin and rule_dest and not is_enroute_rest_exploratory(message):
                 flow = "plan_route"
                 slots = {}
+            elif (rule_origin or rule_dest) and not is_enroute_rest_exploratory(message):
+                from app.services.ai_route_parse_service import has_single_route_endpoint
+
+                if (
+                    has_single_route_endpoint(message)
+                    or _explicit_flow_for_message(message) == "plan_route"
+                    or _is_plan_route_starter(message)
+                    or is_route_recommendation_message(message)
+                    or re.search(
+                        r"\b(?:go\s+to|wanna|want\s+to|heading\s+to|get\s+to)\b",
+                        message,
+                        re.I,
+                    )
+                ):
+                    flow = "plan_route"
+                    slots = {}
+            elif is_route_recommendation_message(message):
+                flow = "plan_route"
+                slots = {"planning_mode": "recommendation"}
             elif _is_plan_route_starter(message):
                 flow = "plan_route"
                 slots = {}

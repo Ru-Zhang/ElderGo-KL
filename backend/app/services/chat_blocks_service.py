@@ -521,6 +521,29 @@ def blocks_ask_route_destination(language: str) -> list[ChatBlock]:
     )
 
 
+def blocks_ask_route_preference(language: str) -> list[ChatBlock]:
+    return _blocks_simple_prompt_localized(
+        {
+            "en": "Any travel preferences?",
+            "ms": "Ada keutamaan perjalanan?",
+            "zh": "有出行偏好吗？",
+        }[language],
+        {
+            "en": "This helps tailor your recommended route. You can skip to use your saved App settings.",
+            "ms": "Ini membantu menyesuaikan laluan cadangan. Langkau untuk guna tetapan App anda.",
+            "zh": "这有助于推荐更合适的路线。可跳过以使用 App 内已保存的设置。",
+        }[language],
+        language,
+        examples=[
+            {
+                "en": "e.g. accessibility first, least walk, fewest transfers — or reply skip",
+                "ms": "cth. accessibility first, least walk — atau balas skip",
+                "zh": "例如：无障碍优先、少走路、少换乘 — 或回复 skip / 跳过",
+            }[language]
+        ],
+    )
+
+
 def blocks_ask_departure_time(language: str) -> list[ChatBlock]:
     return _blocks_simple_prompt_localized(
         {"en": "When are you travelling?", "ms": "Bila anda bergerak?", "zh": "什么时候出发？"}[language],
@@ -770,6 +793,38 @@ def blocks_place_not_found(language: str) -> list[ChatBlock]:
             }[language],
         )
     ]
+
+
+def blocks_place_not_found_for_slot(
+    slot: str, query: str, language: str
+) -> list[ChatBlock]:
+    """slot is 'origin' (before 'to') or 'destination' (after 'to')."""
+    q = query.strip() or "?"
+    if slot == "origin":
+        text = {
+            "en": (
+                f'I could not find your **starting place** "{q}" (the part before "to"). '
+                "Please check the spelling or try a nearby landmark."
+            ),
+            "ms": (
+                f'Saya tidak jumpa **tempat mula** "{q}" (bahagian sebelum "to"). '
+                "Sila semak ejaan atau cuba mercu tanda berhampiran."
+            ),
+            "zh": f'找不到您的**出发地**「{q}」（「到」之前的部分）。请检查拼写或换附近地标。',
+        }[language]
+    else:
+        text = {
+            "en": (
+                f'I could not find your **destination** "{q}" (the part after "to"). '
+                "Please check the spelling or try a nearby landmark."
+            ),
+            "ms": (
+                f'Saya tidak jumpa **destinasi** "{q}" (bahagian selepas "to"). '
+                "Sila semak ejaan atau cuba mercu tanda berhampiran."
+            ),
+            "zh": f'找不到您的**目的地**「{q}」（「到」之后的部分）。请检查拼写或换附近地标。',
+        }[language]
+    return [ChatBlock(type="callout", tone="warning", text=text)]
 
 
 def blocks_weather_not_found(language: str) -> list[ChatBlock]:
@@ -1079,27 +1134,261 @@ def blocks_in_scope_help(language: str) -> list[ChatBlock]:
     ]
 
 
+def blocks_scope_notice(language: str, *, variant: str = "out_of_scope") -> list[ChatBlock]:
+    """Unified scope UI for out-of-scope topics and outside-Klang-Valley places."""
+    heading = {
+        "en": "Klang Valley travel only",
+        "ms": "Lembah Klang sahaja",
+        "zh": "仅限巴生谷出行",
+    }[language]
+    if variant == "outside_kv":
+        body = {
+            "en": (
+                "ElderGo KL only supports travel within the Klang Valley. "
+                "Please choose places in Kuala Lumpur or Selangor."
+            ),
+            "ms": (
+                "ElderGo KL hanya menyokong perjalanan dalam Lembah Klang. "
+                "Sila pilih tempat di Kuala Lumpur atau Selangor."
+            ),
+            "zh": "ElderGo KL 仅支持巴生谷（吉隆坡与雪兰莪）内的出行，请选择该范围内的地点。",
+        }[language]
+    else:
+        body = {
+            "en": (
+                "I can help with routes, stations, weather, ticket guides, concessions, "
+                "and how to use ElderGo KL."
+            ),
+            "ms": (
+                "Saya boleh bantu laluan, stesen, cuaca, panduan tiket, konsesi, "
+                "dan cara guna ElderGo KL."
+            ),
+            "zh": "我可以协助路线、站点、天气、票务指南、优惠与 App 使用。",
+        }[language]
+    footer = {
+        "en": "Please ask about one of these topics and I will guide you step by step.",
+        "ms": "Sila tanya tentang salah satu topik ini dan saya akan bantu langkah demi langkah.",
+        "zh": "请围绕以上主题提问，我会一步一步协助您。",
+    }[language]
+    return [
+        ChatBlock(type="heading", text=heading),
+        ChatBlock(type="paragraph", text=body),
+        ChatBlock(type="callout", tone="info", text=footer),
+    ]
+
+
 def blocks_out_of_scope(language: str) -> list[ChatBlock]:
+    """Friendly refusal with app usage tips (no technical markers)."""
     return [
         ChatBlock(
             type="heading",
-            text={"en": "Klang Valley travel only", "ms": "Lembah Klang sahaja", "zh": "仅限巴生谷出行"}[language],
+            text={
+                "en": "Klang Valley travel help only",
+                "ms": "Bantuan perjalanan Lembah Klang sahaja",
+                "zh": "仅提供巴生谷出行协助",
+            }[language],
         ),
         ChatBlock(
             type="paragraph",
             text={
-                "en": "I can help with routes, stations, weather, ticket guides, concessions, and how to use ElderGo KL.",
-                "ms": "Saya boleh bantu laluan, stesen, cuaca, panduan tiket, konsesi, dan cara guna ElderGo KL.",
-                "zh": "我可以协助路线、站点、天气、票务指南、优惠与 App 使用。",
+                "en": (
+                    "I am here to help with getting around the Klang Valley in ElderGo KL — "
+                    "not general topics like cooking or news."
+                ),
+                "ms": (
+                    "Saya di sini untuk membantu perjalanan Lembah Klang dalam ElderGo KL — "
+                    "bukan topik umum seperti masakan atau berita."
+                ),
+                "zh": (
+                    "我专注于 ElderGo KL 中的巴生谷出行协助，"
+                    "无法回答烹饪、新闻等一般话题。"
+                ),
+            }[language],
+        ),
+        ChatBlock(
+            type="bullets",
+            items={
+                "en": [
+                    "Plan a route: tell me where you start and where you want to go.",
+                    "Check weather for a place in Kuala Lumpur or Selangor.",
+                    "Look up station lifts, ramps, and facilities.",
+                    "Open ticket, concession, privacy, or preference guides in the app.",
+                ],
+                "ms": [
+                    "Rancang laluan: beritahu titik mula dan destinasi anda.",
+                    "Semak cuaca untuk tempat di Kuala Lumpur atau Selangor.",
+                    "Lihat lif, tanjakan, dan kemudahan stesen.",
+                    "Buka panduan tiket, konsesi, privasi, atau keutamaan dalam app.",
+                ],
+                "zh": [
+                    "规划路线：告诉我出发地和目的地。",
+                    "查询吉隆坡或雪兰莪某地的天气。",
+                    "查看站点电梯、坡道与设施。",
+                    "在 App 内打开票务、优惠、隐私或偏好指南。",
+                ],
             }[language],
         ),
         ChatBlock(
             type="callout",
             tone="info",
             text={
-                "en": "Please ask about one of these topics and I will guide you step by step.",
-                "ms": "Sila tanya tentang salah satu topik ini dan saya akan bantu langkah demi langkah.",
-                "zh": "请围绕以上主题提问，我会一步一步协助您。",
+                "en": (
+                    "Ask about one of these topics and I will guide you step by step. "
+                    "You can also tap a quick question below."
+                ),
+                "ms": (
+                    "Tanya tentang salah satu topik ini dan saya akan bantu langkah demi langkah. "
+                    "Anda juga boleh ketik soalan pantas di bawah."
+                ),
+                "zh": "请围绕以上主题提问，我会一步一步协助您；也可点击下方快捷问题。",
+            }[language],
+        ),
+    ]
+
+
+def blocks_departure_time_past(language: str) -> list[ChatBlock]:
+    return _blocks_simple_prompt_localized(
+        {
+            "en": "That departure time has already passed",
+            "ms": "Masa berlepas itu sudah berlalu",
+            "zh": "该出发时间已过",
+        }[language],
+        {
+            "en": (
+                "That time is earlier than now. Did you mean **tomorrow** at the same time, "
+                "or would you like to leave **now**?"
+            ),
+            "ms": (
+                "Masa itu lebih awal daripada sekarang. Adakah anda maksudkan **esok** pada masa yang sama, "
+                "atau mahu berlepas **sekarang**?"
+            ),
+            "zh": "该时间早于现在。您是想说**明天**同一时间，还是**现在**出发？",
+        }[language],
+        language,
+        examples=[
+            {
+                "en": "Reply tomorrow 2 pm, now, or another time",
+                "ms": "Balas esok 2 petang, sekarang, atau masa lain",
+                "zh": "可回复 tomorrow 2 pm、now 或其他时间",
+            }[language]
+        ],
+    )
+
+
+def blocks_outside_kv(language: str) -> list[ChatBlock]:
+    return blocks_scope_notice(language, variant="outside_kv")
+
+
+def blocks_ask_confirm_plan_route(origin: str, destination: str, language: str) -> list[ChatBlock]:
+    return _blocks_simple_prompt_localized(
+        {
+            "en": "Plan this route?",
+            "ms": "Rancang laluan ini?",
+            "zh": "要规划这条路线吗？",
+        }[language],
+        {
+            "en": f"From **{origin}** to **{destination}** — should I plan this route for you?",
+            "ms": f"Dari **{origin}** ke **{destination}** — nak saya rancang laluan ini?",
+            "zh": f"从 **{origin}** 到 **{destination}** — 要为您规划这条路线吗？",
+        }[language],
+        language,
+        examples=[
+            {
+                "en": "Reply yes to plan now, or no to cancel",
+                "ms": "Balas ya untuk terus rancang, atau tidak untuk batal",
+                "zh": "回复 yes/是 开始规划，或 no/否 取消",
+            }[language]
+        ],
+    )
+
+
+def blocks_ask_use_defaults(language: str) -> list[ChatBlock]:
+    return _blocks_simple_prompt_localized(
+        {
+            "en": "Ready to plan your route",
+            "ms": "Sedia merancang laluan",
+            "zh": "准备规划路线",
+        }[language],
+        {
+            "en": (
+                "You did not mention a departure time or travel preferences. "
+                "Use the defaults — leave now and the fastest route (no custom preferences)?"
+            ),
+            "ms": (
+                "Anda tidak menyatakan masa berlepas atau keutamaan. "
+                "Guna lalai — berlepas sekarang dan laluan terpantas (tanpa keutamaan tersuai)?"
+            ),
+            "zh": "您没有说明出发时间或出行偏好。是否使用默认设置——现在出发，并按最快路线推荐（无自定义偏好）？",
+        }[language],
+        language,
+        examples=[
+            {
+                "en": "Reply yes to plan now, or no to set preferences first",
+                "ms": "Balas ya untuk terus rancang, atau tidak untuk tetapkan keutamaan dahulu",
+                "zh": "回复 yes/是 立即规划，或 no/否 先设置偏好",
+            }[language]
+        ],
+    )
+
+
+def blocks_ask_preferences_before_route(language: str) -> list[ChatBlock]:
+    return _blocks_simple_prompt_localized(
+        {
+            "en": "Set your travel preferences",
+            "ms": "Tetapkan keutamaan perjalanan",
+            "zh": "设置出行偏好",
+        }[language],
+        {
+            "en": (
+                "Open Preferences in the app to choose what matters most "
+                "(for example: accessibility first, less walking, fewer transfers). "
+                "When you are done, reply done here and I will plan your route."
+            ),
+            "ms": (
+                "Buka Keutamaan dalam app untuk pilih apa yang paling penting. "
+                "Selepas siap, balas done di sini dan saya akan rancang laluan anda."
+            ),
+            "zh": (
+                "请在 App 中打开「偏好」设置出行优先级（例如：无障碍优先、少走路、少换乘）。"
+                "设置完成后在此回复 done/完成，我将为您规划路线。"
+            ),
+        }[language],
+        language,
+        examples=[
+            {
+                "en": "Tap Preferences below, then reply done",
+                "ms": "Tekan Keutamaan di bawah, kemudian balas done",
+                "zh": "点击下方偏好按钮，完成后回复 done 或 完成",
+            }[language]
+        ],
+    )
+
+
+def blocks_place_did_you_mean(suggested_label: str, language: str) -> list[ChatBlock]:
+    return [
+        ChatBlock(
+            type="heading",
+            text={
+                "en": "Did you mean this place?",
+                "ms": "Adakah anda maksudkan tempat ini?",
+                "zh": "您是指这个地点吗？",
+            }[language],
+        ),
+        ChatBlock(
+            type="paragraph",
+            text={
+                "en": f"I could not find an exact match. Did you mean **{suggested_label}**?",
+                "ms": f"Saya tidak jumpa padanan tepat. Adakah anda maksudkan **{suggested_label}**?",
+                "zh": f"没有找到完全匹配的地点。您是指 **{suggested_label}** 吗？",
+            }[language].replace("**", ""),
+        ),
+        ChatBlock(
+            type="callout",
+            tone="info",
+            text={
+                "en": "Reply yes to confirm, or type the place name again with clearer spelling.",
+                "ms": "Balas ya untuk sahkan, atau taip semula nama tempat dengan ejaan yang lebih jelas.",
+                "zh": "回复 yes/是 确认，或请更清楚地重新输入地点名称。",
             }[language],
         ),
     ]

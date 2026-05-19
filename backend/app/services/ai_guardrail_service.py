@@ -126,7 +126,14 @@ TRAVEL_RELATED_KEYWORDS = ELDERGO_TOPIC_KEYWORDS | {
     "which",
     "医院",
     "诊所",
+    "超市",
+    "学校",
+    "咖啡厅",
     "商场",
+    "clinic",
+    "cafe",
+    "supermarket",
+    "school",
     "机场",
 }
 
@@ -137,10 +144,28 @@ def normalize_text(message: str) -> str:
     return re.sub(r"\s+", " ", lowered).strip()
 
 
+_NON_TRAVEL_TOPIC_PATTERNS = (
+    re.compile(
+        r"\b(?:cook|cooking|recipe|fried\s+rice|boil\s+rice|bake|food\s+recipe)\b",
+        re.I,
+    ),
+    re.compile(r"(?:做饭|做菜|煮饭|食谱|炒菜)"),
+)
+
+
 def _contains_keyword(normalized: str, keywords: set[str]) -> bool:
     if not normalized:
         return False
-    return any(keyword in normalized for keyword in keywords)
+    for keyword in keywords:
+        if re.search(r"[\u4e00-\u9fff]", keyword):
+            if keyword in normalized:
+                return True
+        elif len(keyword) <= 4:
+            if re.search(rf"\b{re.escape(keyword)}\b", normalized):
+                return True
+        elif keyword in normalized:
+            return True
+    return False
 
 
 def is_eldergo_topic(message: str) -> bool:
@@ -153,17 +178,39 @@ _ROUTE_TRAVEL_PATTERNS = (
     re.compile(r"\bgo\s+to\b", re.I),
     re.compile(r"\bdari\s+[a-z0-9]", re.I),
     re.compile(r"从.+(到|去)"),
+    # Bare "A to B" / "A ke B" without "from" or "go" (e.g. monash to klcc at 1pm).
+    re.compile(
+        r"^(?!(?:how|what|where|when|why|who)\b).+\s+to\s+.+$",
+        re.I,
+    ),
+    re.compile(r"^.+\s+ke\s+.+$", re.I),
 )
 
 
 def is_travel_related(message: str) -> bool:
     from app.services.ai_exploratory_poi_service import is_exploratory_poi_message
+    from app.services.ai_route_parse_service import message_has_plan_route_endpoints
+
+    if any(pattern.search(message) for pattern in _NON_TRAVEL_TOPIC_PATTERNS):
+        if not message_has_plan_route_endpoints(message):
+            from app.services.ai_route_sentence_service import extract_route_endpoints
+
+            origin, destination = extract_route_endpoints(message)
+            if not origin and not destination:
+                return False
 
     if is_exploratory_poi_message(message):
         return True
+    if message_has_plan_route_endpoints(message):
+        return True
+    from app.services.ai_route_sentence_service import extract_route_endpoints
+
+    origin, destination = extract_route_endpoints(message)
+    if origin or destination:
+        return True
     if _contains_keyword(normalize_text(message), TRAVEL_RELATED_KEYWORDS):
         return True
-    return any(pattern.search(message) for pattern in _ROUTE_TRAVEL_PATTERNS)
+    return any(pattern.search(message.strip()) for pattern in _ROUTE_TRAVEL_PATTERNS)
 
 
 def is_in_scope(message: str) -> bool:

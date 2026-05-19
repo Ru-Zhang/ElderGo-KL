@@ -199,39 +199,11 @@ def _origin_allows_curated(origin_name: str) -> bool:
     )
 
 
-def _strip_html_instructions(value: str | None) -> str:
-    if not value:
-        return ""
-    return re.sub(r"<[^>]+>", "", value)
-
-
 def _is_walk_to_monash(step: dict, destination_name: str) -> bool:
     if (step.get("travel_mode") or "").upper() != "WALKING":
         return False
-    instruction = _normalize_place(_strip_html_instructions(step.get("html_instructions")))
+    instruction = _normalize_place(step.get("html_instructions"))
     return is_monash_place(destination_name) and "monash" in instruction
-
-
-def _is_transit_brt_google_step(step: dict | None) -> bool:
-    if step is None or (step.get("travel_mode") or "").upper() != "TRANSIT":
-        return False
-    return _is_brt_transit_step(step.get("transit_details") or {})
-
-
-def _is_post_brt_final_walk_to_monash(
-    step: dict,
-    destination_name: str,
-    *,
-    previous_step: dict | None,
-    is_last_step: bool,
-) -> bool:
-    """After a BRT leg, the final walk to campus uses CSV step 5 (tap-out / lift / campus)."""
-    if not is_last_step or (step.get("travel_mode") or "").upper() != "WALKING":
-        return False
-    if not is_monash_place(destination_name) or not _is_transit_brt_google_step(previous_step):
-        return False
-    instruction = _normalize_place(_strip_html_instructions(step.get("html_instructions")))
-    return "monash" in instruction
 
 
 def detect_curated_profile(
@@ -283,20 +255,10 @@ def csv_step_for_google_step(
     *,
     origin_name: str,
     destination_name: str,
-    previous_step: dict | None = None,
-    is_last_step: bool = False,
 ) -> int | None:
     """Map a Google Directions step to route_station_images.csv step_number (1–5)."""
     mode = (step.get("travel_mode") or "").upper()
-    instruction = _normalize_place(_strip_html_instructions(step.get("html_instructions")))
-
-    if mode == "WALKING" and _is_post_brt_final_walk_to_monash(
-        step,
-        destination_name,
-        previous_step=previous_step,
-        is_last_step=is_last_step,
-    ):
-        return 5
+    instruction = _normalize_place(step.get("html_instructions"))
 
     if profile == "sunu_arrival":
         if _is_walk_to_monash(step, destination_name):

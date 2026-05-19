@@ -168,9 +168,74 @@ def known_place_key(query: str) -> str:
     return normalize_place_query(query).strip().lower()
 
 
+def suggest_place_alias(user_query: str) -> str | None:
+    """Fuzzy match for typos and abbreviations (monash uni, sentral, etc.)."""
+    import difflib
+
+    key = user_query.strip().lower()
+    if not key:
+        return None
+    if key in PLACE_ALIASES:
+        return PLACE_ALIASES[key]
+    if known_place_key(key) in KNOWN_KV_PLACES:
+        return str(KNOWN_KV_PLACES[known_place_key(key)].get("label") or key)
+
+    alias_keys = list(PLACE_ALIASES.keys()) + list(KNOWN_KV_PLACES.keys())
+    close = difflib.get_close_matches(key, alias_keys, n=1, cutoff=0.72)
+    if close:
+        matched = close[0]
+        if matched in PLACE_ALIASES:
+            return PLACE_ALIASES[matched]
+        known = KNOWN_KV_PLACES.get(matched)
+        if known:
+            return str(known.get("label") or matched)
+    return None
+
+
 def lookup_known_kv_place(query: str) -> dict[str, object] | None:
     """Return cached coordinates for frequent landmarks (no external API)."""
     return KNOWN_KV_PLACES.get(known_place_key(query))
+
+
+# City-wide queries need Google disambiguation (Sentral vs KLCC vs …), not one centroid.
+_BROAD_AREA_PLACE_KEYS = frozenset(
+    {
+        "kuala lumpur",
+        "kl",
+        "petaling jaya",
+        "pj",
+        "subang jaya",
+        "shah alam",
+        "selangor",
+        "wilayah persekutuan",
+        "putrajaya",
+        "cyberjaya",
+    }
+)
+
+
+def is_broad_area_place_query(query: str) -> bool:
+    """True when the user named a whole city/region rather than a specific venue."""
+    return known_place_key(query) in _BROAD_AREA_PLACE_KEYS
+
+
+# Landmarks offered when a city-wide query would otherwise auto-resolve to one point.
+_BROAD_AREA_DISAMBIG_KEYS: dict[str, tuple[str, ...]] = {
+    "kuala lumpur": ("kuala lumpur sentral", "kuala lumpur city centre"),
+    "kl": ("kuala lumpur sentral", "kuala lumpur city centre"),
+    "petaling jaya": ("petaling jaya",),
+    "pj": ("petaling jaya",),
+}
+
+
+def broad_area_disambig_known_places(query: str) -> list[dict[str, object]]:
+    keys = _BROAD_AREA_DISAMBIG_KEYS.get(known_place_key(query), ())
+    out: list[dict[str, object]] = []
+    for key in keys:
+        row = KNOWN_KV_PLACES.get(key)
+        if row:
+            out.append(dict(row))
+    return out
 
 
 def message_has_plan_route_endpoints(message: str) -> bool:
@@ -181,6 +246,30 @@ def message_has_plan_route_endpoints(message: str) -> bool:
     if not (origin and destination):
         return False
     return classify_place_input(origin) == "ok" and classify_place_input(destination) == "ok"
+
+
+def has_single_route_endpoint(message: str) -> bool:
+    """True when only origin or only destination is extractable (valid place)."""
+    if re.search(r"中途", message) or re.search(r"\b(?:along the way|midway)\b", message, re.I):
+        return False
+    origin, destination = extract_route_endpoints(message)
+    if origin and destination:
+        return False
+    if origin and classify_place_input(origin) == "ok":
+        return True
+    if destination and classify_place_input(destination) == "ok":
+        return True
+    return False
+
+
+def message_should_use_plan_route(message: str) -> bool:
+    return message_has_plan_route_endpoints(message) or has_single_route_endpoint(message)
+
+
+def _sanitize_endpoint_value(raw: str | None) -> str | None:
+    from app.services.ai_route_sentence_service import sanitize_route_endpoint
+
+    return sanitize_route_endpoint(raw)
 
 
 def classify_place_input(raw: str) -> PlaceInputIssue:
@@ -283,7 +372,10 @@ def place_matches_user_query(user_query: str, *, place_name: str | None, formatt
 
 
 def try_rule_route_pair(message: str) -> tuple[str | None, str | None]:
-    return extract_route_endpoints(message)
+    from app.services.ai_route_sentence_service import parse_route_sentence
+
+    parsed = parse_route_sentence(message)
+    return parsed.origin, parsed.destination
 
 
 async def try_gemini_route_pair(
@@ -310,11 +402,12 @@ async def try_gemini_route_pair(
         parsed = parse_json_from_text(text)
         if not parsed:
             return None, None
-        origin = parsed.get("origin")
-        destination = parsed.get("destination")
-        return (
-            str(origin).strip() if origin else None,
-            str(destination).strip() if destination else None,
+        origin = _sanitize_endpoint_value(
+            str(origin).strip() if origin else None
         )
+        destination = _sanitize_endpoint_value(
+            str(destination).strip() if destination else None
+        )
+        return origin, destination
     except Exception:
         return None, None

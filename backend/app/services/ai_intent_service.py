@@ -10,6 +10,7 @@ from app.services.chat_blocks_service import (
     blocks_from_plain_text,
     blocks_in_scope_help,
     blocks_out_of_scope,
+    blocks_outside_kv,
     blocks_planning_intro,
     blocks_to_plain_text,
 )
@@ -309,53 +310,17 @@ def _has_route_planning_signal(message: str, origin: str | None, destination: st
         return True
     if origin and re.search(r"\b(?:from|dari)\s+", message, re.I):
         return True
-    if destination and re.search(r"\b(?:go\s+to|ke)\s+", message, re.I):
+    if destination and re.search(
+        r"\b(?:go\s+to|wanna|want\s+to|heading\s+to|get\s+to|ke)\s+", message, re.I
+    ):
         return True
     return False
 
 
 def extract_route_endpoints(message: str) -> tuple[str | None, str | None]:
-    text = message.strip()
-    if not text:
-        return None, None
+    from app.services.ai_route_sentence_service import extract_route_endpoints as parse_endpoints
 
-    for pattern in ROUTE_FROM_TO_PATTERNS:
-        match = pattern.search(text)
-        if match:
-            origin = _clean_place_name(match.group(1))
-            destination = _clean_place_name(match.group(2))
-            if origin and destination and origin.lower() != destination.lower():
-                return origin, destination
-
-    origin_only = None
-    dest_only = None
-    for pattern in ROUTE_FROM_ONLY:
-        match = pattern.search(text)
-        if match:
-            origin_only = _clean_place_name(match.group(1))
-            break
-    if re.search(r"\bfrom\b", text, re.I) or re.search(r"\bdari\b", text, re.I):
-        for pattern in ROUTE_GO_TO_ONLY:
-            match = pattern.search(text)
-            if match:
-                candidate = _clean_place_name(match.group(1))
-                if candidate and (not origin_only or candidate.lower() != origin_only.lower()):
-                    dest_only = candidate
-                break
-        if not dest_only:
-            to_match = re.search(r"\bto\s+(.+?)(?:\?|$|,|\.| and )", text, re.I)
-            if to_match:
-                candidate = _clean_place_name(to_match.group(1))
-                if candidate and (not origin_only or candidate.lower() != origin_only.lower()):
-                    dest_only = candidate
-
-    if origin_only and dest_only:
-        return origin_only, dest_only
-    if origin_only:
-        return origin_only, None
-    if dest_only:
-        return None, dest_only
-    return None, None
+    return parse_endpoints(message)
 
 
 def build_planning_prefill_action(origin: str, destination: str) -> ChatAction:
@@ -463,26 +428,33 @@ async def resolve_intent(message: str, request: AIMessageRequest) -> IntentResul
     language = resolve_response_language(request, message)
 
     if intent == "out_of_scope":
+        scope_blocks = blocks_out_of_scope(language)
         return IntentResult(
             intent=intent,
-            answer=OUT_OF_SCOPE_TEMPLATES[language],
+            answer=blocks_to_plain_text(scope_blocks),
+            answer_blocks=scope_blocks,
             actions=[],
             in_scope=False,
         )
 
     if intent == "route_planning":
         from app.services.ai_route_parse_service import normalize_place_query
+        from app.services.ai_route_sentence_service import parse_route_sentence
 
-        origin, destination = extract_route_endpoints(message)
+        parsed = parse_route_sentence(message)
+        origin, destination = parsed.origin, parsed.destination
+        departure = parsed.departure or "now"
         if origin and destination:
             origin_places = await search_places_kv(normalize_place_query(origin), limit=1)
             dest_places = await search_places_kv(normalize_place_query(destination), limit=1)
             origin_ok = origin_places and place_detail_in_kv(origin_places[0])
             dest_ok = dest_places and place_detail_in_kv(dest_places[0])
             if not origin_ok or not dest_ok:
+                outside_blocks = blocks_outside_kv(language)
                 return IntentResult(
                     intent=intent,
-                    answer=reject_outside_kv_message(language),
+                    answer=blocks_to_plain_text(outside_blocks),
+                    answer_blocks=outside_blocks,
                     actions=[],
                     in_scope=True,
                 )
@@ -510,7 +482,7 @@ async def resolve_intent(message: str, request: AIMessageRequest) -> IntentResul
                         type="compute_route",
                         origin_name=o_place.display_name,
                         destination_name=d_place.display_name,
-                        departure_time="now",
+                        departure_time=departure,
                         origin_lat=o_place.lat,
                         origin_lon=o_place.lon,
                         origin_google_place_id=o_place.google_place_id,
@@ -522,18 +494,24 @@ async def resolve_intent(message: str, request: AIMessageRequest) -> IntentResul
                 in_scope=True,
             )
         if origin and not destination:
-            return IntentResult(
-                intent=intent,
-                answer=ROUTE_MISSING_DESTINATION[language].format(origin=origin),
-                actions=[],
-                in_scope=True,
+            from app.services.ai_flow_service import enter_plan_route_partial
+
+            return await enter_plan_route_partial(
+                message,
+                origin=origin,
+                destination=None,
+                departure=parsed.departure,
+                language=language,
             )
         if destination and not origin:
-            return IntentResult(
-                intent=intent,
-                answer=ROUTE_MISSING_ORIGIN[language].format(destination=destination),
-                actions=[],
-                in_scope=True,
+            from app.services.ai_flow_service import enter_plan_route_partial
+
+            return await enter_plan_route_partial(
+                message,
+                origin=None,
+                destination=destination,
+                departure=parsed.departure,
+                language=language,
             )
 
     if intent == "weather":
@@ -550,12 +528,21 @@ async def resolve_intent(message: str, request: AIMessageRequest) -> IntentResul
             infer_probable_guide_intent,
         )
 
+        from app.services.chat_blocks_service import append_official_sources
+
         guide_intent = intent  # type: ignore[assignment]
         probable = infer_probable_guide_intent(message)
+        guide_source_context = {
+            "ticket_guide": "ticket",
+            "concession_guide": "concession",
+        }
         if probable == guide_intent:
             guide_blocks = blocks_inferred_topic_answer(guide_intent, language)
         else:
             guide_blocks = blocks_for_guide(guide_intent, language)
+        ctx = guide_source_context.get(guide_intent)
+        if ctx and not any(block.type == "sources" for block in guide_blocks):
+            guide_blocks = append_official_sources(guide_blocks, ctx, language)
         return IntentResult(
             intent=intent,
             answer=blocks_to_plain_text(guide_blocks),

@@ -83,22 +83,22 @@ export default function PreferencePage({
       />
 
       <div className="flex gap-2.5">
-        <button
+            <button
           type="button"
-          onClick={handleSave}
+              onClick={handleSave}
           className="min-h-[52px] flex-1 rounded-xl bg-eldergo-green font-semibold text-white shadow-sm transition-colors hover:bg-eldergo-green-dark"
           style={{ fontSize: `${17 * baseFontSize}px` }}
-        >
-          {t('save')}
-        </button>
-        <button
+            >
+              {t('save')}
+            </button>
+            <button
           type="button"
           onClick={handleReset}
           className="min-h-[52px] flex-1 rounded-xl border border-eldergo-border bg-white font-semibold text-eldergo-navy shadow-sm transition-colors hover:bg-eldergo-bg"
           style={{ fontSize: `${17 * baseFontSize}px` }}
         >
           {t('reset')}
-        </button>
+            </button>
       </div>
     </HelpPageShell>
   );

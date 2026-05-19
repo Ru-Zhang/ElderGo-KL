@@ -199,38 +199,6 @@ def _route_from_candidate(
         google_steps=candidate.steps,
     )
     uses_curated = curated_profile is not None
-    # #region agent log
-    if "monash" in (payload.destination.display_name or "").lower():
-        try:
-            import json
-            from pathlib import Path
-            from time import time as _time
-
-            _log_path = Path(__file__).resolve().parents[2] / ".cursor" / "debug-ce83c2.log"
-            _log_path.parent.mkdir(parents=True, exist_ok=True)
-            with _log_path.open("a", encoding="utf-8") as _f:
-                _f.write(
-                    json.dumps(
-                        {
-                            "sessionId": "ce83c2",
-                            "hypothesisId": "H-curated-detect",
-                            "location": "route_service.py:_route_from_candidate",
-                            "message": "curated_corridor_resolution",
-                            "data": {
-                                "origin": payload.origin.display_name,
-                                "destination": payload.destination.display_name,
-                                "profile": curated_profile,
-                                "uses_curated": uses_curated,
-                                "step_count": len(candidate.steps),
-                            },
-                            "timestamp": int(_time() * 1000),
-                        }
-                    )
-                    + "\n"
-                )
-        except Exception:
-            pass
-    # #endregion
     step_images = (
         resolve_route_step_images(
             candidate.steps,

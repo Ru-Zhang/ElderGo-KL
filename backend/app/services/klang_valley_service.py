@@ -34,7 +34,9 @@ def is_in_klang_valley(lat: float | None, lon: float | None) -> bool:
 
 
 def reject_outside_kv_message(language: str) -> str:
-    return KV_REJECT_MESSAGES.get(language, KV_REJECT_MESSAGES["en"])
+    from app.services.chat_blocks_service import blocks_outside_kv, blocks_to_plain_text
+
+    return blocks_to_plain_text(blocks_outside_kv(language))
 
 
 def place_detail_in_kv(place: PlaceDetail) -> bool:

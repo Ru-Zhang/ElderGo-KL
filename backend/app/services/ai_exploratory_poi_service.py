@@ -100,6 +100,9 @@ EN_CATEGORY_TO_SEARCH: dict[str, str] = {
     "restaurant": "restaurant",
     "restaurants": "restaurant",
     "food": "restaurant",
+    "school": "school",
+    "schools": "school",
+    "supermarket": "supermarket",
     "toilet": "toilet",
     "rest stop": "rest stop",
 }
@@ -173,13 +176,33 @@ def extract_poi_category_term(message: str) -> str | None:
     return _zh_category_search_term(message) or _en_category_search_term(message)
 
 
+def is_area_poi_query(message: str) -> bool:
+    """Short category + area queries, e.g. 'clinic in sunway area'."""
+    text = message.strip()
+    if not extract_poi_category_term(text):
+        return False
+    if re.search(r"\b(?:in|near|around|close to|berhampiran|dekat)\s+", text, re.I):
+        return True
+    if re.search(r"\barea\b", text, re.I):
+        return True
+    if re.search(r"附近|周边|一带|地区", text):
+        return True
+    return False
+
+
 def is_exploratory_poi_message(message: str) -> bool:
     """Detect open-ended place exploration (not station/weather/route flows)."""
     text = message.strip()
-    if len(text) < 12:
+    if not text or len(text) < 4:
         return False
     if is_senior_common_poi_message(text):
         return True
+    if is_area_poi_query(text):
+        return True
+    if extract_poi_category_term(text) and len(text) >= 8:
+        return True
+    if len(text) < 12:
+        return False
     if any(p.search(text) for p in EXPLORATORY_POI_PATTERNS):
         return True
     return False
@@ -230,12 +253,37 @@ def build_places_search_query(message: str) -> str:
         if is_plausible_place_query(anchor):
             return anchor
 
-    near_match = re.search(
-        r"\b(?:near|around|close to|berhampiran|dekat)\s+([A-Za-z0-9][A-Za-z0-9\s.'-]{1,36})",
+    in_area_match = re.search(
+        r"\bin\s+([A-Za-z0-9][A-Za-z0-9\s.'-]{1,36})\s+area\b",
         raw,
         re.I,
     )
     category_term = extract_poi_category_term(raw)
+    if in_area_match:
+        anchor = in_area_match.group(1).strip().rstrip("?.,")
+        if category_term:
+            candidate = f"{category_term} in {anchor}"
+        else:
+            candidate = f"places in {anchor}"
+        if is_plausible_place_query(candidate):
+            return normalize_place_query(candidate)
+
+    area_suffix = re.search(
+        r"\b([A-Za-z0-9][A-Za-z0-9\s.'-]{1,36})\s+area\b",
+        raw,
+        re.I,
+    )
+    if area_suffix and category_term:
+        anchor = area_suffix.group(1).strip().rstrip("?.,")
+        candidate = f"{category_term} in {anchor}"
+        if is_plausible_place_query(candidate):
+            return normalize_place_query(candidate)
+
+    near_match = re.search(
+        r"\b(?:near|around|close to|berhampiran|dekat|in)\s+([A-Za-z0-9][A-Za-z0-9\s.'-]{1,36})",
+        raw,
+        re.I,
+    )
     if near_match:
         anchor = near_match.group(1).strip().rstrip("?.,")
         if category_term:
@@ -325,7 +373,7 @@ async def resolve_exploratory_poi(message: str, language: str) -> IntentResult |
     if enroute is not None:
         return enroute
 
-    if should_prefer_gemini_recommendation(message):
+    if should_prefer_gemini_recommendation(message) and not is_area_poi_query(message):
         return None
 
     if not is_exploratory_poi_message(message):

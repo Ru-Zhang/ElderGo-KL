@@ -20,7 +20,10 @@ from app.services.ai_exploratory_poi_service import (
     resolve_exploratory_poi,
     should_prefer_gemini_recommendation,
 )
-from app.services.ai_route_parse_service import message_has_plan_route_endpoints
+from app.services.ai_route_parse_service import (
+    message_has_plan_route_endpoints,
+    message_should_use_plan_route,
+)
 from app.services.ai_grounding_service import build_grounded_context
 from app.services.chat_blocks_service import (
     blocks_from_plain_text,
@@ -36,7 +39,7 @@ from app.services.ai_topic_inference_service import (
     guide_action_for_intent,
     infer_probable_guide_intent,
 )
-from app.services.ai_flow_service import resolve_chat_flow
+from app.services.ai_flow_service import enter_plan_route_partial, resolve_chat_flow
 from app.services.ai_language import resolve_response_language
 from app.services.ai_intent_service import (
     IN_SCOPE_HELP,
@@ -528,6 +531,64 @@ async def _generate_answer_with_fallback(
     return normalized, False, blocks_from_plain_text(normalized), "gemini"
 
 
+async def _try_execute_travel_intent(
+    payload: AIMessageRequest, classified: str, language: str
+):
+    """Lightweight Gemini JSON → structured executors (route / weather / station)."""
+    from app.services.ai_intent_gemini_service import (
+        is_route_recommendation_message,
+        try_gemini_travel_slots,
+    )
+    from app.services.ai_route_parse_service import (
+        has_single_route_endpoint,
+        message_has_plan_route_endpoints,
+    )
+
+    if not is_travel_related(payload.message):
+        return None
+
+    needs_slots = (
+        payload.chat_flow is not None
+        or message_has_plan_route_endpoints(payload.message)
+        or has_single_route_endpoint(payload.message)
+        or classified in {"route_planning", "weather", "station_info", "planning"}
+    )
+    if not needs_slots:
+        return None
+
+    travel = await try_gemini_travel_slots(payload.message, classified=classified)
+    if not travel:
+        return None
+
+    if travel.intent in ("weather", "station_info"):
+        return await resolve_chat_flow(payload.message, payload)
+
+    if travel.intent == "exploratory_poi":
+        return None
+
+    if travel.intent in ("route_planning", "route_recommendation") or travel.origin or travel.destination:
+        if travel.intent == "route_recommendation" or is_route_recommendation_message(
+            payload.message
+        ):
+            from app.services.ai_flow_service import _handle_plan_route_flow
+
+            return await _handle_plan_route_flow(
+                payload.message, {"planning_mode": "recommendation"}, language
+            )
+        if travel.origin or travel.destination:
+            return await enter_plan_route_partial(
+                payload.message,
+                origin=travel.origin,
+                destination=travel.destination,
+                departure=travel.departure,
+                language=language,
+                planning_mode=(
+                    "recommendation" if travel.intent == "route_recommendation" else None
+                ),
+            )
+    return None
+
+
 @router.post("/conversations", response_model=AIConversationResponse)
 def create_conversation() -> AIConversationResponse:
     # Lightweight stateless conversation id for UI threading in demo mode.
@@ -536,11 +597,41 @@ def create_conversation() -> AIConversationResponse:
 
 @router.post("/conversations/{conversation_id}/messages", response_model=AIMessageResponse)
 async def send_message(conversation_id: str, payload: AIMessageRequest) -> AIMessageResponse:
-    # Resolution order: guardrail → guide intents → plan_route fast-path → exploratory POI
-    # → structured chat flows → DB intent → Gemini (optional Maps grounding).
+    # Resolution: quick guide chips → guardrail → flow chips → plan_route → POI
+    # → lite Gemini travel intent → flows → DB intent → full Gemini fallback.
     mode = _guardrail_mode()
     travel_related = is_travel_related(payload.message)
     language = _response_language(payload)
+    use_plan = message_should_use_plan_route(payload.message) or payload.chat_flow == "plan_route"
+
+    if not payload.chat_flow:
+        from app.services.ai_quick_question_service import (
+            GUIDE_QUICK_IDS,
+            is_flow_quick_question,
+            match_quick_question,
+            resolve_quick_guide_answer,
+        )
+
+        quick = match_quick_question(payload.message)
+        if quick and quick.question_id in GUIDE_QUICK_IDS:
+            guide_id = quick.question_id  # type: ignore[assignment]
+            answer, guide_blocks, guide_actions = resolve_quick_guide_answer(guide_id, language)
+            return _message_response(
+                conversation_id,
+                answer=answer,
+                blocks=guide_blocks,
+                in_scope=True,
+                actions=guide_actions,
+                response_source="db",
+            )
+        if quick and is_flow_quick_question(quick.question_id):
+            flow_result = await resolve_chat_flow(payload.message, payload)
+            if flow_result is not None:
+                return _from_intent_result(
+                    conversation_id,
+                    flow_result,
+                    fallback_answer=_fallback_answer_for(payload),
+                )
 
     probable_guide = infer_probable_guide_intent(payload.message)
     if probable_guide and not payload.chat_flow and not travel_related:
@@ -555,12 +646,13 @@ async def send_message(conversation_id: str, payload: AIMessageRequest) -> AIMes
 
     if settings.ai_guardrail_enabled and not travel_related and not payload.chat_flow:
         if mode in {"hybrid", "rules_only"} or settings.ai_guardrail_strict:
+            scope_blocks = blocks_out_of_scope(language)
             return _message_response(
                 conversation_id,
-                answer=_out_of_scope_answer_for(payload),
-                blocks=_out_of_scope_blocks_for(language),
-            in_scope=False,
-                actions=[],
+                answer=blocks_to_plain_text(scope_blocks),
+                blocks=scope_blocks,
+                in_scope=False,
+                actions=[ChatAction(type="open_help")],
                 response_source="db",
             )
 
@@ -575,7 +667,7 @@ async def send_message(conversation_id: str, payload: AIMessageRequest) -> AIMes
             )
 
     # Route planning first — avoids Google Places round-trips on "from A to B" messages.
-    if message_has_plan_route_endpoints(payload.message) or payload.chat_flow == "plan_route":
+    if use_plan:
         flow_result = await resolve_chat_flow(payload.message, payload)
         if flow_result is not None:
             return _from_intent_result(
@@ -589,6 +681,14 @@ async def send_message(conversation_id: str, payload: AIMessageRequest) -> AIMes
         return _from_intent_result(
             conversation_id,
             poi_result,
+            fallback_answer=_fallback_answer_for(payload),
+        )
+
+    travel_exec = await _try_execute_travel_intent(payload, classified, language)
+    if travel_exec is not None:
+        return _from_intent_result(
+            conversation_id,
+            travel_exec,
             fallback_answer=_fallback_answer_for(payload),
         )
 
@@ -635,13 +735,16 @@ async def send_message(conversation_id: str, payload: AIMessageRequest) -> AIMes
         use_maps_grounding=use_maps,
         senior_poi_recommendation=senior_poi,
     )
-    if settings.ai_guardrail_enabled and model_out_of_scope:
+    if settings.ai_guardrail_enabled and (
+        model_out_of_scope or OUT_OF_SCOPE_MARKER in (answer or "")
+    ):
+        scope_blocks = blocks_out_of_scope(language)
         return _message_response(
             conversation_id,
-            answer=answer,
-            blocks=answer_blocks,
+            answer=blocks_to_plain_text(scope_blocks),
+            blocks=scope_blocks,
             in_scope=False,
-            actions=[],
+            actions=[ChatAction(type="open_help")],
             response_source=gemini_source,
         )
 
@@ -649,7 +752,7 @@ async def send_message(conversation_id: str, payload: AIMessageRequest) -> AIMes
     origin, destination = extract_route_endpoints(payload.message)
     if origin and destination:
         gemini_actions = [build_planning_prefill_action(origin, destination)]
-    elif payload.has_current_route:
+    elif classified == "route_view" and payload.has_current_route:
         gemini_actions.extend(
             [
                 ChatAction(type="open_route_text"),

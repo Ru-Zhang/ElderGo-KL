@@ -125,35 +125,6 @@ def rank_candidates_for_elders(
     """
     if corridor_filter is not None:
         corridor_pool = [c for c in candidates if corridor_filter(c)]
-        # #region agent log
-        try:
-            import json
-            from pathlib import Path
-            from time import time as _time
-
-            _log_path = Path(__file__).resolve().parents[2] / ".cursor" / "debug-ce83c2.log"
-            _log_path.parent.mkdir(parents=True, exist_ok=True)
-            with _log_path.open("a", encoding="utf-8") as _f:
-                _f.write(
-                    json.dumps(
-                        {
-                            "sessionId": "ce83c2",
-                            "hypothesisId": "H-rank-corridor",
-                            "location": "elder_route_ranking_service.py:rank_candidates_for_elders",
-                            "message": "corridor_filter_pool",
-                            "data": {
-                                "total": len(candidates),
-                                "corridor": len(corridor_pool),
-                                "using_corridor_only": bool(corridor_pool),
-                            },
-                            "timestamp": int(_time() * 1000),
-                        }
-                    )
-                    + "\n"
-                )
-        except Exception:
-            pass
-        # #endregion
         if corridor_pool:
             ranked = _rank_pool(corridor_pool, preferences)
             if ranked is not None:
